@@ -95,26 +95,34 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# HuggingFace LLM call  (new router.huggingface.co endpoint)
-# Uses OpenAI-compatible chat completions format
-# Docs: https://huggingface.co/docs/inference-providers
+# LLM Providers — tries HuggingFace first, then Groq (both free)
 # ---------------------------------------------------------------------------
-HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 
-# Models available on HF free serverless tier (tried in order)
+# Provider 1: HuggingFace router
+HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODELS = [
     "Qwen/Qwen2.5-72B-Instruct",
     "meta-llama/Llama-3.1-8B-Instruct",
-    "mistralai/Mistral-7B-Instruct-v0.3",
+    "mistralai/Mistral-Small-24B-Instruct-2501",
 ]
 
-async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Call HuggingFace Inference Providers API with fallback models."""
-    headers = {"Content-Type": "application/json"}
-    if hf_token:
-        headers["Authorization"] = f"Bearer {hf_token}"
+# Provider 2: Groq (free, fast) — uses GROQ_API_KEY env var
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it",
+]
 
-    for model in HF_MODELS:
+
+async def _try_provider(url: str, models: list[str], messages: list[dict],
+                        token: str, max_tokens: int = 2048) -> str:
+    """Try a list of models on a given OpenAI-compatible endpoint."""
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    for model in models:
         payload = {
             "model": model,
             "messages": messages,
@@ -123,21 +131,42 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
         }
         try:
             async with httpx.AsyncClient(timeout=90) as client:
-                resp = await client.post(HF_API_URL, json=payload, headers=headers)
+                resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # OpenAI-compatible response format
                     choices = data.get("choices", [])
                     if choices:
-                        return choices[0].get("message", {}).get("content", "")
-                    return ""
+                        content = choices[0].get("message", {}).get("content", "")
+                        if content:
+                            logger.info(f"[LLM] ✅ Got response from {model}")
+                            return content
                 else:
-                    logger.warning(f"Model {model} returned {resp.status_code}: {resp.text[:300]}")
+                    logger.warning(f"[LLM] {model} → {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
-            logger.warning(f"Model {model} failed: {e}")
+            logger.warning(f"[LLM] {model} failed: {e}")
             continue
+    return ""
 
-    logger.error("All HF models failed")
+
+async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
+    """Try HuggingFace first, then Groq as fallback."""
+    import os
+
+    # Try HuggingFace
+    if hf_token:
+        result = await _try_provider(HF_API_URL, HF_MODELS, messages, hf_token, max_tokens)
+        if result:
+            return result
+        logger.warning("[LLM] All HuggingFace models failed, trying Groq...")
+
+    # Try Groq as fallback
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key:
+        result = await _try_provider(GROQ_API_URL, GROQ_MODELS, messages, groq_key, max_tokens)
+        if result:
+            return result
+
+    logger.error("[LLM] All providers failed")
     return ""
 
 
@@ -303,17 +332,43 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         return []
 
     def _fallback_process(self, articles: list[dict]) -> list[dict]:
-        """Basic fallback when LLM is unavailable — just clean and return top articles."""
+        """Smart fallback when LLM is unavailable — assigns topics from keywords."""
+        KEYWORD_TOPICS = {
+            "openai": ("big_tech", "industry"), "google": ("big_tech", "industry"),
+            "meta ": ("big_tech", "industry"), "anthropic": ("big_tech", "industry"),
+            "mistral": ("big_tech", "industry"), "deepmind": ("big_tech", "research"),
+            "llm": ("llms", "product"), "gpt": ("llms", "product"),
+            "chatgpt": ("llms", "product"), "gemini": ("llms", "product"),
+            "claude": ("llms", "product"), "llama": ("llms", "product"),
+            "robot": ("robotics", "product"), "autonomous": ("autonomous", "product"),
+            "regulat": ("regulation", "regulation"), "safety": ("ai_safety", "regulation"),
+            "funding": ("funding", "funding"), "rais": ("funding", "funding"),
+            "invest": ("funding", "funding"), "startup": ("startups", "funding"),
+            "open source": ("open_source", "product"), "research": ("research", "research"),
+            "paper": ("research", "research"), "health": ("healthcare", "product"),
+        }
+
         tiles = []
-        for a in articles[:12]:
+        for i, a in enumerate(articles[:12]):
+            title_lower = a["title"].lower()
+            topic, category = "general", "general"
+            importance = max(7 - i // 2, 4)  # 7, 7, 6, 6, 5, 5, 4...
+            for kw, (t, c) in KEYWORD_TOPICS.items():
+                if kw in title_lower:
+                    topic, category = t, c
+                    break
+
+            source = a.get("source", "")
+            summary = f"Reported by {source}. Tap to read the full story and get more details on this developing AI news." if source else "Tap to read the full story and get more details on this AI news update."
+
             tiles.append({
                 "title": a["title"][:150],
-                "summary": f"From {a['source']}" if a["source"] else "AI news update",
-                "why_it_matters": "",
-                "category": "general",
-                "topic": "general",
-                "importance": 5,
-                "source": a.get("source", ""),
+                "summary": summary,
+                "why_it_matters": "Stay informed — this story is trending in the AI community right now.",
+                "category": category,
+                "topic": topic,
+                "importance": importance,
+                "source": source,
                 "link": a.get("link", ""),
                 "published": a.get("published", ""),
                 "fetched_at": datetime.now(timezone.utc).isoformat(),
