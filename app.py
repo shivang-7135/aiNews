@@ -97,11 +97,12 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start: initial fetch + schedule hourly
-    await refresh_news("GLOBAL")
+    # Schedule hourly refresh and start scheduler FIRST (so port opens immediately)
     scheduler.add_job(refresh_all, "interval", hours=1, id="hourly_refresh", replace_existing=True)
     scheduler.start()
     logger.info("⏰ Scheduler started — updates every hour")
+    # Fire initial fetch as background task (don't block startup)
+    asyncio.create_task(refresh_news("GLOBAL"))
     yield
     scheduler.shutdown()
 

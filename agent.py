@@ -227,34 +227,72 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
     def _parse_llm_response(self, response: str, original_articles: list[dict]) -> list[dict]:
         """Parse the LLM JSON response into tile dicts."""
         if not response:
+            logger.warning("[Agent] LLM returned empty response")
             return []
 
+        logger.info(f"[Agent] Raw LLM response (first 500 chars): {response[:500]}")
+
         # Try to extract JSON array from response
+        json_str = None
+
+        # Method 1: Strip markdown code fences if present
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            # Remove ```json ... ``` or ``` ... ```
+            cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+            cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+
+        # Method 2: Try direct parse of cleaned response
         try:
-            # Find the JSON array in the response
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list):
+                json_str = cleaned
+        except json.JSONDecodeError:
+            pass
+
+        # Method 3: Regex to find JSON array
+        if json_str is None:
+            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response, re.DOTALL)
             if json_match:
-                tiles = json.loads(json_match.group())
-                if isinstance(tiles, list):
-                    # Validate and clean each tile
-                    clean_tiles = []
-                    for t in tiles:
-                        if isinstance(t, dict) and "title" in t:
-                            clean_tiles.append({
-                                "title": str(t.get("title", ""))[:150],
-                                "summary": str(t.get("summary", ""))[:300],
-                                "category": str(t.get("category", "general")),
-                                "importance": min(max(int(t.get("importance", 5)), 1), 10),
-                                "source": str(t.get("source", "")),
-                                "link": str(t.get("link", "")),
-                                "published": str(t.get("published", "")),
-                                "fetched_at": datetime.now(timezone.utc).isoformat(),
-                            })
-                    # Sort by importance desc
-                    clean_tiles.sort(key=lambda x: x["importance"], reverse=True)
-                    return clean_tiles[:MAX_TILES_PER_FETCH]
+                json_str = json_match.group()
+
+        if json_str is None:
+            logger.warning(f"[Agent] Could not find JSON array in LLM response")
+            return []
+
+        try:
+            tiles = json.loads(json_str)
+            if not isinstance(tiles, list):
+                logger.warning("[Agent] Parsed JSON is not a list")
+                return []
+
+            # Validate and clean each tile
+            clean_tiles = []
+            for t in tiles:
+                if isinstance(t, dict) and "title" in t:
+                    try:
+                        clean_tiles.append({
+                            "title": str(t.get("title", ""))[:150],
+                            "summary": str(t.get("summary", ""))[:300],
+                            "category": str(t.get("category", "general")).lower(),
+                            "importance": min(max(int(t.get("importance", 5)), 1), 10),
+                            "source": str(t.get("source", "")),
+                            "link": str(t.get("link", "")),
+                            "published": str(t.get("published", "")),
+                            "fetched_at": datetime.now(timezone.utc).isoformat(),
+                        })
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"[Agent] Skipping malformed tile: {e}")
+                        continue
+
+            # Sort by importance desc
+            clean_tiles.sort(key=lambda x: x["importance"], reverse=True)
+            logger.info(f"[Agent] Successfully parsed {len(clean_tiles)} tiles from LLM")
+            return clean_tiles[:MAX_TILES_PER_FETCH]
+
         except (json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"Failed to parse LLM response: {e}")
+            logger.warning(f"[Agent] Failed to parse LLM JSON: {e}")
+            logger.debug(f"[Agent] JSON string was: {json_str[:300]}")
 
         return []
 
