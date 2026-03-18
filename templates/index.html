@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="DailyAI — Your AI-powered news aggregator. Breaking AI news from around the world, updated every hour.">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>DailyAI — Breaking AI News</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
+                        <path d="M12 28V14l8 7 8-7v14" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="20" cy="12" r="3" fill="white" opacity="0.8"/>
+                        <defs>
+                            <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40">
+                                <stop stop-color="#6366f1"/>
+                                <stop offset="1" stop-color="#a855f7"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="logo-text">DailyAI</h1>
+                    <p class="logo-subtitle">AI News • Updated Hourly</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="pulse-dot" id="liveDot" title="Live updates active"></div>
+                <button class="refresh-btn" id="refreshBtn" title="Force refresh">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Country selector -->
+    <section class="country-bar">
+        <div class="country-bar-inner">
+            <label class="country-label" for="countrySelect">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                Region
+            </label>
+            <select id="countrySelect" class="country-select">
+                {% for code, name in countries.items() %}
+                <option value="{{ code }}" {% if code == 'GLOBAL' %}selected{% endif %}>
+                    {{ name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="update-info">
+            <span class="update-badge" id="updateBadge">Loading...</span>
+        </div>
+    </section>
+
+    <!-- Loading state -->
+    <div class="loading-container" id="loadingContainer">
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+        </div>
+        <p class="loading-text">AI Agent is scanning the news...</p>
+        <p class="loading-subtext">Fetching → Filtering → Summarizing</p>
+    </div>
+
+    <!-- News tiles grid -->
+    <main class="tiles-container" id="tilesContainer" style="display: none;">
+        <!-- Tiles will be injected here by JS -->
+    </main>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p>No AI news available for this region yet.</p>
+        <button class="retry-btn" onclick="loadNews()">Try Again</button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Powered by AI Agent • News refreshed every hour • Max 24 stories</p>
+        <p class="footer-sub">Built with FastAPI + HuggingFace • <span id="clockDisplay"></span></p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
