@@ -193,16 +193,20 @@ RULES:
 3. Ignore duplicate or near-duplicate stories — pick the best version
 4. Ignore clickbait, opinion pieces, or vaguely AI-related stories
 5. For each selected story, provide a concise 1-2 sentence summary
-6. Assign a category: "breakthrough", "product", "regulation", "funding", "research", "industry", or "general"
-7. Assign an importance score from 1-10
-8. Consider relevance to {country_name} when applicable
+6. Add a "why_it_matters" field — a single punchy sentence explaining why a busy AI professional should care
+7. Assign a category: "breakthrough", "product", "regulation", "funding", "research", "industry", or "general"
+8. Assign a topic tag from: "llms", "robotics", "ai_safety", "funding", "research", "regulation", "startups", "big_tech", "open_source", "healthcare", "autonomous", "general"
+9. Assign an importance score from 1-10
+10. Consider relevance to {country_name} when applicable
 
 OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
 [
   {{
     "title": "Short headline",
     "summary": "1-2 sentence summary of why this matters",
+    "why_it_matters": "One punchy sentence on why a busy professional should care",
     "category": "category_name",
+    "topic": "topic_tag",
     "importance": 8,
     "source": "Source name",
     "link": "URL",
@@ -274,7 +278,9 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
                         clean_tiles.append({
                             "title": str(t.get("title", ""))[:150],
                             "summary": str(t.get("summary", ""))[:300],
+                            "why_it_matters": str(t.get("why_it_matters", ""))[:200],
                             "category": str(t.get("category", "general")).lower(),
+                            "topic": str(t.get("topic", "general")).lower(),
                             "importance": min(max(int(t.get("importance", 5)), 1), 10),
                             "source": str(t.get("source", "")),
                             "link": str(t.get("link", "")),
@@ -303,7 +309,9 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
             tiles.append({
                 "title": a["title"][:150],
                 "summary": f"From {a['source']}" if a["source"] else "AI news update",
+                "why_it_matters": "",
                 "category": "general",
+                "topic": "general",
                 "importance": 5,
                 "source": a.get("source", ""),
                 "link": a.get("link", ""),

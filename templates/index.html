@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="DailyAI — Your AI-powered news aggregator. Breaking AI news from around the world, updated every hour.">
+    <meta name="description" content="DailyAI — Your AI-powered news aggregator. Breaking AI news from around the world, updated every hour. Subscribe for daily digest.">
     <meta name="theme-color" content="#0a0a1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -85,6 +85,17 @@
         </div>
     </section>
 
+    <!-- Topic filter pills -->
+    <section class="topic-bar" id="topicBar">
+        <div class="topic-scroll">
+            {% for code, name in topics.items() %}
+            <button class="topic-pill {% if code == 'all' %}active{% endif %}" data-topic="{{ code }}" id="topic-{{ code }}">
+                {{ name }}
+            </button>
+            {% endfor %}
+        </div>
+    </section>
+
     <!-- Loading state -->
     <div class="loading-container" id="loadingContainer">
         <div class="loading-spinner">
@@ -111,6 +122,28 @@
         <p>No AI news available for this region yet.</p>
         <button class="retry-btn" onclick="loadNews()">Try Again</button>
     </div>
+
+    <!-- Newsletter subscription section -->
+    <section class="subscribe-section" id="subscribeSection">
+        <div class="subscribe-card">
+            <div class="subscribe-header">
+                <span class="subscribe-emoji">📧</span>
+                <h2 class="subscribe-title">Get Your Daily AI Brief</h2>
+                <p class="subscribe-subtitle">Top AI stories, curated by our AI agent, delivered to your inbox every morning.</p>
+                <span class="subscriber-count" id="subscriberCount"></span>
+            </div>
+            <form class="subscribe-form" id="subscribeForm">
+                <div class="subscribe-input-row">
+                    <input type="email" id="emailInput" class="subscribe-input" placeholder="your@email.com" required autocomplete="email">
+                    <button type="submit" class="subscribe-btn" id="subscribeBtn">
+                        <span class="btn-text">Subscribe</span>
+                        <span class="btn-icon">→</span>
+                    </button>
+                </div>
+                <p class="subscribe-note">Free • No spam • Unsubscribe anytime</p>
+            </form>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="footer">
