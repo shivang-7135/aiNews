@@ -95,40 +95,41 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# HuggingFace LLM call
+# HuggingFace LLM call  (new router.huggingface.co endpoint)
+# Uses OpenAI-compatible chat completions format
 # ---------------------------------------------------------------------------
 HF_MODELS = [
     "Qwen/Qwen2.5-72B-Instruct",
     "mistralai/Mixtral-8x7B-Instruct-v0.1",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
 ]
 
-async def call_llm(prompt: str, hf_token: str, max_tokens: int = 2048) -> str:
-    """Call HuggingFace Inference API with fallback models."""
-    headers = {}
+async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
+    """Call HuggingFace Inference API (router) with fallback models."""
+    headers = {"Content-Type": "application/json"}
     if hf_token:
         headers["Authorization"] = f"Bearer {hf_token}"
 
     for model in HF_MODELS:
-        url = f"https://api-inference.huggingface.co/models/{model}"
+        url = f"https://router.huggingface.co/hf/{model}/v1/chat/completions"
         payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": max_tokens,
-                "temperature": 0.3,
-                "return_full_text": False,
-            },
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
         }
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=90) as client:
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
-                    if isinstance(data, list) and data:
-                        return data[0].get("generated_text", "")
-                    return str(data)
+                    # OpenAI-compatible response format
+                    choices = data.get("choices", [])
+                    if choices:
+                        return choices[0].get("message", {}).get("content", "")
+                    return ""
                 else:
-                    logger.warning(f"Model {model} returned {resp.status_code}: {resp.text[:200]}")
+                    logger.warning(f"Model {model} returned {resp.status_code}: {resp.text[:300]}")
         except Exception as e:
             logger.warning(f"Model {model} failed: {e}")
             continue
@@ -181,8 +182,7 @@ class NewsAgent:
             for i, a in enumerate(articles[:40])  # cap input
         )
 
-        prompt = f"""<|im_start|>system
-You are an AI news curator agent. Your task is to analyze the following news articles and select the most important, impactful, and breaking news stories specifically about Artificial Intelligence, Machine Learning, LLMs, and AI companies.
+        system_prompt = f"""You are an AI news curator agent. Your task is to analyze the following news articles and select the most important, impactful, and breaking news stories specifically about Artificial Intelligence, Machine Learning, LLMs, and AI companies.
 
 RULES:
 1. Select up to 12 most important and UNIQUE stories
@@ -205,18 +205,20 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
     "link": "URL",
     "published": "ISO date"
   }}
-]
-<|im_end|>
-<|im_start|>user
-Here are the raw articles to analyze:
+]"""
+
+        user_prompt = f"""Here are the raw articles to analyze:
 
 {articles_text}
 
-Select and summarize the top AI news stories. Respond ONLY with a JSON array.
-<|im_end|>
-<|im_start|>assistant
-"""
-        response = await call_llm(prompt, self.hf_token)
+Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        response = await call_llm(messages, self.hf_token)
         return self._parse_llm_response(response, articles)
 
     def _parse_llm_response(self, response: str, original_articles: list[dict]) -> list[dict]:
