@@ -97,21 +97,24 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # HuggingFace LLM call  (new router.huggingface.co endpoint)
 # Uses OpenAI-compatible chat completions format
+# Docs: https://huggingface.co/docs/inference-providers
 # ---------------------------------------------------------------------------
+HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
+
+# Models available on HF free serverless tier (tried in order)
 HF_MODELS = [
     "Qwen/Qwen2.5-72B-Instruct",
-    "mistralai/Mixtral-8x7B-Instruct-v0.1",
     "meta-llama/Llama-3.1-8B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
 ]
 
 async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Call HuggingFace Inference API (router) with fallback models."""
+    """Call HuggingFace Inference Providers API with fallback models."""
     headers = {"Content-Type": "application/json"}
     if hf_token:
         headers["Authorization"] = f"Bearer {hf_token}"
 
     for model in HF_MODELS:
-        url = f"https://router.huggingface.co/hf/{model}/v1/chat/completions"
         payload = {
             "model": model,
             "messages": messages,
@@ -120,7 +123,7 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
         }
         try:
             async with httpx.AsyncClient(timeout=90) as client:
-                resp = await client.post(url, json=payload, headers=headers)
+                resp = await client.post(HF_API_URL, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     # OpenAI-compatible response format
