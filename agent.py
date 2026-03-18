@@ -271,9 +271,9 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         # Method 1: Strip markdown code fences if present
         cleaned = response.strip()
         if cleaned.startswith("```"):
-            # Remove ```json ... ``` or ``` ... ```
             cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
             cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+            cleaned = cleaned.strip()
 
         # Method 2: Try direct parse of cleaned response
         try:
@@ -283,11 +283,26 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         except json.JSONDecodeError:
             pass
 
-        # Method 3: Regex to find JSON array
+        # Method 3: Find the first '[' and its matching ']' using bracket counting
         if json_str is None:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group()
+            start_idx = response.find('[')
+            if start_idx != -1:
+                depth = 0
+                for i in range(start_idx, len(response)):
+                    if response[i] == '[':
+                        depth += 1
+                    elif response[i] == ']':
+                        depth -= 1
+                        if depth == 0:
+                            candidate = response[start_idx:i + 1]
+                            try:
+                                parsed = json.loads(candidate)
+                                if isinstance(parsed, list):
+                                    json_str = candidate
+                                    logger.info(f"[Agent] Extracted JSON array ({len(parsed)} items) via bracket matching")
+                            except json.JSONDecodeError:
+                                pass
+                            break
 
         if json_str is None:
             logger.warning(f"[Agent] Could not find JSON array in LLM response")
