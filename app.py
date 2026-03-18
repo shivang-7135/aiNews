@@ -75,6 +75,32 @@ TOPICS = {
 MAX_TILES = 24
 
 # ---------------------------------------------------------------------------
+# AI Thought of the Day — gen-z witty style
+# ---------------------------------------------------------------------------
+AI_THOUGHTS = [
+    {"text": "AI doesn't sleep, but it still needs coffee ☕ — because even neural networks need a warm-up.", "emoji": "🧠", "vibe": "chill"},
+    {"text": "Humans took millions of years to evolve. GPT-5 took months. No pressure.", "emoji": "🚀", "vibe": "existential"},
+    {"text": "The best AI model is the one that makes you forget it's AI. The worst? The one that writes your ex back.", "emoji": "💀", "vibe": "chaotic"},
+    {"text": "Every time you say 'AI will replace us,' somewhere a GPU cries. They just wanna help, bro.", "emoji": "🥺", "vibe": "wholesome"},
+    {"text": "In 2025, 'I asked ChatGPT' became the new 'I Googled it.' In 2026, even Google asks ChatGPT.", "emoji": "🔮", "vibe": "prediction"},
+    {"text": "Training an AI model is basically peer pressure for math equations until they get the right answer.", "emoji": "📐", "vibe": "nerd"},
+    {"text": "AI Safety researchers are basically the designated drivers of the tech party. Respect.", "emoji": "🛡️", "vibe": "respect"},
+    {"text": "Open source AI is like potluck — everyone brings something, and somehow it's always better than what the big corps serve.", "emoji": "🍕", "vibe": "community"},
+    {"text": "The real AI arms race isn't between countries. It's between your 47 open browser tabs.", "emoji": "😤", "vibe": "relatable"},
+    {"text": "Plot twist: The AI reading this right now is you. You've been the model all along.", "emoji": "🤯", "vibe": "meta"},
+    {"text": "If AI had a dating profile: 'Fluent in 95 languages, great at conversations, terrible at feelings.'", "emoji": "💘", "vibe": "romantic"},
+    {"text": "Behind every great AI product is a sleep-deprived engineer who whispered 'please work' before hitting deploy.", "emoji": "🙏", "vibe": "real"},
+    {"text": "The future isn't human vs AI. It's human WITH AI vs human WITHOUT AI. Choose your side.", "emoji": "⚡", "vibe": "motivational"},
+    {"text": "Transformers used to be robots in disguise. Now they're the architecture running the world. What a glow up.", "emoji": "✨", "vibe": "glow-up"},
+]
+
+def get_daily_thought() -> dict:
+    """Return a thought based on the day of year (changes daily)."""
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    idx = day_of_year % len(AI_THOUGHTS)
+    return AI_THOUGHTS[idx]
+
+# ---------------------------------------------------------------------------
 # Subscribers store (simple JSON file)
 # ---------------------------------------------------------------------------
 SUBSCRIBERS_FILE = Path("subscribers.json")
@@ -198,12 +224,32 @@ async def get_news(country_code: str):
     if country_code not in NEWS_STORE:
         await refresh_news(country_code)
 
+    tiles = NEWS_STORE.get(country_code, [])
+
+    # Separate hero tile (highest importance) from the rest
+    hero_tile = None
+    rest_tiles = tiles
+    if tiles:
+        sorted_by_imp = sorted(tiles, key=lambda t: t.get("importance", 0), reverse=True)
+        hero_tile = sorted_by_imp[0] if sorted_by_imp[0].get("importance", 0) >= 7 else None
+        if hero_tile:
+            rest_tiles = [t for t in tiles if t["title"] != hero_tile["title"]]
+
     return {
         "country": country_code,
         "country_name": COUNTRIES[country_code],
         "last_updated": LAST_UPDATED.get(country_code, "—"),
-        "tiles": NEWS_STORE.get(country_code, []),
+        "hero_tile": hero_tile,
+        "tiles": rest_tiles,
     }
+
+
+# ---------------------------------------------------------------------------
+# AI Thought API
+# ---------------------------------------------------------------------------
+@app.get("/api/thought")
+async def get_thought():
+    return get_daily_thought()
 
 
 @app.post("/api/refresh/{country_code}")

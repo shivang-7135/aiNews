@@ -9,14 +9,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DailyAI — Breaking AI News</title>
 
-    <!-- PWA Manifest -->
     <link rel="manifest" href="/static/manifest.json">
-    
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -35,12 +31,7 @@
                         <rect width="40" height="40" rx="10" fill="url(#logo-grad)"/>
                         <path d="M12 28V14l8 7 8-7v14" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                         <circle cx="20" cy="12" r="3" fill="white" opacity="0.8"/>
-                        <defs>
-                            <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40">
-                                <stop stop-color="#6366f1"/>
-                                <stop offset="1" stop-color="#a855f7"/>
-                            </linearGradient>
-                        </defs>
+                        <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
                     </svg>
                 </div>
                 <div>
@@ -61,39 +52,72 @@
         </div>
     </header>
 
-    <!-- Country selector -->
-    <section class="country-bar">
-        <div class="country-bar-inner">
-            <label class="country-label" for="countrySelect">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                </svg>
-                Region
-            </label>
-            <select id="countrySelect" class="country-select">
-                {% for code, name in countries.items() %}
-                <option value="{{ code }}" {% if code == 'GLOBAL' %}selected{% endif %}>
-                    {{ name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="update-info">
-            <span class="update-badge" id="updateBadge">Loading...</span>
+    <!-- AI Thought of the Day (gen-z style) -->
+    <section class="thought-banner" id="thoughtBanner" style="display: none;">
+        <button class="thought-close" id="thoughtClose" aria-label="Dismiss">×</button>
+        <span class="thought-emoji" id="thoughtEmoji"></span>
+        <p class="thought-text" id="thoughtText"></p>
+        <span class="thought-label">AI THOUGHT OF THE DAY</span>
+    </section>
+
+    <!-- Hero Banner (Netflix-style top story) -->
+    <section class="hero-banner" id="heroBanner" style="display: none;">
+        <div class="hero-gradient"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="hero-badge-dot"></span>
+                BREAKING
+            </div>
+            <h2 class="hero-title" id="heroTitle"></h2>
+            <p class="hero-summary" id="heroSummary"></p>
+            <p class="hero-why" id="heroWhy"></p>
+            <div class="hero-actions">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="hero-read-btn" id="heroLink">
+                    Read Full Story →
+                </a>
+                <span class="hero-meta" id="heroMeta"></span>
+            </div>
         </div>
     </section>
 
-    <!-- Topic filter pills -->
+    <!-- Country + Controls bar -->
+    <section class="controls-bar">
+        <div class="controls-left">
+            <label class="country-label" for="countrySelect">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </label>
+            <select id="countrySelect" class="country-select">
+                {% for code, name in countries.items() %}
+                <option value="{{ code }}" {% if code == 'GLOBAL' %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="controls-center">
+            <span class="update-badge" id="updateBadge">Loading...</span>
+        </div>
+        <div class="controls-right">
+            <div class="sort-toggle" id="sortToggle">
+                <button class="sort-btn active" data-sort="relevance" id="sortRelevance" title="Sort by relevance">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Relevance
+                </button>
+                <button class="sort-btn" data-sort="time" id="sortTime" title="Sort by time">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Latest
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Topic filter pills with scroll arrows -->
     <section class="topic-bar" id="topicBar">
-        <div class="topic-scroll">
+        <button class="topic-arrow topic-arrow-left" id="topicScrollLeft" aria-label="Scroll topics left">‹</button>
+        <div class="topic-scroll" id="topicScroll">
             {% for code, name in topics.items() %}
-            <button class="topic-pill {% if code == 'all' %}active{% endif %}" data-topic="{{ code }}" id="topic-{{ code }}">
-                {{ name }}
-            </button>
+            <button class="topic-pill {% if code == 'all' %}active{% endif %}" data-topic="{{ code }}" id="topic-{{ code }}">{{ name }}</button>
             {% endfor %}
         </div>
+        <button class="topic-arrow topic-arrow-right" id="topicScrollRight" aria-label="Scroll topics right">›</button>
     </section>
 
     <!-- Loading state -->
@@ -108,22 +132,32 @@
     </div>
 
     <!-- News tiles grid -->
-    <main class="tiles-container" id="tilesContainer" style="display: none;">
-        <!-- Tiles will be injected here by JS -->
-    </main>
+    <main class="tiles-container" id="tilesContainer" style="display: none;"></main>
 
     <!-- Empty state -->
     <div class="empty-state" id="emptyState" style="display: none;">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
         <p>No AI news available for this region yet.</p>
         <button class="retry-btn" onclick="loadNews()">Try Again</button>
     </div>
 
-    <!-- Newsletter subscription section -->
+    <!-- Expand modal (shows full summary on click) -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-card" id="modalCard">
+            <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+            <div class="modal-badge" id="modalBadge"></div>
+            <h2 class="modal-title" id="modalTitle"></h2>
+            <p class="modal-summary" id="modalSummary"></p>
+            <p class="modal-why" id="modalWhy"></p>
+            <div class="modal-meta" id="modalMeta"></div>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="modal-link" id="modalLink">
+                Read Full Article →
+            </a>
+            <div class="modal-share" id="modalShare"></div>
+        </div>
+    </div>
+
+    <!-- Newsletter subscription -->
     <section class="subscribe-section" id="subscribeSection">
         <div class="subscribe-card">
             <div class="subscribe-header">
