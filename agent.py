@@ -254,7 +254,7 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
             {"role": "user", "content": user_prompt},
         ]
 
-        response = await call_llm(messages, self.hf_token)
+        response = await call_llm(messages, self.hf_token, max_tokens=4096)
         return self._parse_llm_response(response, articles)
 
     def _parse_llm_response(self, response: str, original_articles: list[dict]) -> list[dict]:
@@ -288,12 +288,14 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
             start_idx = response.find('[')
             if start_idx != -1:
                 depth = 0
+                end_found = False
                 for i in range(start_idx, len(response)):
                     if response[i] == '[':
                         depth += 1
                     elif response[i] == ']':
                         depth -= 1
                         if depth == 0:
+                            end_found = True
                             candidate = response[start_idx:i + 1]
                             try:
                                 parsed = json.loads(candidate)
@@ -303,6 +305,35 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
                             except json.JSONDecodeError:
                                 pass
                             break
+
+                # Method 4: Handle truncated JSON — try to recover partial array
+                if not end_found and json_str is None:
+                    logger.warning("[Agent] JSON array appears truncated, attempting recovery...")
+                    partial = response[start_idx:]
+                    # Try to find the last complete object by looking for '},'
+                    # and closing the array there
+                    last_complete = partial.rfind('},')
+                    if last_complete == -1:
+                        last_complete = partial.rfind('}')
+                    if last_complete != -1:
+                        candidate = partial[:last_complete + 1].rstrip(',') + ']'
+                        try:
+                            parsed = json.loads(candidate)
+                            if isinstance(parsed, list) and len(parsed) > 0:
+                                json_str = candidate
+                                logger.info(f"[Agent] Recovered {len(parsed)} items from truncated JSON")
+                        except json.JSONDecodeError:
+                            # Try more aggressive trimming: remove last partial object
+                            last_comma = partial[:last_complete].rfind('},')
+                            if last_comma != -1:
+                                candidate = partial[:last_comma + 1] + ']'
+                                try:
+                                    parsed = json.loads(candidate)
+                                    if isinstance(parsed, list) and len(parsed) > 0:
+                                        json_str = candidate
+                                        logger.info(f"[Agent] Recovered {len(parsed)} items from truncated JSON (aggressive trim)")
+                                except json.JSONDecodeError:
+                                    pass
 
         if json_str is None:
             logger.warning(f"[Agent] Could not find JSON array in LLM response")
