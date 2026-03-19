@@ -1,8 +1,8 @@
 /**
  * DailyAI — Frontend App Logic
  * Handles: hero banner, AI thought, topic filtering, sort toggle,
- * tile expand modal, share buttons, newsletter subscription, auto-refresh.
- * Visual-first UX with category emoji icons, importance bars, onboarding.
+ * tile expand modal, share buttons, newsletter subscription, auto-refresh,
+ * theme switching, onboarding.
  */
 
 (function () {
@@ -53,6 +53,7 @@
     let selectedTopics = JSON.parse(localStorage.getItem('dailyai_topics') || '["all"]');
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let allTiles = [];
+    let renderedTiles = []; // keep a ref to what's actually shown
     let isLoading = false;
 
     // --- Init ---
@@ -61,6 +62,7 @@
         restoreTopicSelection();
         restoreSortSelection();
         showOnboarding();
+        initTheme();
 
         // Events
         countrySelect.addEventListener('change', onCountryChange);
@@ -68,6 +70,10 @@
         if (topicBar) topicBar.addEventListener('click', onTopicClick);
         if (subscribeForm) subscribeForm.addEventListener('submit', onSubscribe);
         if (sortToggle) sortToggle.addEventListener('click', onSortClick);
+
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 
         // Onboarding dismiss
         const onboardingClose = document.getElementById('onboardingClose');
@@ -95,11 +101,13 @@
             sessionStorage.setItem('dailyai_thought_dismissed', '1');
         });
 
-        // Mouse glow
-        document.addEventListener('mousemove', (e) => {
-            document.documentElement.style.setProperty('--mouse-x', e.clientX + 'px');
-            document.documentElement.style.setProperty('--mouse-y', e.clientY + 'px');
-        });
+        // Mouse glow (only on non-touch devices)
+        if (!('ontouchstart' in window)) {
+            document.addEventListener('mousemove', (e) => {
+                document.documentElement.style.setProperty('--mouse-x', e.clientX + 'px');
+                document.documentElement.style.setProperty('--mouse-y', e.clientY + 'px');
+            });
+        }
 
         updateClock();
         setInterval(updateClock, 1000);
@@ -107,6 +115,30 @@
         loadThought();
         fetchSubscriberCount();
         setInterval(() => loadNews(true), 5 * 60 * 1000);
+    }
+
+    // ====================== THEME ======================
+    function initTheme() {
+        const saved = localStorage.getItem('dailyai_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        updateThemeIcon(saved);
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('dailyai_theme', next);
+        updateThemeIcon(next);
+    }
+
+    function updateThemeIcon(theme) {
+        const btn = document.getElementById('themeToggle');
+        if (!btn) return;
+        btn.innerHTML = theme === 'dark'
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+        btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
     }
 
     // ====================== ONBOARDING ======================
@@ -219,6 +251,7 @@
             }
         }
         const sorted = sortTiles(filtered);
+        renderedTiles = sorted; // store reference for modal click
         renderTiles(sorted);
         updateStats(sorted.length);
     }
@@ -227,19 +260,19 @@
     function updateStats(storyCount) {
         const el = document.getElementById('statsStories');
         if (el) animateCounter(el, storyCount);
+        if (statsTicker) statsTicker.classList.add('visible');
     }
 
     function animateCounter(el, target) {
         const duration = 800;
         const start = parseInt(el.textContent) || 0;
         const diff = target - start;
-        if (diff === 0) return;
+        if (diff === 0) { el.textContent = target; return; }
 
         const startTime = performance.now();
         function step(currentTime) {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            // Ease out cubic
             const eased = 1 - Math.pow(1 - progress, 3);
             el.textContent = Math.round(start + diff * eased);
             if (progress < 1) requestAnimationFrame(step);
@@ -250,7 +283,6 @@
     function updateStatsTime(timeStr) {
         const el = document.getElementById('statsUpdated');
         if (el && timeStr && timeStr !== '—') {
-            // Parse the update time and show relative
             el.textContent = timeStr.replace('Updated: ', '');
         }
     }
@@ -292,7 +324,6 @@
                 updateBadge.textContent = `Updated: ${data.last_updated}`;
                 updateStatsTime(data.last_updated);
             } else if (data.hero_tile) {
-                // Only hero, no other tiles
                 allTiles = [];
                 tilesContainer.style.display = 'none';
                 loadingContainer.style.display = 'none';
@@ -326,7 +357,6 @@
             const whyItMatters = tile.why_it_matters || '';
             const staggerDelay = i * 60;
 
-            // Importance bar
             const impPercent = Math.round((importance / 10) * 100);
             const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
 
@@ -374,7 +404,8 @@
 
     // ====================== EXPAND MODAL ======================
     window.openModal = function(index) {
-        const tile = (currentSort === 'time' ? sortTiles(getFilteredTiles()) : getFilteredTiles())[index];
+        // Use renderedTiles — the exact array that was rendered, so indices always match
+        const tile = renderedTiles[index];
         if (!tile) return;
 
         const category = (tile.category || 'general').toLowerCase();
@@ -383,7 +414,6 @@
         const impPercent = Math.round((importance / 10) * 100);
         const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
 
-        // Icon header
         const modalIconEl = document.getElementById('modalIcon');
         if (modalIconEl) {
             modalIconEl.className = `modal-icon ${category}`;
@@ -394,7 +424,6 @@
         document.getElementById('modalTitle').textContent = tile.title || '';
         document.getElementById('modalSummary').textContent = tile.summary || '';
 
-        // Why it matters callout
         const whyBox = document.getElementById('modalWhyBox');
         if (whyBox) {
             if (tile.why_it_matters) {
@@ -405,7 +434,6 @@
             }
         }
 
-        // Importance bar
         const impBar = document.getElementById('modalImportance');
         if (impBar) {
             document.getElementById('modalImpFill').className = `modal-importance-fill ${impClass}`;
@@ -429,16 +457,6 @@
         modalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
     };
-
-    function getFilteredTiles() {
-        if (selectedTopics.includes('all')) return allTiles;
-        const f = allTiles.filter(t => {
-            const tt = (t.topic || 'general').toLowerCase();
-            const tc = (t.category || 'general').toLowerCase();
-            return selectedTopics.includes(tt) || selectedTopics.includes(tc);
-        });
-        return f.length > 0 ? f : allTiles;
-    }
 
     function closeModal() {
         modalOverlay.classList.remove('show');
