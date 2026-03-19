@@ -58,18 +58,18 @@ COUNTRIES = {
 
 # Topic tags for interest filtering
 TOPICS = {
-    "all": "All Topics",
-    "llms": "LLMs & Language Models",
-    "big_tech": "Big Tech AI",
-    "startups": "AI Startups",
-    "research": "Research & Papers",
-    "funding": "Funding & Deals",
-    "regulation": "Regulation & Policy",
-    "open_source": "Open Source AI",
-    "ai_safety": "AI Safety & Ethics",
-    "robotics": "Robotics",
-    "healthcare": "AI in Healthcare",
-    "autonomous": "Autonomous Systems",
+    "all": "✨ All Topics",
+    "llms": "🤖 LLMs",
+    "big_tech": "🏢 Big Tech",
+    "startups": "🚀 Startups",
+    "research": "📄 Research",
+    "funding": "💰 Funding",
+    "regulation": "⚖️ Regulation",
+    "open_source": "🔓 Open Source",
+    "ai_safety": "🛡️ AI Safety",
+    "robotics": "🦾 Robotics",
+    "healthcare": "🏥 Healthcare",
+    "autonomous": "🚗 Autonomous",
 }
 
 MAX_TILES = 24

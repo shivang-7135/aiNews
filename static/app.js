@@ -2,10 +2,26 @@
  * DailyAI — Frontend App Logic
  * Handles: hero banner, AI thought, topic filtering, sort toggle,
  * tile expand modal, share buttons, newsletter subscription, auto-refresh.
+ * Visual-first UX with category emoji icons, importance bars, onboarding.
  */
 
 (function () {
     'use strict';
+
+    // --- Category Emoji Map ---
+    const CATEGORY_EMOJIS = {
+        breakthrough: '🔬',
+        product: '🚀',
+        regulation: '⚖️',
+        funding: '💰',
+        research: '📄',
+        industry: '🏢',
+        general: '📰',
+    };
+
+    // --- Loading emoji cycle ---
+    const LOADING_EMOJIS = ['🔍', '🤖', '📡', '🧠', '⚡', '✨'];
+    let loadingEmojiInterval = null;
 
     // --- DOM Elements ---
     const countrySelect = document.getElementById('countrySelect');
@@ -29,6 +45,8 @@
     const thoughtBanner = document.getElementById('thoughtBanner');
     const modalOverlay = document.getElementById('modalOverlay');
     const sortToggle = document.getElementById('sortToggle');
+    const onboardingBanner = document.getElementById('onboardingBanner');
+    const statsTicker = document.getElementById('statsTicker');
 
     // --- State ---
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
@@ -42,6 +60,7 @@
         countrySelect.value = currentCountry;
         restoreTopicSelection();
         restoreSortSelection();
+        showOnboarding();
 
         // Events
         countrySelect.addEventListener('change', onCountryChange);
@@ -49,6 +68,13 @@
         if (topicBar) topicBar.addEventListener('click', onTopicClick);
         if (subscribeForm) subscribeForm.addEventListener('submit', onSubscribe);
         if (sortToggle) sortToggle.addEventListener('click', onSortClick);
+
+        // Onboarding dismiss
+        const onboardingClose = document.getElementById('onboardingClose');
+        if (onboardingClose) onboardingClose.addEventListener('click', () => {
+            onboardingBanner.style.display = 'none';
+            localStorage.setItem('dailyai_onboarded', '1');
+        });
 
         // Topic scroll arrows
         const scrollLeft = document.getElementById('topicScrollLeft');
@@ -81,6 +107,13 @@
         loadThought();
         fetchSubscriberCount();
         setInterval(() => loadNews(true), 5 * 60 * 1000);
+    }
+
+    // ====================== ONBOARDING ======================
+    function showOnboarding() {
+        if (!localStorage.getItem('dailyai_onboarded') && onboardingBanner) {
+            onboardingBanner.style.display = 'block';
+        }
     }
 
     // ====================== AI THOUGHT ======================
@@ -185,7 +218,41 @@
                 showToast('No stories match — showing all');
             }
         }
-        renderTiles(sortTiles(filtered));
+        const sorted = sortTiles(filtered);
+        renderTiles(sorted);
+        updateStats(sorted.length);
+    }
+
+    // ====================== STATS TICKER ======================
+    function updateStats(storyCount) {
+        const el = document.getElementById('statsStories');
+        if (el) animateCounter(el, storyCount);
+    }
+
+    function animateCounter(el, target) {
+        const duration = 800;
+        const start = parseInt(el.textContent) || 0;
+        const diff = target - start;
+        if (diff === 0) return;
+
+        const startTime = performance.now();
+        function step(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.round(start + diff * eased);
+            if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function updateStatsTime(timeStr) {
+        const el = document.getElementById('statsUpdated');
+        if (el && timeStr && timeStr !== '—') {
+            // Parse the update time and show relative
+            el.textContent = timeStr.replace('Updated: ', '');
+        }
     }
 
     // ====================== LOAD NEWS ======================
@@ -223,6 +290,7 @@
                 allTiles = data.tiles;
                 filterAndRenderTiles();
                 updateBadge.textContent = `Updated: ${data.last_updated}`;
+                updateStatsTime(data.last_updated);
             } else if (data.hero_tile) {
                 // Only hero, no other tiles
                 allTiles = [];
@@ -238,7 +306,10 @@
             console.error('Load failed:', err);
             if (!silent) showEmpty();
             updateBadge.textContent = 'Error loading';
-        } finally { isLoading = false; }
+        } finally {
+            isLoading = false;
+            stopLoadingEmojis();
+        }
     }
 
     // ====================== RENDER TILES ======================
@@ -249,44 +320,54 @@
 
         tilesContainer.innerHTML = tiles.map((tile, i) => {
             const category = (tile.category || 'general').toLowerCase();
+            const emoji = CATEGORY_EMOJIS[category] || '📰';
             const importance = tile.importance || 5;
             const timeAgo = getTimeAgo(tile.published || tile.fetched_at);
             const whyItMatters = tile.why_it_matters || '';
-            const staggerDelay = i * 50;
+            const staggerDelay = i * 60;
 
-            const filledDots = Math.round(importance / 2);
-            let dotsHtml = '';
-            for (let d = 0; d < 5; d++) {
-                dotsHtml += `<span class="importance-dot ${d < filledDots ? (importance >= 8 ? 'high' : 'active') : ''}"></span>`;
-            }
+            // Importance bar
+            const impPercent = Math.round((importance / 10) * 100);
+            const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
 
             const shareText = encodeURIComponent(`${tile.title}\n\nvia DailyAI`);
             const shareUrl = encodeURIComponent(tile.link || '');
             const whyHtml = whyItMatters ? `<p class="tile-why">💡 ${escapeHtml(whyItMatters)}</p>` : '';
 
             return `
-                <div class="news-tile" style="animation-delay:${staggerDelay}ms" id="tile-${i}"
+                <div class="news-tile cat-${category}" style="animation-delay:${staggerDelay}ms" id="tile-${i}"
                      onclick="openModal(${i})" role="button" tabindex="0">
-                    <span class="tile-index">${String(i + 1).padStart(2, '0')}</span>
-                    <div class="tile-header">
-                        <span class="tile-category ${category}">${escapeHtml(category)}</span>
-                        <div class="tile-importance" title="Importance: ${importance}/10">${dotsHtml}</div>
+                    <div class="tile-shine"></div>
+                    <div class="tile-body">
+                        <div class="tile-header">
+                            <div class="tile-icon ${category}">${emoji}</div>
+                            <div class="tile-header-text">
+                                <span class="tile-category ${category}">${escapeHtml(category)}</span>
+                                <div class="tile-importance-bar">
+                                    <div class="importance-track">
+                                        <div class="importance-fill ${impClass}" style="width:${impPercent}%"></div>
+                                    </div>
+                                    <span class="importance-num">${importance}/10</span>
+                                </div>
+                            </div>
+                        </div>
+                        <h2 class="tile-title">${escapeHtml(tile.title)}</h2>
+                        <p class="tile-summary">${escapeHtml(tile.summary || '')}</p>
+                        ${whyHtml}
+                        <div class="tile-footer">
+                            <span class="tile-source">${escapeHtml(tile.source || 'Unknown')}</span>
+                            <span class="tile-time">${timeAgo}</span>
+                        </div>
+                        <div class="tile-actions" onclick="event.stopPropagation()">
+                            <button class="share-btn share-twitter" onclick="event.stopPropagation(); window.open('https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}','_blank','width=550,height=420')" title="Share on X">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                            </button>
+                            <button class="share-btn share-linkedin" onclick="event.stopPropagation(); window.open('https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}','_blank','width=550,height=420')" title="Share on LinkedIn">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                            </button>
+                        </div>
                     </div>
-                    <h2 class="tile-title">${escapeHtml(tile.title)}</h2>
-                    <p class="tile-summary">${escapeHtml(tile.summary || '')}</p>
-                    ${whyHtml}
-                    <div class="tile-footer">
-                        <span class="tile-source">${escapeHtml(tile.source || 'Unknown')}</span>
-                        <span class="tile-time">${timeAgo}</span>
-                    </div>
-                    <div class="tile-actions" onclick="event.stopPropagation()">
-                        <button class="share-btn share-twitter" onclick="event.stopPropagation(); window.open('https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}','_blank','width=550,height=420')" title="Share on X">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                        </button>
-                        <button class="share-btn share-linkedin" onclick="event.stopPropagation(); window.open('https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}','_blank','width=550,height=420')" title="Share on LinkedIn">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                        </button>
-                    </div>
+                    <div class="tile-cta">Tap to expand ↗</div>
                 </div>`;
         }).join('');
     }
@@ -297,11 +378,42 @@
         if (!tile) return;
 
         const category = (tile.category || 'general').toLowerCase();
+        const emoji = CATEGORY_EMOJIS[category] || '📰';
+        const importance = tile.importance || 5;
+        const impPercent = Math.round((importance / 10) * 100);
+        const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
+
+        // Icon header
+        const modalIconEl = document.getElementById('modalIcon');
+        if (modalIconEl) {
+            modalIconEl.className = `modal-icon ${category}`;
+            modalIconEl.textContent = emoji;
+        }
+
         document.getElementById('modalBadge').innerHTML = `<span class="tile-category ${category}">${escapeHtml(category)}</span>`;
         document.getElementById('modalTitle').textContent = tile.title || '';
         document.getElementById('modalSummary').textContent = tile.summary || '';
-        document.getElementById('modalWhy').textContent = tile.why_it_matters ? `💡 ${tile.why_it_matters}` : '';
-        document.getElementById('modalMeta').textContent = `${tile.source || 'Unknown'} • ${getTimeAgo(tile.published || tile.fetched_at)} • Importance: ${tile.importance || 5}/10`;
+
+        // Why it matters callout
+        const whyBox = document.getElementById('modalWhyBox');
+        if (whyBox) {
+            if (tile.why_it_matters) {
+                whyBox.style.display = 'block';
+                document.getElementById('modalWhyText').textContent = tile.why_it_matters;
+            } else {
+                whyBox.style.display = 'none';
+            }
+        }
+
+        // Importance bar
+        const impBar = document.getElementById('modalImportance');
+        if (impBar) {
+            document.getElementById('modalImpFill').className = `modal-importance-fill ${impClass}`;
+            document.getElementById('modalImpFill').style.width = `${impPercent}%`;
+            document.getElementById('modalImpLabel').textContent = `${importance}/10`;
+        }
+
+        document.getElementById('modalMeta').textContent = `${tile.source || 'Unknown'} • ${getTimeAgo(tile.published || tile.fetched_at)}`;
         document.getElementById('modalLink').href = tile.link || '#';
 
         const shareText = encodeURIComponent(`${tile.title}\n\nvia DailyAI`);
@@ -395,7 +507,30 @@
         } catch { return ''; }
     }
 
-    function showLoading() { tilesContainer.style.display = 'none'; emptyState.style.display = 'none'; loadingContainer.style.display = 'flex'; }
+    function showLoading() {
+        tilesContainer.style.display = 'none';
+        emptyState.style.display = 'none';
+        loadingContainer.style.display = 'flex';
+        startLoadingEmojis();
+    }
+
+    function startLoadingEmojis() {
+        let idx = 0;
+        const el = document.getElementById('morphEmoji');
+        if (!el) return;
+        loadingEmojiInterval = setInterval(() => {
+            idx = (idx + 1) % LOADING_EMOJIS.length;
+            el.textContent = LOADING_EMOJIS[idx];
+        }, 1500);
+    }
+
+    function stopLoadingEmojis() {
+        if (loadingEmojiInterval) {
+            clearInterval(loadingEmojiInterval);
+            loadingEmojiInterval = null;
+        }
+    }
+
     function showEmpty() { tilesContainer.style.display = 'none'; loadingContainer.style.display = 'none'; emptyState.style.display = 'flex'; }
 
     let toastEl = null, toastTimeout = null;
