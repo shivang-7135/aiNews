@@ -1,575 +1,528 @@
-/**
- * DailyAI — Frontend App Logic
- * Handles: hero banner, AI thought, topic filtering, sort toggle,
- * tile expand modal, share buttons, newsletter subscription, auto-refresh,
- * theme switching, onboarding.
- */
+// DailyAI — Replace endpoint on line 3: GET /api/articles
+// No user data collected. localStorage only.
+const API_URL = '/api/articles';
 
 (function () {
     'use strict';
 
-    // --- Category Emoji Map ---
-    const CATEGORY_EMOJIS = {
-        breakthrough: '🔬',
-        product: '🚀',
-        regulation: '⚖️',
-        funding: '💰',
-        research: '📄',
-        industry: '🏢',
-        general: '📰',
+    // ---- Config ----
+    const TOPIC_GRADIENTS = {
+        'AI Models':      'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
+        'Tools':          'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)',
+        'Research':       'linear-gradient(135deg, #0d0d0d, #1a1a2e, #16213e)',
+        'Top Stories':    'linear-gradient(135deg, #1f1c2c, #928dab)',
+        'Business':       'linear-gradient(135deg, #141e30, #243b55)',
+        'Tech & Science': 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
     };
+    const TOPIC_EMOJIS = {
+        'AI Models': '🤖', 'Tools': '🔧', 'Research': '🔬',
+        'Top Stories': '⚡', 'Business': '💼', 'Tech & Science': '🧬',
+    };
+    const COUNTRY_FLAGS = {
+        'US':'🇺🇸','GB':'🇬🇧','IN':'🇮🇳','DE':'🇩🇪','FR':'🇫🇷','CA':'🇨🇦',
+        'AU':'🇦🇺','JP':'🇯🇵','KR':'🇰🇷','CN':'🇨🇳','BR':'🇧🇷','SG':'🇸🇬',
+        'AE':'🇦🇪','IL':'🇮🇱','GLOBAL':'🌐',
+    };
+    const AVATAR_COLORS = ['#6366f1','#2dd4a0','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#ec4899','#14b8a6'];
+    const FALLBACK_ARTICLES = [
+        { id:'fb-1', headline:'OpenAI Announces GPT-5 with Multimodal Reasoning', summary:'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters:'A major leap in AI capability, potentially transforming multiple industries.', topic:'AI Models', source_name:'TechCrunch', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
+        { id:'fb-2', headline:'EU Finalizes AI Act Implementation Timeline', summary:'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters:'Companies worldwide must adapt their AI products to meet these regulations.', topic:'Top Stories', source_name:'Reuters', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
+        { id:'fb-3', headline:'New Open-Source LLM Surpasses Commercial Models', summary:'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters:'Open-source AI is closing the gap, democratizing access to powerful tools.', topic:'Research', source_name:'ArXiv', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
+    ];
 
-    // --- Loading emoji cycle ---
-    const LOADING_EMOJIS = ['🔍', '🤖', '📡', '🧠', '⚡', '✨'];
-    let loadingEmojiInterval = null;
-
-    // --- DOM Elements ---
-    const countrySelect = document.getElementById('countrySelect');
-    const tilesContainer = document.getElementById('tilesContainer');
-    const loadingContainer = document.getElementById('loadingContainer');
-    const emptyState = document.getElementById('emptyState');
-    const updateBadge = document.getElementById('updateBadge');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const clockDisplay = document.getElementById('clockDisplay');
-    const topicBar = document.getElementById('topicBar');
-    const topicScroll = document.getElementById('topicScroll');
-    const subscribeForm = document.getElementById('subscribeForm');
-    const emailInput = document.getElementById('emailInput');
-    const subscriberCount = document.getElementById('subscriberCount');
-    const heroBanner = document.getElementById('heroBanner');
-    const heroTitle = document.getElementById('heroTitle');
-    const heroSummary = document.getElementById('heroSummary');
-    const heroWhy = document.getElementById('heroWhy');
-    const heroLink = document.getElementById('heroLink');
-    const heroMeta = document.getElementById('heroMeta');
-    const thoughtBanner = document.getElementById('thoughtBanner');
-    const modalOverlay = document.getElementById('modalOverlay');
-    const sortToggle = document.getElementById('sortToggle');
-    const onboardingBanner = document.getElementById('onboardingBanner');
-    const statsTicker = document.getElementById('statsTicker');
-
-    // --- State ---
+    // ---- State ----
+    let allArticles = [];
+    let currentTopic = 'For You';
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
-    let selectedTopics = JSON.parse(localStorage.getItem('dailyai_topics') || '["all"]');
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
-    let allTiles = [];
-    let renderedTiles = []; // keep a ref to what's actually shown
-    let isLoading = false;
+    let currentView = 'discover';
+    let bookmarks = JSON.parse(localStorage.getItem('dailyai_bookmarks') || '{}');
+    let swipeCardIndex = 0;
+    let isDragging = false, startX = 0, startY = 0, deltaX = 0;
 
-    // --- Init ---
+    // ---- DOM ----
+    const $ = id => document.getElementById(id);
+    const swipeStack = $('swipeStack');
+    const swipeContainer = $('swipeContainer');
+    const swipeEmpty = $('swipeEmpty');
+    const feed = $('feed');
+    const filterTabs = $('filterTabs');
+    const sidebar = $('sidebar');
+    const sidebarBackdrop = $('sidebarBackdrop');
+    const sheetBackdrop = $('sheetBackdrop');
+    const bottomSheet = $('bottomSheet');
+    const sheetContent = $('sheetContent');
+    const toastEl = $('toast');
+    const streakBadge = $('streakBadge');
+    const viewTitle = $('viewTitle');
+    const topBarCountry = $('topBarCountry');
+    const countrySelect = $('countrySelect');
+
+    // ====================== INIT ======================
     function init() {
-        countrySelect.value = currentCountry;
-        restoreTopicSelection();
-        restoreSortSelection();
-        showOnboarding();
-        initTheme();
+        // Sidebar
+        $('menuBtn').addEventListener('click', openSidebar);
+        $('sidebarClose').addEventListener('click', closeSidebar);
+        sidebarBackdrop.addEventListener('click', closeSidebar);
 
-        // Events
+        // Sidebar nav
+        $('navDiscover').addEventListener('click', () => switchView('discover'));
+        $('navSaved').addEventListener('click', () => switchView('saved'));
+        $('savedBtn').addEventListener('click', () => switchView(currentView === 'saved' ? 'discover' : 'saved'));
+
+        // Sort
+        $('sortGroup').addEventListener('click', onSortClick);
+
+        // Country
         countrySelect.addEventListener('change', onCountryChange);
-        refreshBtn.addEventListener('click', onRefreshClick);
-        if (topicBar) topicBar.addEventListener('click', onTopicClick);
-        if (subscribeForm) subscribeForm.addEventListener('submit', onSubscribe);
-        if (sortToggle) sortToggle.addEventListener('click', onSortClick);
 
-        // Theme toggle
-        const themeToggle = document.getElementById('themeToggle');
-        if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+        // Newsletter
+        $('subscribeForm').addEventListener('submit', onSubscribe);
 
-        // Onboarding dismiss
-        const onboardingClose = document.getElementById('onboardingClose');
-        if (onboardingClose) onboardingClose.addEventListener('click', () => {
-            onboardingBanner.style.display = 'none';
-            localStorage.setItem('dailyai_onboarded', '1');
+        // Filter tabs
+        filterTabs.addEventListener('click', onTabClick);
+
+        // Reload
+        $('reloadBtn').addEventListener('click', () => {
+            swipeCardIndex = 0;
+            swipeEmpty.style.display = 'none';
+            renderSwipeStack();
         });
 
-        // Topic scroll arrows
-        const scrollLeft = document.getElementById('topicScrollLeft');
-        const scrollRight = document.getElementById('topicScrollRight');
-        if (scrollLeft) scrollLeft.addEventListener('click', () => topicScroll.scrollBy({ left: -150, behavior: 'smooth' }));
-        if (scrollRight) scrollRight.addEventListener('click', () => topicScroll.scrollBy({ left: 150, behavior: 'smooth' }));
+        // Bottom sheet
+        sheetBackdrop.addEventListener('click', closeSheet);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeSidebar(); } });
+        let sheetTouchStartY = 0;
+        bottomSheet.addEventListener('touchstart', e => { sheetTouchStartY = e.touches[0].clientY; }, { passive: true });
+        bottomSheet.addEventListener('touchmove', e => {
+            if (e.touches[0].clientY - sheetTouchStartY > 80) closeSheet();
+        }, { passive: true });
 
-        // Modal close
-        const modalClose = document.getElementById('modalClose');
-        if (modalClose) modalClose.addEventListener('click', closeModal);
-        if (modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-
-        // Thought dismiss
-        const thoughtClose = document.getElementById('thoughtClose');
-        if (thoughtClose) thoughtClose.addEventListener('click', () => {
-            thoughtBanner.style.display = 'none';
-            sessionStorage.setItem('dailyai_thought_dismissed', '1');
-        });
-
-        // Mouse glow (only on non-touch devices)
-        if (!('ontouchstart' in window)) {
-            document.addEventListener('mousemove', (e) => {
-                document.documentElement.style.setProperty('--mouse-x', e.clientX + 'px');
-                document.documentElement.style.setProperty('--mouse-y', e.clientY + 'px');
-            });
-        }
-
-        updateClock();
-        setInterval(updateClock, 1000);
-        loadNews();
-        loadThought();
+        // Init
+        showStreak();
+        updateSavedCount();
+        restoreSort();
+        loadCountries();
         fetchSubscriberCount();
-        setInterval(() => loadNews(true), 5 * 60 * 1000);
+
+        // Load feed
+        showSkeleton();
+        fetchArticles(currentTopic);
     }
 
-    // ====================== THEME ======================
-    function initTheme() {
-        const saved = localStorage.getItem('dailyai_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', saved);
-        updateThemeIcon(saved);
-    }
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        const next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('dailyai_theme', next);
-        updateThemeIcon(next);
-    }
-
-    function updateThemeIcon(theme) {
-        const btn = document.getElementById('themeToggle');
-        if (!btn) return;
-        btn.innerHTML = theme === 'dark'
-            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-        btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
-    }
-
-    // ====================== ONBOARDING ======================
-    function showOnboarding() {
-        if (!localStorage.getItem('dailyai_onboarded') && onboardingBanner) {
-            onboardingBanner.style.display = 'block';
-        }
-    }
-
-    // ====================== AI THOUGHT ======================
-    async function loadThought() {
-        if (sessionStorage.getItem('dailyai_thought_dismissed')) return;
+    // ====================== COUNTRIES ======================
+    async function loadCountries() {
         try {
-            const resp = await fetch('/api/thought');
+            const resp = await fetch('/api/countries');
             const data = await resp.json();
-            if (data.text) {
-                document.getElementById('thoughtEmoji').textContent = data.emoji || '🧠';
-                document.getElementById('thoughtText').textContent = data.text;
-                thoughtBanner.style.display = 'flex';
-                thoughtBanner.className = `thought-banner vibe-${data.vibe || 'chill'}`;
+            const countries = data.countries || {};
+            countrySelect.innerHTML = '';
+            for (const [code, name] of Object.entries(countries)) {
+                const flag = COUNTRY_FLAGS[code] || '🏳️';
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.textContent = `${flag} ${name}`;
+                if (code === currentCountry) opt.selected = true;
+                countrySelect.appendChild(opt);
             }
-        } catch {}
+            updateTopBarCountry();
+        } catch { /* fallback: keep default */ }
     }
 
-    // ====================== HERO BANNER ======================
-    function renderHero(hero) {
-        if (!hero) {
-            heroBanner.style.display = 'none';
-            return;
-        }
-        heroTitle.textContent = hero.title || '';
-        heroSummary.textContent = hero.summary || '';
-        heroWhy.textContent = hero.why_it_matters ? `💡 ${hero.why_it_matters}` : '';
-        heroLink.href = hero.link || '#';
-        heroMeta.textContent = `${hero.source || 'Unknown'} • ${getTimeAgo(hero.published || hero.fetched_at)}`;
-        heroBanner.style.display = 'block';
-    }
-
-    // ====================== SORT ======================
-    function restoreSortSelection() {
-        document.querySelectorAll('.sort-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.sort === currentSort);
-        });
-    }
-
-    function onSortClick(e) {
-        const btn = e.target.closest('.sort-btn');
-        if (!btn || btn.dataset.sort === currentSort) return;
-        currentSort = btn.dataset.sort;
-        localStorage.setItem('dailyai_sort', currentSort);
-        restoreSortSelection();
-        filterAndRenderTiles();
-    }
-
-    function sortTiles(tiles) {
-        const sorted = [...tiles];
-        if (currentSort === 'time') {
-            sorted.sort((a, b) => {
-                const da = new Date(a.published || a.fetched_at || 0);
-                const db = new Date(b.published || b.fetched_at || 0);
-                return db - da;
-            });
-        } else {
-            sorted.sort((a, b) => (b.importance || 0) - (a.importance || 0));
-        }
-        return sorted;
-    }
-
-    // ====================== TOPICS ======================
-    function restoreTopicSelection() {
-        document.querySelectorAll('.topic-pill').forEach(pill => {
-            pill.classList.toggle('active', selectedTopics.includes(pill.dataset.topic));
-        });
-    }
-
-    function onTopicClick(e) {
-        const pill = e.target.closest('.topic-pill');
-        if (!pill) return;
-        const topic = pill.dataset.topic;
-
-        if (topic === 'all') {
-            selectedTopics = ['all'];
-        } else {
-            selectedTopics = selectedTopics.filter(t => t !== 'all');
-            if (selectedTopics.includes(topic)) {
-                selectedTopics = selectedTopics.filter(t => t !== topic);
-            } else {
-                selectedTopics.push(topic);
-            }
-            if (selectedTopics.length === 0) selectedTopics = ['all'];
-        }
-
-        localStorage.setItem('dailyai_topics', JSON.stringify(selectedTopics));
-        restoreTopicSelection();
-        filterAndRenderTiles();
-    }
-
-    function filterAndRenderTiles() {
-        let filtered = allTiles;
-        if (!selectedTopics.includes('all')) {
-            const topicFiltered = allTiles.filter(tile => {
-                const tt = (tile.topic || 'general').toLowerCase();
-                const tc = (tile.category || 'general').toLowerCase();
-                return selectedTopics.includes(tt) || selectedTopics.includes(tc);
-            });
-            if (topicFiltered.length > 0) {
-                filtered = topicFiltered;
-            } else {
-                showToast('No stories match — showing all');
-            }
-        }
-        const sorted = sortTiles(filtered);
-        renderedTiles = sorted; // store reference for modal click
-        renderTiles(sorted);
-        updateStats(sorted.length);
-    }
-
-    // ====================== STATS TICKER ======================
-    function updateStats(storyCount) {
-        const el = document.getElementById('statsStories');
-        if (el) animateCounter(el, storyCount);
-        if (statsTicker) statsTicker.classList.add('visible');
-    }
-
-    function animateCounter(el, target) {
-        const duration = 800;
-        const start = parseInt(el.textContent) || 0;
-        const diff = target - start;
-        if (diff === 0) { el.textContent = target; return; }
-
-        const startTime = performance.now();
-        function step(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            el.textContent = Math.round(start + diff * eased);
-            if (progress < 1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
-    }
-
-    function updateStatsTime(timeStr) {
-        const el = document.getElementById('statsUpdated');
-        if (el && timeStr && timeStr !== '—') {
-            el.textContent = timeStr.replace('Updated: ', '');
-        }
-    }
-
-    // ====================== LOAD NEWS ======================
     function onCountryChange() {
         currentCountry = countrySelect.value;
         localStorage.setItem('dailyai_country', currentCountry);
-        loadNews();
+        updateTopBarCountry();
+        closeSidebar();
+        showSkeleton();
+        fetchArticles(currentTopic);
+        const name = countrySelect.options[countrySelect.selectedIndex]?.textContent || currentCountry;
+        showToast(`Switched to ${name}`);
     }
 
-    async function onRefreshClick() {
-        if (isLoading) return;
-        refreshBtn.classList.add('spinning');
-        showToast('Asking AI agent to refresh...');
-        try {
-            await fetch(`/api/refresh/${currentCountry}`, { method: 'POST' });
-            await loadNews();
-            showToast('✅ News refreshed!');
-        } catch { showToast('❌ Refresh failed'); }
-        finally { refreshBtn.classList.remove('spinning'); }
+    function updateTopBarCountry() {
+        const flag = COUNTRY_FLAGS[currentCountry] || '🏳️';
+        const opt = countrySelect.options[countrySelect.selectedIndex];
+        const name = opt ? opt.textContent.replace(/^.\s*/, '') : currentCountry;
+        topBarCountry.textContent = `${flag} ${name}`;
     }
 
-    window.loadNews = loadNews;
-    async function loadNews(silent = false) {
-        if (isLoading) return;
-        isLoading = true;
-        if (!silent) showLoading();
-
-        try {
-            const resp = await fetch(`/api/news/${currentCountry}`);
-            const data = await resp.json();
-
-            renderHero(data.hero_tile || null);
-
-            if (data.tiles && data.tiles.length > 0) {
-                allTiles = data.tiles;
-                filterAndRenderTiles();
-                updateBadge.textContent = `Updated: ${data.last_updated}`;
-                updateStatsTime(data.last_updated);
-            } else if (data.hero_tile) {
-                allTiles = [];
-                tilesContainer.style.display = 'none';
-                loadingContainer.style.display = 'none';
-                emptyState.style.display = 'none';
-                updateBadge.textContent = `Updated: ${data.last_updated}`;
-            } else {
-                showEmpty();
-                updateBadge.textContent = 'No data yet';
-            }
-        } catch (err) {
-            console.error('Load failed:', err);
-            if (!silent) showEmpty();
-            updateBadge.textContent = 'Error loading';
-        } finally {
-            isLoading = false;
-            stopLoadingEmojis();
-        }
-    }
-
-    // ====================== RENDER TILES ======================
-    function renderTiles(tiles) {
-        loadingContainer.style.display = 'none';
-        emptyState.style.display = 'none';
-        tilesContainer.style.display = 'grid';
-
-        tilesContainer.innerHTML = tiles.map((tile, i) => {
-            const category = (tile.category || 'general').toLowerCase();
-            const emoji = CATEGORY_EMOJIS[category] || '📰';
-            const importance = tile.importance || 5;
-            const timeAgo = getTimeAgo(tile.published || tile.fetched_at);
-            const whyItMatters = tile.why_it_matters || '';
-            const staggerDelay = i * 60;
-
-            const impPercent = Math.round((importance / 10) * 100);
-            const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
-
-            const shareText = encodeURIComponent(`${tile.title}\n\nvia DailyAI`);
-            const shareUrl = encodeURIComponent(tile.link || '');
-            const whyHtml = whyItMatters ? `<p class="tile-why">💡 ${escapeHtml(whyItMatters)}</p>` : '';
-
-            return `
-                <div class="news-tile cat-${category}" style="animation-delay:${staggerDelay}ms" id="tile-${i}"
-                     onclick="openModal(${i})" role="button" tabindex="0">
-                    <div class="tile-shine"></div>
-                    <div class="tile-body">
-                        <div class="tile-header">
-                            <div class="tile-icon ${category}">${emoji}</div>
-                            <div class="tile-header-text">
-                                <span class="tile-category ${category}">${escapeHtml(category)}</span>
-                                <div class="tile-importance-bar">
-                                    <div class="importance-track">
-                                        <div class="importance-fill ${impClass}" style="width:${impPercent}%"></div>
-                                    </div>
-                                    <span class="importance-num">${importance}/10</span>
-                                </div>
-                            </div>
-                        </div>
-                        <h2 class="tile-title">${escapeHtml(tile.title)}</h2>
-                        <p class="tile-summary">${escapeHtml(tile.summary || '')}</p>
-                        ${whyHtml}
-                        <div class="tile-footer">
-                            <span class="tile-source">${escapeHtml(tile.source || 'Unknown')}</span>
-                            <span class="tile-time">${timeAgo}</span>
-                        </div>
-                        <div class="tile-actions" onclick="event.stopPropagation()">
-                            <button class="share-btn share-twitter" onclick="event.stopPropagation(); window.open('https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}','_blank','width=550,height=420')" title="Share on X">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                            </button>
-                            <button class="share-btn share-linkedin" onclick="event.stopPropagation(); window.open('https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}','_blank','width=550,height=420')" title="Share on LinkedIn">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="tile-cta">Tap to expand ↗</div>
-                </div>`;
-        }).join('');
-    }
-
-    // ====================== EXPAND MODAL ======================
-    window.openModal = function(index) {
-        // Use renderedTiles — the exact array that was rendered, so indices always match
-        const tile = renderedTiles[index];
-        if (!tile) return;
-
-        const category = (tile.category || 'general').toLowerCase();
-        const emoji = CATEGORY_EMOJIS[category] || '📰';
-        const importance = tile.importance || 5;
-        const impPercent = Math.round((importance / 10) * 100);
-        const impClass = importance >= 8 ? 'high' : importance >= 5 ? 'mid' : 'low';
-
-        const modalIconEl = document.getElementById('modalIcon');
-        if (modalIconEl) {
-            modalIconEl.className = `modal-icon ${category}`;
-            modalIconEl.textContent = emoji;
-        }
-
-        document.getElementById('modalBadge').innerHTML = `<span class="tile-category ${category}">${escapeHtml(category)}</span>`;
-        document.getElementById('modalTitle').textContent = tile.title || '';
-        document.getElementById('modalSummary').textContent = tile.summary || '';
-
-        const whyBox = document.getElementById('modalWhyBox');
-        if (whyBox) {
-            if (tile.why_it_matters) {
-                whyBox.style.display = 'block';
-                document.getElementById('modalWhyText').textContent = tile.why_it_matters;
-            } else {
-                whyBox.style.display = 'none';
-            }
-        }
-
-        const impBar = document.getElementById('modalImportance');
-        if (impBar) {
-            document.getElementById('modalImpFill').className = `modal-importance-fill ${impClass}`;
-            document.getElementById('modalImpFill').style.width = `${impPercent}%`;
-            document.getElementById('modalImpLabel').textContent = `${importance}/10`;
-        }
-
-        document.getElementById('modalMeta').textContent = `${tile.source || 'Unknown'} • ${getTimeAgo(tile.published || tile.fetched_at)}`;
-        document.getElementById('modalLink').href = tile.link || '#';
-
-        const shareText = encodeURIComponent(`${tile.title}\n\nvia DailyAI`);
-        const shareUrl = encodeURIComponent(tile.link || '');
-        document.getElementById('modalShare').innerHTML = `
-            <button class="share-btn share-twitter" onclick="window.open('https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}','_blank','width=550,height=420')" title="Share on X">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </button>
-            <button class="share-btn share-linkedin" onclick="window.open('https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}','_blank','width=550,height=420')" title="Share on LinkedIn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-            </button>`;
-
-        modalOverlay.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    };
-
-    function closeModal() {
-        modalOverlay.classList.remove('show');
-        document.body.style.overflow = '';
-    }
-
-    // ====================== SUBSCRIBE ======================
-    async function onSubscribe(e) {
-        e.preventDefault();
-        const email = emailInput.value.trim();
-        if (!email) return;
-
-        const btn = document.getElementById('subscribeBtn');
-        btn.disabled = true;
-        btn.querySelector('.btn-text').textContent = 'Subscribing...';
-
-        try {
-            const resp = await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email,
-                    topics: selectedTopics.includes('all') ? [] : selectedTopics,
-                    country: currentCountry,
-                }),
-            });
-            const data = await resp.json();
-            if (resp.ok) {
-                showToast(`✅ ${data.message}`);
-                emailInput.value = '';
-                btn.querySelector('.btn-text').textContent = '✓ Subscribed!';
-                setTimeout(() => { btn.querySelector('.btn-text').textContent = 'Subscribe'; }, 3000);
-                fetchSubscriberCount();
-            } else {
-                showToast(`❌ ${data.error || 'Failed'}`);
-                btn.querySelector('.btn-text').textContent = 'Subscribe';
-            }
-        } catch {
-            showToast('❌ Network error');
-            btn.querySelector('.btn-text').textContent = 'Subscribe';
-        } finally { btn.disabled = false; }
-    }
-
+    // ====================== SUBSCRIBER COUNT ======================
     async function fetchSubscriberCount() {
         try {
             const resp = await fetch('/api/subscribers/count');
             const data = await resp.json();
-            if (data.count > 0 && subscriberCount) {
-                subscriberCount.textContent = `${data.count} reader${data.count === 1 ? '' : 's'} subscribed`;
-                subscriberCount.style.display = 'inline-block';
+            const count = data.count || 0;
+            if (count > 0) {
+                $('subCountVal').textContent = count.toLocaleString();
+                $('subCountWrap').style.display = 'block';
             }
-        } catch {}
+        } catch { /* silently ignore */ }
     }
 
-    // ====================== UTILITIES ======================
+    // ====================== SIDEBAR ======================
+    function openSidebar() {
+        sidebar.classList.add('show');
+        sidebarBackdrop.classList.add('show');
+    }
+    function closeSidebar() {
+        sidebar.classList.remove('show');
+        sidebarBackdrop.classList.remove('show');
+    }
+
+    // ====================== VIEW SWITCH ======================
+    function switchView(view) {
+        currentView = view;
+        closeSidebar();
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        if (view === 'discover') {
+            $('navDiscover').classList.add('active');
+            viewTitle.textContent = 'Discover';
+            filterTabs.style.display = '';
+            swipeContainer.style.display = '';
+            feed.style.display = 'none';
+            $('savedBtn').classList.remove('has-saved');
+        } else {
+            $('navSaved').classList.add('active');
+            viewTitle.textContent = 'Saved';
+            filterTabs.style.display = 'none';
+            swipeContainer.style.display = 'none';
+            feed.style.display = '';
+            $('savedBtn').classList.add('has-saved');
+            renderSavedList();
+        }
+    }
+
+    function renderSavedList() {
+        const savedIds = Object.keys(bookmarks);
+        if (savedIds.length === 0) {
+            feed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">🔖</p><p style="font-size:16px;font-weight:600;">No saved articles yet</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">Swipe right on cards to save them here.</p></div>';
+            return;
+        }
+        const saved = allArticles.filter(a => bookmarks[a.id]);
+        // Also show saved from bookmarks that have full data stored
+        const storedSaved = Object.values(bookmarks).filter(v => typeof v === 'object' && v.headline);
+        const combined = [...saved];
+        for (const s of storedSaved) {
+            if (!combined.find(c => c.id === s.id)) combined.push(s);
+        }
+        if (combined.length === 0) {
+            feed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:14px;color:var(--text3);">Saved articles appear after loading the feed.</p></div>';
+            return;
+        }
+        feed.innerHTML = combined.map((a, i) => createFeedCardHTML(a, i)).join('');
+        feed.querySelectorAll('.feed-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const article = combined.find(a => a.id === card.dataset.id);
+                if (article) openSheet(article);
+            });
+        });
+    }
+
+    function createFeedCardHTML(article, i) {
+        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
+        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
+        const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
+        const initial = (article.source_name || 'D')[0].toUpperCase();
+        const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        const imgHtml = article.image_url
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+        return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i*50}ms">
+            ${imgHtml}
+            <div class="card-body">
+                <h2 class="card-headline">${esc(article.headline)}</h2>
+                <p class="card-summary">${esc(article.summary)}</p>
+                ${whyHtml}
+                <div class="card-footer">
+                    <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
+                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ====================== SORT ======================
+    function restoreSort() {
+        document.querySelectorAll('.sort-option').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.sort === currentSort);
+        });
+    }
+    function onSortClick(e) {
+        const btn = e.target.closest('.sort-option');
+        if (!btn || btn.dataset.sort === currentSort) return;
+        currentSort = btn.dataset.sort;
+        localStorage.setItem('dailyai_sort', currentSort);
+        restoreSort();
+        sortArticles();
+        swipeCardIndex = 0;
+        renderSwipeStack();
+        closeSidebar();
+        showToast(currentSort === 'time' ? '🕐 Sorted by latest' : '⚡ Sorted by relevance');
+    }
+    function sortArticles() {
+        if (currentSort === 'time') {
+            allArticles.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+        }
+    }
+
+    // ====================== NEWSLETTER ======================
+    async function onSubscribe(e) {
+        e.preventDefault();
+        const email = $('emailInput').value.trim();
+        if (!email) return;
+        const btn = $('subscribeBtn');
+        btn.disabled = true; btn.textContent = 'Subscribing...';
+        try {
+            const resp = await fetch('/api/subscribe', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, topics: [], country: currentCountry }),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                $('subStatus').textContent = '✅ ' + (data.message || 'Subscribed!');
+                $('emailInput').value = '';
+                btn.textContent = '✓ Done!';
+                showToast('Subscribed! 🎉');
+                fetchSubscriberCount(); // Refresh count
+                setTimeout(() => { btn.textContent = 'Subscribe'; }, 3000);
+            } else {
+                $('subStatus').textContent = '❌ ' + (data.error || 'Failed');
+                btn.textContent = 'Subscribe';
+            }
+        } catch {
+            $('subStatus').textContent = '❌ Network error';
+            btn.textContent = 'Subscribe';
+        } finally { btn.disabled = false; }
+    }
+
+    // ====================== FETCH ======================
+    async function fetchArticles(topic) {
+        const param = topic === 'For You' ? 'all' : topic;
+        const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 6000));
+        try {
+            const resp = await Promise.race([
+                fetch(`${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}`),
+                timeout,
+            ]);
+            const data = await resp.json();
+            allArticles = (data.articles && data.articles.length > 0) ? data.articles : FALLBACK_ARTICLES;
+        } catch {
+            allArticles = FALLBACK_ARTICLES;
+        }
+        sortArticles();
+        swipeCardIndex = 0;
+        swipeEmpty.style.display = 'none';
+        renderSwipeStack();
+    }
+
+    // ====================== TABS ======================
+    function onTabClick(e) {
+        const pill = e.target.closest('.filter-pill');
+        if (!pill || pill.classList.contains('active')) return;
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentTopic = pill.dataset.topic;
+        showSkeleton();
+        fetchArticles(currentTopic);
+    }
+
+    // ====================== SWIPE STACK ======================
+    function renderSwipeStack() {
+        swipeStack.innerHTML = '';
+        const remaining = allArticles.slice(swipeCardIndex);
+        if (remaining.length === 0) {
+            swipeEmpty.style.display = 'flex';
+            return;
+        }
+        const visible = remaining.slice(0, 3);
+        visible.forEach((article) => {
+            const card = createSwipeCard(article);
+            swipeStack.appendChild(card);
+        });
+        const topCard = swipeStack.firstElementChild;
+        if (topCard) attachSwipeListeners(topCard);
+    }
+
+    function createSwipeCard(article) {
+        const card = document.createElement('div');
+        card.className = 'swipe-card';
+        card.dataset.id = article.id;
+        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
+        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
+        const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
+        const initial = (article.source_name || 'D')[0].toUpperCase();
+        const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        const imgHtml = article.image_url
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+        card.innerHTML = `
+            <div class="swipe-label swipe-label-save">SAVE</div>
+            <div class="swipe-label swipe-label-skip">SKIP</div>
+            ${imgHtml}
+            <div class="card-body">
+                <h2 class="card-headline">${esc(article.headline)}</h2>
+                <p class="card-summary">${esc(article.summary)}</p>
+                ${whyHtml}
+                <div class="card-footer">
+                    <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
+                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                </div>
+            </div>
+        `;
+        card.addEventListener('click', () => { if (Math.abs(deltaX) < 5) openSheet(article); });
+        return card;
+    }
+
+    // ====================== SWIPE ENGINE ======================
+    function attachSwipeListeners(card) {
+        card.addEventListener('touchstart', onPointerDown, { passive: true });
+        card.addEventListener('touchmove', onPointerMove, { passive: false });
+        card.addEventListener('touchend', onPointerUp, { passive: true });
+        card.addEventListener('mousedown', onPointerDown);
+    }
+    function onPointerDown(e) {
+        isDragging = true; deltaX = 0;
+        const p = e.touches ? e.touches[0] : e;
+        startX = p.clientX; startY = p.clientY;
+        if (!e.touches) { document.addEventListener('mousemove', onPointerMove); document.addEventListener('mouseup', onPointerUp); }
+    }
+    function onPointerMove(e) {
+        if (!isDragging) return;
+        const p = e.touches ? e.touches[0] : e;
+        deltaX = p.clientX - startX;
+        const deltaY = p.clientY - startY;
+        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaX) < 20) return;
+        if (e.cancelable) e.preventDefault();
+        const card = swipeStack.firstElementChild;
+        if (!card) return;
+        card.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.08}deg)`;
+        card.style.transition = 'none';
+        const t = 40;
+        const saveL = card.querySelector('.swipe-label-save');
+        const skipL = card.querySelector('.swipe-label-skip');
+        saveL.style.opacity = deltaX > t ? Math.min((deltaX - t) / 60, 1) : 0;
+        skipL.style.opacity = deltaX < -t ? Math.min((-deltaX - t) / 60, 1) : 0;
+    }
+    function onPointerUp() {
+        isDragging = false;
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        const card = swipeStack.firstElementChild;
+        if (!card) return;
+        if (deltaX > 80) { flyOut(card, 1); }
+        else if (deltaX < -80) { flyOut(card, -1); }
+        else {
+            card.classList.add('animating');
+            card.style.transform = '';
+            card.querySelector('.swipe-label-save').style.opacity = 0;
+            card.querySelector('.swipe-label-skip').style.opacity = 0;
+            setTimeout(() => card.classList.remove('animating'), 400);
+        }
+    }
+    function flyOut(card, dir) {
+        const article = allArticles[swipeCardIndex];
+        card.classList.add('animating');
+        card.style.transform = `translateX(${dir * 500}px) rotate(${dir * 30}deg)`;
+        card.style.opacity = '0';
+        if (dir > 0 && article) {
+            bookmarks[article.id] = article; // store full article for saved view
+            localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
+            showToast('Saved! 🔖');
+            updateSavedCount();
+        }
+        swipeCardIndex++;
+        setTimeout(() => renderSwipeStack(), 350);
+    }
+    function updateSavedCount() {
+        const count = Object.keys(bookmarks).length;
+        $('savedCount').textContent = count;
+        if (count > 0) $('savedBtn').classList.add('has-saved');
+    }
+
+    // ====================== SKELETON ======================
+    function showSkeleton() {
+        swipeStack.innerHTML = `
+            <div class="skeleton-card">
+                <div class="skeleton-image"></div>
+                <div class="skeleton-body">
+                    <div class="skeleton-line w80"></div>
+                    <div class="skeleton-line w60"></div>
+                    <div class="skeleton-line w40"></div>
+                </div>
+            </div>`;
+    }
+
+    // ====================== BOTTOM SHEET ======================
+    function openSheet(article) {
+        const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        sheetContent.innerHTML = `
+            <h2 class="sheet-headline">${esc(article.headline)}</h2>
+            <p class="sheet-summary">${esc(article.summary)}</p>
+            ${whyHtml}
+            <p class="sheet-meta">${esc(article.source_name)} • ${getTimeAgo(article.published_at)}</p>
+            <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">Read original →</a>
+        `;
+        sheetBackdrop.classList.add('show');
+        bottomSheet.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeSheet() {
+        sheetBackdrop.classList.remove('show');
+        bottomSheet.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    // ====================== STREAK ======================
+    function showStreak() {
+        const today = new Date().toISOString().slice(0, 10);
+        const lastDay = localStorage.getItem('dailyai_streak_day');
+        let streak = parseInt(localStorage.getItem('dailyai_streak_count') || '0', 10);
+        if (lastDay !== today) {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            streak = (lastDay === yesterday) ? streak + 1 : 1;
+            localStorage.setItem('dailyai_streak_day', today);
+            localStorage.setItem('dailyai_streak_count', String(streak));
+        }
+        // Show in sidebar
+        $('sidebarStreak').textContent = `🔥 Day ${streak} reading streak`;
+        // Show floating badge (dismissible per session)
+        if (!sessionStorage.getItem('dailyai_streak_dismissed') && streak >= 1) {
+            streakBadge.textContent = `🔥 Day ${streak} reading DailyAI`;
+            streakBadge.style.display = 'block';
+        }
+        streakBadge.addEventListener('click', () => {
+            streakBadge.style.display = 'none';
+            sessionStorage.setItem('dailyai_streak_dismissed', '1');
+        });
+    }
+
+    // ====================== TOAST ======================
+    let toastTimeout = null;
+    function showToast(msg) {
+        clearTimeout(toastTimeout);
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 2000);
+    }
+
+    // ====================== UTILS ======================
     function getTimeAgo(dateStr) {
         if (!dateStr) return '';
         try {
-            const d = new Date(dateStr), now = new Date(), ms = now - d;
-            const m = Math.floor(ms / 60000), h = Math.floor(m / 60), dy = Math.floor(h / 24);
+            const d = new Date(dateStr), now = new Date();
+            const m = Math.floor((now - d) / 60000);
             if (m < 1) return 'Just now';
             if (m < 60) return `${m}m ago`;
+            const h = Math.floor(m / 60);
             if (h < 24) return `${h}h ago`;
+            const dy = Math.floor(h / 24);
             if (dy < 7) return `${dy}d ago`;
             return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         } catch { return ''; }
     }
-
-    function showLoading() {
-        tilesContainer.style.display = 'none';
-        emptyState.style.display = 'none';
-        loadingContainer.style.display = 'flex';
-        startLoadingEmojis();
-    }
-
-    function startLoadingEmojis() {
-        let idx = 0;
-        const el = document.getElementById('morphEmoji');
-        if (!el) return;
-        loadingEmojiInterval = setInterval(() => {
-            idx = (idx + 1) % LOADING_EMOJIS.length;
-            el.textContent = LOADING_EMOJIS[idx];
-        }, 1500);
-    }
-
-    function stopLoadingEmojis() {
-        if (loadingEmojiInterval) {
-            clearInterval(loadingEmojiInterval);
-            loadingEmojiInterval = null;
-        }
-    }
-
-    function showEmpty() { tilesContainer.style.display = 'none'; loadingContainer.style.display = 'none'; emptyState.style.display = 'flex'; }
-
-    let toastEl = null, toastTimeout = null;
-    function showToast(msg) {
-        if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'toast'; document.body.appendChild(toastEl); }
-        clearTimeout(toastTimeout);
-        toastEl.textContent = msg;
-        toastEl.offsetHeight;
-        toastEl.classList.add('show');
-        toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 3000);
-    }
-
-    function updateClock() {
-        clockDisplay.textContent = new Date().toLocaleString('en-US', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short',
-        });
-    }
-
-    function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
-
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
+    function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
     document.addEventListener('DOMContentLoaded', init);
 })();

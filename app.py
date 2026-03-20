@@ -72,6 +72,16 @@ TOPICS = {
     "autonomous": "🚗 Autonomous",
 }
 
+# Mapping from internal topics/categories to mobile UI topic labels
+UI_TOPIC_MAP = {
+    "llms": "AI Models", "big_tech": "Top Stories", "startups": "Business",
+    "research": "Research", "funding": "Business", "regulation": "Top Stories",
+    "open_source": "Tools", "ai_safety": "Top Stories", "robotics": "Tech & Science",
+    "healthcare": "Tech & Science", "autonomous": "Tech & Science",
+    "breakthrough": "Top Stories", "product": "Tools", "industry": "Business",
+    "general": "Top Stories",
+}
+
 MAX_TILES = 24
 
 # ---------------------------------------------------------------------------
@@ -164,8 +174,16 @@ async def lifespan(app: FastAPI):
 
     # Schedule daily digest email at 7 AM UTC (only if Resend is configured)
     if os.getenv("RESEND_API_KEY"):
-        from digest import send_digest
-        scheduler.add_job(send_digest, "cron", hour=7, minute=0, id="daily_digest", replace_existing=True)
+        def run_digest_sync():
+            """Wrapper to run async send_digest in the event loop."""
+            import asyncio
+            from digest import send_digest
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(send_digest())
+            else:
+                loop.run_until_complete(send_digest())
+        scheduler.add_job(run_digest_sync, "cron", hour=7, minute=0, id="daily_digest", replace_existing=True)
         logger.info("📧 Daily digest scheduled for 7:00 AM UTC")
 
     scheduler.start()
@@ -250,6 +268,70 @@ async def get_news(country_code: str):
 @app.get("/api/thought")
 async def get_thought():
     return get_daily_thought()
+
+
+# ---------------------------------------------------------------------------
+# Countries API (mobile UI)
+# ---------------------------------------------------------------------------
+@app.get("/api/countries")
+async def get_countries():
+    return {"countries": COUNTRIES}
+
+
+# ---------------------------------------------------------------------------
+# Articles API (mobile UI)
+# ---------------------------------------------------------------------------
+@app.get("/api/articles")
+async def get_articles(topic: str = "all", country: str = "GLOBAL"):
+    """Mobile-optimized articles endpoint with country support."""
+    country = country.upper()
+    if country not in COUNTRIES:
+        country = "GLOBAL"
+
+    # Lazy-load news for requested country
+    if country not in NEWS_STORE:
+        await refresh_news(country)
+
+    tiles = NEWS_STORE.get(country, [])
+
+    # If country-specific has < 10 tiles, pad with GLOBAL
+    if len(tiles) < 10 and country != "GLOBAL":
+        if "GLOBAL" not in NEWS_STORE:
+            await refresh_news("GLOBAL")
+        global_tiles = NEWS_STORE.get("GLOBAL", [])
+        existing_titles = {t.get("title", "").lower() for t in tiles}
+        for gt in global_tiles:
+            if gt.get("title", "").lower() not in existing_titles:
+                tiles.append(gt)
+            if len(tiles) >= 20:
+                break
+
+    # Max limit: 20 for GLOBAL, 20 for others too
+    max_limit = 20
+    tiles = tiles[:max_limit]
+
+    articles = []
+    for i, t in enumerate(tiles):
+        internal_topic = (t.get("topic") or t.get("category") or "general").lower()
+        ui_topic = UI_TOPIC_MAP.get(internal_topic, "Top Stories")
+
+        # Filter by topic if not "all" / "For You"
+        if topic not in ("all", "For You") and ui_topic != topic:
+            continue
+
+        articles.append({
+            "id": f"{country}-{i}",
+            "headline": t.get("title", ""),
+            "summary": (t.get("summary", "") or "")[:280],
+            "why_it_matters": (t.get("why_it_matters", "") or "")[:130],
+            "topic": ui_topic,
+            "source_name": t.get("source", "Unknown"),
+            "source_avatar_url": None,
+            "image_url": None,
+            "article_url": t.get("link", "#"),
+            "published_at": t.get("published", t.get("fetched_at", "")),
+        })
+    return {"articles": articles, "country": country, "country_name": COUNTRIES.get(country, country)}
 
 
 @app.post("/api/refresh/{country_code}")
