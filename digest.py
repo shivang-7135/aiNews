@@ -1,7 +1,8 @@
 """
 DailyAI — Email Digest Generator
-Generates a styled HTML email from the top news tiles.
-Optionally sends via Resend API if RESEND_API_KEY is set.
+1. Welcome email (sent immediately on subscribe) with top 10 global news
+2. Daily digest (sent at 8 AM UTC) with top 10 news
+Uses Resend API for sending.
 """
 
 import os
@@ -9,6 +10,9 @@ import logging
 from datetime import datetime, timezone
 
 logger = logging.getLogger("dailyai.digest")
+
+# App URL
+APP_URL = os.getenv("APP_URL", "https://shark-app-96259.ondigitalocean.app")
 
 # Category colors for email
 CATEGORY_COLORS = {
@@ -22,62 +26,69 @@ CATEGORY_COLORS = {
 }
 
 
-def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
-    """Generate a styled HTML email digest from news tiles."""
-    if not date_str:
-        date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
-
+def _render_stories_html(tiles: list[dict]) -> str:
+    """Render HTML rows for a list of tiles."""
     stories_html = ""
     for i, tile in enumerate(tiles[:10]):
         cat = tile.get("category", "general")
         color = CATEGORY_COLORS.get(cat, "#f59e0b")
         importance = tile.get("importance", 5)
         stars = "🔥" if importance >= 8 else "⭐" if importance >= 6 else ""
-
         why = tile.get("why_it_matters", "")
-        why_html = f'<p style="margin:6px 0 0;font-size:13px;color:#a78bfa;font-style:italic;">💡 {why}</p>' if why else ""
+        why_html = f'<p style="margin:6px 0 0;font-size:13px;color:#2dd4a0;font-style:italic;">💡 {why}</p>' if why else ""
+        link = tile.get("link", "#")
+        title = tile.get("title", "")
+        summary = tile.get("summary", "")
+        source = tile.get("source", "")
+        published = tile.get("published", "")
+        pub_display = published[:10] if published else ""
 
         stories_html += f"""
         <tr>
           <td style="padding:16px 20px;border-bottom:1px solid #1e1e3f;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="margin-bottom:6px;">
               <span style="background:{color}22;color:{color};font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;letter-spacing:0.5px;">{cat}</span>
-              <span style="font-size:12px;color:#6b6b8d;">{stars}</span>
+              <span style="font-size:12px;color:#6b6b8d;margin-left:6px;">{stars}</span>
             </div>
-            <a href="{tile.get('link', '#')}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;line-height:1.4;">{tile.get('title', '')}</a>
-            <p style="margin:6px 0 0;font-size:13px;color:#a0a0c0;line-height:1.5;">{tile.get('summary', '')}</p>
+            <a href="{link}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;line-height:1.4;">{i+1}. {title}</a>
+            <p style="margin:6px 0 0;font-size:13px;color:#a0a0c0;line-height:1.5;">{summary}</p>
             {why_html}
-            <p style="margin:8px 0 0;font-size:11px;color:#6b6b8d;">{tile.get('source', '')} • {tile.get('published', '')[:10] if tile.get('published') else ''}</p>
+            <p style="margin:8px 0 0;font-size:11px;color:#6b6b8d;">{source} • {pub_display}</p>
           </td>
         </tr>"""
+    return stories_html
 
-    html = f"""<!DOCTYPE html>
+
+def _build_email(subject_emoji: str, heading: str, subheading: str,
+                 intro_text: str, stories_html: str, date_str: str) -> str:
+    """Build a full HTML email wrapper around the stories."""
+    return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#06061a;font-family:'Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#06061a;">
+<body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0b;">
     <tr><td align="center" style="padding:20px;">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
         <!-- Header -->
         <tr>
-          <td style="padding:30px 20px;text-align:center;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:16px 16px 0 0;">
-            <h1 style="margin:0;color:white;font-size:24px;font-weight:800;">🤖 DailyAI</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Your Daily AI Intelligence Brief</p>
-            <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:11px;">{date_str}</p>
+          <td style="padding:30px 20px;text-align:center;background:linear-gradient(135deg,#111113,#1e1e22);border-radius:16px 16px 0 0;border:1px solid #2a2a2e;border-bottom:none;">
+            <h1 style="margin:0;color:#2dd4a0;font-size:28px;font-weight:800;">{subject_emoji} DailyAI</h1>
+            <p style="margin:8px 0 0;color:#ffffff;font-size:16px;font-weight:600;">{heading}</p>
+            <p style="margin:4px 0 0;color:#7a7a85;font-size:12px;">{subheading} • {date_str}</p>
           </td>
         </tr>
 
         <!-- Intro -->
         <tr>
-          <td style="padding:20px;background:#0d0d2b;color:#a0a0c0;font-size:14px;line-height:1.6;">
-            Here are the top AI stories from the past 24 hours, curated by our AI agent. Each story is ranked by importance and categorized for quick scanning.
+          <td style="padding:20px;background:#111113;color:#b0b0b8;font-size:14px;line-height:1.6;border-left:1px solid #2a2a2e;border-right:1px solid #2a2a2e;">
+            {intro_text}
           </td>
         </tr>
 
         <!-- Stories -->
         <tr>
-          <td style="background:#0d0d2b;">
+          <td style="background:#111113;border-left:1px solid #2a2a2e;border-right:1px solid #2a2a2e;">
             <table width="100%" cellpadding="0" cellspacing="0">
               {stories_html}
             </table>
@@ -86,8 +97,8 @@ def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
 
         <!-- CTA -->
         <tr>
-          <td style="padding:24px 20px;background:#0d0d2b;text-align:center;">
-            <a href="https://ainews-m369.onrender.com" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
+          <td style="padding:24px 20px;background:#111113;text-align:center;border-left:1px solid #2a2a2e;border-right:1px solid #2a2a2e;">
+            <a href="{APP_URL}" style="display:inline-block;padding:14px 32px;background:#2dd4a0;color:#000;font-size:14px;font-weight:700;text-decoration:none;border-radius:12px;">
               📱 Open DailyAI App
             </a>
           </td>
@@ -95,10 +106,10 @@ def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
 
         <!-- Footer -->
         <tr>
-          <td style="padding:20px;background:#06061a;text-align:center;border-radius:0 0 16px 16px;border-top:1px solid #1e1e3f;">
+          <td style="padding:20px;background:#0a0a0b;text-align:center;border-radius:0 0 16px 16px;border:1px solid #2a2a2e;border-top:none;">
             <p style="margin:0;font-size:11px;color:#6b6b8d;">
               Powered by AI Agent • Curated hourly from 50+ sources<br>
-              <a href="https://ainews-m369.onrender.com" style="color:#6366f1;text-decoration:none;">DailyAI</a> •
+              <a href="{APP_URL}" style="color:#2dd4a0;text-decoration:none;">DailyAI</a> •
               Reply to this email to give feedback
             </p>
           </td>
@@ -110,21 +121,78 @@ def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
 </body>
 </html>"""
 
-    return html
+
+def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
+    """Generate the daily digest HTML."""
+    if not date_str:
+        date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    stories = _render_stories_html(tiles)
+    return _build_email(
+        subject_emoji="🤖",
+        heading="Your Daily AI Intelligence Brief",
+        subheading="Top 10 AI stories from the past 24 hours",
+        intro_text="Here are the top AI stories from the past 24 hours, curated by our AI agent. Each story is ranked by importance and categorized for quick scanning.",
+        stories_html=stories,
+        date_str=date_str,
+    )
+
+
+def generate_welcome_html(tiles: list[dict]) -> str:
+    """Generate the welcome email HTML with top 10 current news."""
+    date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    stories = _render_stories_html(tiles)
+    return _build_email(
+        subject_emoji="👋",
+        heading="Welcome to DailyAI!",
+        subheading="You're now part of the AI-informed crew",
+        intro_text="Thanks for subscribing! 🎉 You'll receive the <strong>top 10 AI stories</strong> in your inbox every morning at 8 AM UTC. Here's what's trending in AI right now:",
+        stories_html=stories,
+        date_str=date_str,
+    )
+
+
+def _get_resend():
+    """Get a configured resend instance, or None."""
+    resend_key = os.getenv("RESEND_API_KEY", "")
+    if not resend_key:
+        logger.info("[Email] RESEND_API_KEY not set — skipping email send")
+        return None
+    try:
+        import resend
+        resend.api_key = resend_key
+        return resend
+    except ImportError:
+        logger.warning("[Email] resend package not installed — skipping")
+        return None
+
+
+async def send_welcome_email(email: str, tiles: list[dict]):
+    """Send welcome email with top 10 news immediately after subscribe."""
+    resend_mod = _get_resend()
+    if not resend_mod:
+        return
+
+    if not tiles:
+        logger.info(f"[Welcome] No tiles available for welcome email to {email}")
+        return
+
+    html = generate_welcome_html(tiles[:10])
+    try:
+        resend_mod.Emails.send({
+            "from": "DailyAI <onboarding@resend.dev>",
+            "to": email,
+            "subject": "👋 Welcome to DailyAI — Here's today's top AI news!",
+            "html": html,
+        })
+        logger.info(f"[Welcome] ✅ Sent welcome email to {email}")
+    except Exception as e:
+        logger.warning(f"[Welcome] ❌ Failed to send to {email}: {e}")
 
 
 async def send_digest():
     """Send daily digest to all subscribers. Requires RESEND_API_KEY."""
-    resend_key = os.getenv("RESEND_API_KEY", "")
-    if not resend_key:
-        logger.info("[Digest] RESEND_API_KEY not set — skipping email send")
-        return
-
-    try:
-        import resend
-        resend.api_key = resend_key
-    except ImportError:
-        logger.warning("[Digest] resend package not installed — skipping")
+    resend_mod = _get_resend()
+    if not resend_mod:
         return
 
     # Import here to avoid circular imports
@@ -143,14 +211,18 @@ async def send_digest():
     html = generate_digest_html(tiles[:10])
     date_str = datetime.now(timezone.utc).strftime("%b %d")
 
+    sent = 0
     for sub in subscribers:
         try:
-            resend.Emails.send({
-                "from": "DailyAI <digest@dailyai.news>",
+            resend_mod.Emails.send({
+                "from": "DailyAI <onboarding@resend.dev>",
                 "to": sub["email"],
                 "subject": f"🤖 DailyAI Brief — {date_str}",
                 "html": html,
             })
+            sent += 1
             logger.info(f"[Digest] Sent to {sub['email']}")
         except Exception as e:
             logger.warning(f"[Digest] Failed to send to {sub['email']}: {e}")
+
+    logger.info(f"[Digest] ✅ Sent digest to {sent}/{len(subscribers)} subscribers")

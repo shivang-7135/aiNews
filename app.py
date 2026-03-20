@@ -183,8 +183,8 @@ async def lifespan(app: FastAPI):
                 asyncio.ensure_future(send_digest())
             else:
                 loop.run_until_complete(send_digest())
-        scheduler.add_job(run_digest_sync, "cron", hour=7, minute=0, id="daily_digest", replace_existing=True)
-        logger.info("📧 Daily digest scheduled for 7:00 AM UTC")
+        scheduler.add_job(run_digest_sync, "cron", hour=8, minute=0, id="daily_digest", replace_existing=True)
+        logger.info("📧 Daily digest scheduled for 8:00 AM UTC")
 
     scheduler.start()
     logger.info("⏰ Scheduler started — updates every hour")
@@ -375,7 +375,14 @@ async def subscribe(req: SubscribeRequest):
     })
     save_subscribers(subs)
     logger.info(f"📧 New subscriber: {email} (topics: {req.topics})")
-    return {"status": "subscribed", "message": "You're in! Daily AI digest coming soon."}
+
+    # Send welcome email with top 10 news (non-blocking)
+    tiles = NEWS_STORE.get("GLOBAL", [])
+    if tiles:
+        from digest import send_welcome_email
+        asyncio.create_task(send_welcome_email(email, tiles[:10]))
+
+    return {"status": "subscribed", "message": "You're in! Check your inbox for today's top AI stories."}
 
 
 @app.get("/api/subscribers/count")
