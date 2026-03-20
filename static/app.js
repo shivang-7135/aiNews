@@ -1,5 +1,4 @@
-// DailyAI — Replace endpoint on line 3: GET /api/articles
-// No user data collected. localStorage only.
+// DailyAI v3.0 — Swipe + Scroll mode, Onboarding, Auto-dismiss streak
 const API_URL = '/api/articles';
 
 (function () {
@@ -36,6 +35,7 @@ const API_URL = '/api/articles';
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let currentView = 'discover';
+    let feedMode = localStorage.getItem('dailyai_mode') || 'swipe'; // 'swipe' or 'scroll'
     let bookmarks = JSON.parse(localStorage.getItem('dailyai_bookmarks') || '{}');
     let swipeCardIndex = 0;
     let isDragging = false, startX = 0, startY = 0, deltaX = 0;
@@ -44,6 +44,7 @@ const API_URL = '/api/articles';
     const $ = id => document.getElementById(id);
     const swipeStack = $('swipeStack');
     const swipeContainer = $('swipeContainer');
+    const scrollFeed = $('scrollFeed');
     const swipeEmpty = $('swipeEmpty');
     const feed = $('feed');
     const filterTabs = $('filterTabs');
@@ -57,6 +58,7 @@ const API_URL = '/api/articles';
     const viewTitle = $('viewTitle');
     const topBarCountry = $('topBarCountry');
     const countrySelect = $('countrySelect');
+    const modeToggle = $('modeToggle');
 
     // ====================== INIT ======================
     function init() {
@@ -82,11 +84,14 @@ const API_URL = '/api/articles';
         // Filter tabs
         filterTabs.addEventListener('click', onTabClick);
 
+        // Mode toggle
+        modeToggle.addEventListener('click', toggleFeedMode);
+
         // Reload
         $('reloadBtn').addEventListener('click', () => {
             swipeCardIndex = 0;
             swipeEmpty.style.display = 'none';
-            renderSwipeStack();
+            renderFeed();
         });
 
         // Bottom sheet
@@ -102,12 +107,130 @@ const API_URL = '/api/articles';
         showStreak();
         updateSavedCount();
         restoreSort();
+        restoreFeedMode();
         loadCountries();
         fetchSubscriberCount();
+
+        // Onboarding check
+        if (!localStorage.getItem('dailyai_onboarded')) {
+            showOnboarding();
+        }
 
         // Load feed
         showSkeleton();
         fetchArticles(currentTopic);
+    }
+
+    // ====================== ONBOARDING ======================
+    function showOnboarding() {
+        const overlay = $('onboardingOverlay');
+        overlay.style.display = 'flex';
+
+        $('onboardStart').addEventListener('click', () => {
+            dismissOnboarding(overlay, 'swipe');
+        });
+        $('onboardScroll').addEventListener('click', () => {
+            dismissOnboarding(overlay, 'scroll');
+        });
+
+        // Also dismiss on background tap
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) dismissOnboarding(overlay, feedMode);
+        });
+    }
+
+    function dismissOnboarding(overlay, mode) {
+        localStorage.setItem('dailyai_onboarded', '1');
+        overlay.classList.add('hide');
+        setTimeout(() => { overlay.style.display = 'none'; }, 400);
+
+        if (mode !== feedMode) {
+            feedMode = mode;
+            localStorage.setItem('dailyai_mode', feedMode);
+            restoreFeedMode();
+            renderFeed();
+        }
+    }
+
+    // ====================== FEED MODE ======================
+    function toggleFeedMode() {
+        feedMode = feedMode === 'swipe' ? 'scroll' : 'swipe';
+        localStorage.setItem('dailyai_mode', feedMode);
+        restoreFeedMode();
+        renderFeed();
+        showToast(feedMode === 'scroll' ? '↕ Scroll mode' : '👆 Swipe mode');
+    }
+
+    function restoreFeedMode() {
+        if (feedMode === 'scroll') {
+            modeToggle.textContent = '👆 Swipe';
+            modeToggle.classList.add('active');
+        } else {
+            modeToggle.textContent = '↕ Scroll';
+            modeToggle.classList.remove('active');
+        }
+    }
+
+    function renderFeed() {
+        if (currentView !== 'discover') return;
+        if (feedMode === 'scroll') {
+            swipeContainer.style.display = 'none';
+            scrollFeed.style.display = '';
+            renderScrollFeed();
+        } else {
+            scrollFeed.style.display = 'none';
+            swipeContainer.style.display = '';
+            renderSwipeStack();
+        }
+    }
+
+    // ====================== SCROLL FEED (InShorts) ======================
+    function renderScrollFeed() {
+        scrollFeed.innerHTML = '';
+        const articles = getFilteredArticles();
+        if (articles.length === 0) {
+            scrollFeed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">📰</p><p style="font-size:16px;font-weight:600;">No stories yet</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">Pull down to refresh.</p></div>';
+            return;
+        }
+        articles.forEach(article => {
+            const card = createScrollCard(article);
+            scrollFeed.appendChild(card);
+        });
+    }
+
+    function createScrollCard(article) {
+        const card = document.createElement('div');
+        card.className = 'scroll-card';
+        card.dataset.id = article.id;
+        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
+        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
+        const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
+        const initial = (article.source_name || 'D')[0].toUpperCase();
+        const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        const imgHtml = article.image_url
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+
+        const isSaved = !!bookmarks[article.id];
+        card.innerHTML = `
+            ${imgHtml}
+            <div class="card-body">
+                <h2 class="card-headline">${esc(article.headline)}</h2>
+                <p class="card-summary">${esc(article.summary)}</p>
+                ${whyHtml}
+                <div class="card-footer">
+                    <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
+                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                </div>
+            </div>
+        `;
+        card.addEventListener('click', () => openSheet(article));
+        return card;
+    }
+
+    function getFilteredArticles() {
+        if (currentTopic === 'For You') return allArticles;
+        return allArticles.filter(a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase());
     }
 
     // ====================== COUNTRIES ======================
@@ -179,16 +302,19 @@ const API_URL = '/api/articles';
             $('navDiscover').classList.add('active');
             viewTitle.textContent = 'Discover';
             filterTabs.style.display = '';
-            swipeContainer.style.display = '';
             feed.style.display = 'none';
             $('savedBtn').classList.remove('has-saved');
+            modeToggle.style.display = '';
+            renderFeed();
         } else {
             $('navSaved').classList.add('active');
             viewTitle.textContent = 'Saved';
             filterTabs.style.display = 'none';
             swipeContainer.style.display = 'none';
+            scrollFeed.style.display = 'none';
             feed.style.display = '';
             $('savedBtn').classList.add('has-saved');
+            modeToggle.style.display = 'none';
             renderSavedList();
         }
     }
@@ -200,7 +326,6 @@ const API_URL = '/api/articles';
             return;
         }
         const saved = allArticles.filter(a => bookmarks[a.id]);
-        // Also show saved from bookmarks that have full data stored
         const storedSaved = Object.values(bookmarks).filter(v => typeof v === 'object' && v.headline);
         const combined = [...saved];
         for (const s of storedSaved) {
@@ -256,7 +381,7 @@ const API_URL = '/api/articles';
         restoreSort();
         sortArticles();
         swipeCardIndex = 0;
-        renderSwipeStack();
+        renderFeed();
         closeSidebar();
         showToast(currentSort === 'time' ? '🕐 Sorted by latest' : '⚡ Sorted by relevance');
     }
@@ -284,7 +409,7 @@ const API_URL = '/api/articles';
                 $('emailInput').value = '';
                 btn.textContent = '✓ Done!';
                 showToast('Subscribed! 🎉');
-                fetchSubscriberCount(); // Refresh count
+                fetchSubscriberCount();
                 setTimeout(() => { btn.textContent = 'Subscribe'; }, 3000);
             } else {
                 $('subStatus').textContent = '❌ ' + (data.error || 'Failed');
@@ -299,7 +424,7 @@ const API_URL = '/api/articles';
     // ====================== FETCH ======================
     async function fetchArticles(topic) {
         const param = topic === 'For You' ? 'all' : topic;
-        const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 6000));
+        const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000));
         try {
             const resp = await Promise.race([
                 fetch(`${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}`),
@@ -313,7 +438,7 @@ const API_URL = '/api/articles';
         sortArticles();
         swipeCardIndex = 0;
         swipeEmpty.style.display = 'none';
-        renderSwipeStack();
+        renderFeed();
     }
 
     // ====================== TABS ======================
@@ -426,7 +551,7 @@ const API_URL = '/api/articles';
         card.style.transform = `translateX(${dir * 500}px) rotate(${dir * 30}deg)`;
         card.style.opacity = '0';
         if (dir > 0 && article) {
-            bookmarks[article.id] = article; // store full article for saved view
+            bookmarks[article.id] = article;
             localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
             showToast('Saved! 🔖');
             updateSavedCount();
@@ -456,13 +581,27 @@ const API_URL = '/api/articles';
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        const isSaved = !!bookmarks[article.id];
         sheetContent.innerHTML = `
             <h2 class="sheet-headline">${esc(article.headline)}</h2>
             <p class="sheet-summary">${esc(article.summary)}</p>
             ${whyHtml}
             <p class="sheet-meta">${esc(article.source_name)} • ${getTimeAgo(article.published_at)}</p>
-            <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">Read original →</a>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">Read original →</a>
+                <button class="sheet-link" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;" onclick="this.closest('.sheet-content').querySelector('.save-feedback').style.display='block';${isSaved ? '' : `window._saveFromSheet('${esc(article.id)}')`}">${isSaved ? '✓ Saved' : '🔖 Save'}</button>
+            </div>
+            <p class="save-feedback" style="display:none;margin-top:8px;font-size:12px;color:var(--accent);">✓ Added to saved articles</p>
         `;
+        // Expose save function
+        window._saveFromSheet = (id) => {
+            const a = allArticles.find(x => x.id === id);
+            if (a) {
+                bookmarks[a.id] = a;
+                localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
+                updateSavedCount();
+            }
+        };
         sheetBackdrop.classList.add('show');
         bottomSheet.classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -486,15 +625,19 @@ const API_URL = '/api/articles';
         }
         // Show in sidebar
         $('sidebarStreak').textContent = `🔥 Day ${streak} reading streak`;
-        // Show floating badge (dismissible per session)
+        // Show floating badge — auto-dismiss after 4 seconds
         if (!sessionStorage.getItem('dailyai_streak_dismissed') && streak >= 1) {
             streakBadge.textContent = `🔥 Day ${streak} reading DailyAI`;
             streakBadge.style.display = 'block';
+            // Fade in after animation delay
+            setTimeout(() => streakBadge.classList.add('visible'), 600);
+            // Auto fade out after 4 seconds
+            setTimeout(() => {
+                streakBadge.classList.add('fade-out');
+                sessionStorage.setItem('dailyai_streak_dismissed', '1');
+                setTimeout(() => { streakBadge.style.display = 'none'; }, 1000);
+            }, 4000);
         }
-        streakBadge.addEventListener('click', () => {
-            streakBadge.style.display = 'none';
-            sessionStorage.setItem('dailyai_streak_dismissed', '1');
-        });
     }
 
     // ====================== TOAST ======================

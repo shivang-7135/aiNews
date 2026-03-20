@@ -12,10 +12,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=2.5">
+    <link rel="stylesheet" href="/static/styles.css?v=3.0">
 </head>
 <body>
     <div class="app-shell" id="appShell">
+
+        <!-- ===== Onboarding Overlay ===== -->
+        <div class="onboarding-overlay" id="onboardingOverlay" style="display:none;">
+            <div class="onboard-hand">👆</div>
+            <h2 class="onboard-title">Welcome to DailyAI</h2>
+            <p class="onboard-desc">
+                Swipe <strong>right</strong> to save stories you love.<br>
+                Swipe <strong>left</strong> to skip.<br>
+                Tap any card to read the full summary.
+            </p>
+            <div class="onboard-actions">
+                <button class="onboard-btn onboard-btn-primary" id="onboardStart">Got it, let's go! 🚀</button>
+                <button class="onboard-btn onboard-btn-secondary" id="onboardScroll">I prefer scrolling ↕</button>
+            </div>
+        </div>
 
         <!-- ===== Sidebar Menu ===== -->
         <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -74,7 +89,7 @@
             <div class="sidebar-footer">
                 <p>Swipe right to save · Left to skip</p>
                 <p class="sidebar-streak" id="sidebarStreak"></p>
-                <p style="margin-top:4px;opacity:0.5;">v2.0 — No login required</p>
+                <p style="margin-top:4px;opacity:0.5;">v3.0 — No login required</p>
             </div>
         </aside>
 
@@ -87,9 +102,12 @@
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
                 <span class="top-bar-country" id="topBarCountry">🌐 Global</span>
             </div>
-            <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </button>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button class="mode-toggle" id="modeToggle" title="Switch view mode">↕ Scroll</button>
+                <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </button>
+            </div>
         </header>
 
         <!-- ===== Filter Tabs ===== -->
@@ -120,6 +138,9 @@
             </div>
         </div>
 
+        <!-- ===== Scroll Feed (InShorts mode) ===== -->
+        <div class="scroll-feed" id="scrollFeed" style="display:none;"></div>
+
         <!-- ===== List Feed (Saved) ===== -->
         <main class="feed" id="feed" style="display:none;"></main>
 
@@ -137,6 +158,6 @@
         <div class="streak-badge" id="streakBadge" style="display:none;"></div>
     </div>
 
-    <script src="/static/app.js?v=2.2"></script>
+    <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>

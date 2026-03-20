@@ -95,10 +95,15 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# LLM Providers — tries HuggingFace first, then Groq (both free)
+# LLM Providers — tries Google Gemini first, then HuggingFace, then Groq
 # ---------------------------------------------------------------------------
 
-# Provider 1: HuggingFace router
+# Provider 0: Google Gemini (free via AI Studio — ~1500 req/day, 1M TPM)
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+GEMINI_MODELS = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+]
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODELS = [
     "Qwen/Qwen2.5-72B-Instruct",
@@ -159,9 +164,53 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
     return ""
 
 
+async def _try_gemini(models: list[str], messages: list[dict],
+                      api_key: str, max_tokens: int = 2048) -> str:
+    """Try Google Gemini models using the AI Studio OpenAI-compatible endpoint."""
+    for model in models:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=90) as client:
+                resp = await client.post(
+                    f"{GEMINI_API_URL}?key={api_key}",
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        content = choices[0].get("message", {}).get("content", "")
+                        if content:
+                            logger.info(f"[LLM] ✅ Got response from {model}")
+                            return content
+                elif resp.status_code == 429:
+                    logger.warning(f"[LLM] {model} → 429 Rate limited, skipping")
+                    continue
+                else:
+                    logger.warning(f"[LLM] {model} → {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.warning(f"[LLM] {model} failed: {e}")
+            continue
+    return ""
+
+
 async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Try HuggingFace first, then Groq as fallback."""
+    """Try Google Gemini first, then HuggingFace, then Groq as fallback."""
     import os
+
+    # Try Google Gemini first (most generous free tier)
+    gemini_key = os.getenv("GOOGLE_AI_KEY", "")
+    if gemini_key:
+        result = await _try_gemini(GEMINI_MODELS, messages, gemini_key, max_tokens)
+        if result:
+            return result
+        logger.warning("[LLM] All Gemini models failed, trying HuggingFace...")
 
     # Try HuggingFace
     if hf_token:

@@ -30,6 +30,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior-y: contain;
+    min-height: 100vh; min-height: 100dvh;
 }
 .app-shell {
     max-width: 430px; margin: 0 auto; background: var(--bg);
@@ -145,9 +146,11 @@ body {
 
 /* ========== TOP BAR ========== */
 .top-bar {
-    position: sticky; top: 0; z-index: 50; height: 52px;
+    position: sticky; top: 0; z-index: 50;
+    height: calc(52px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 14px; background: var(--bg);
+    padding-left: 14px; padding-right: 14px; background: var(--bg);
 }
 .top-bar-center { text-align: center; }
 .top-bar-title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; line-height: 1.2; }
@@ -159,6 +162,15 @@ body {
 }
 .top-bar-btn:active { background: rgba(255,255,255,0.06); }
 .top-bar-btn.has-saved svg { fill: var(--accent); stroke: var(--accent); }
+.mode-toggle {
+    height: 28px; padding: 0 10px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12); background: none;
+    color: var(--text3); font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    font-family: var(--font);
+}
+.mode-toggle:active { transform: scale(0.95); }
+.mode-toggle.active { background: rgba(45,212,160,0.1); border-color: var(--accent); color: var(--accent); }
 
 /* ========== FILTER TABS ========== */
 .filter-tabs {
@@ -182,7 +194,8 @@ body {
 /* ========== SWIPE CONTAINER (Tinder) ========== */
 .swipe-container {
     position: relative; z-index: 10;
-    height: calc(100vh - 96px); height: calc(100dvh - 96px);
+    height: calc(100vh - 96px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 96px - env(safe-area-inset-top, 0px));
     display: flex; flex-direction: column; align-items: center;
     justify-content: flex-start; padding: 8px 0 0;
     overflow: hidden;
@@ -192,6 +205,29 @@ body {
     display: flex; align-items: flex-start; justify-content: center;
     padding: 0 12px;
 }
+
+/* ========== SCROLL FEED (InShorts mode) ========== */
+.scroll-feed {
+    height: calc(100vh - 96px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 96px - env(safe-area-inset-top, 0px));
+    overflow-y: auto; scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 0 12px;
+}
+.scroll-feed::-webkit-scrollbar { display: none; }
+.scroll-card {
+    scroll-snap-align: start;
+    min-height: calc(100vh - 110px - env(safe-area-inset-top, 0px));
+    min-height: calc(100dvh - 110px - env(safe-area-inset-top, 0px));
+    background: var(--card); border-radius: 18px;
+    overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    margin-bottom: 14px; display: flex; flex-direction: column;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.scroll-card .card-body { padding: 14px; flex: 1; display: flex; flex-direction: column; }
+.scroll-card .card-summary { -webkit-line-clamp: 6; flex: 1; }
+.scroll-card .card-footer { margin-top: auto; }
+.scroll-card .card-headline { -webkit-line-clamp: 3; }
 
 /* Individual swipe card */
 .swipe-card {
@@ -258,7 +294,8 @@ body {
 
 /* Swipe hints */
 .swipe-hints {
-    position: absolute; bottom: 85px; width: 100%;
+    position: absolute;
+    bottom: calc(85px + env(safe-area-inset-bottom, 0px)); width: 100%;
     display: flex; justify-content: space-between;
     padding: 0 40px; pointer-events: none; z-index: 10;
 }
@@ -347,15 +384,20 @@ body {
 
 /* ===== STREAK BADGE ===== */
 .streak-badge {
-    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    position: fixed;
+    bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
     background: rgba(255,255,255,0.06); border: 1px solid var(--accent);
     color: #fff; font-size: 11px; font-weight: 600;
     padding: 8px 16px; border-radius: 30px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     pointer-events: none; z-index: 400;
+    opacity: 0; transition: opacity 0.5s ease;
     animation: badgeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    animation-delay: 2s;
+    animation-delay: 0.5s;
 }
+.streak-badge.visible { opacity: 1; }
+.streak-badge.fade-out { opacity: 0; transition: opacity 1s ease; }
 @keyframes badgeIn {
     from { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.9); }
     to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
@@ -386,11 +428,40 @@ body {
 .feed::-webkit-scrollbar { display: none; }
 .feed { scrollbar-width: none; }
 
-/* ========== SAFE AREA ========== */
-@supports (padding: max(0px)) {
-    .top-bar { padding-top: max(0px, env(safe-area-inset-top)); }
-    .streak-badge { bottom: max(24px, env(safe-area-inset-bottom)); }
+/* ========== ONBOARDING OVERLAY ========== */
+.onboarding-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; padding: 40px; text-align: center;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    animation: fadeIn 0.4s ease;
 }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.onboarding-overlay.hide {
+    opacity: 0; transition: opacity 0.4s ease; pointer-events: none;
+}
+.onboard-hand {
+    font-size: 56px;
+    animation: swipeHand 2s ease-in-out infinite;
+}
+@keyframes swipeHand {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    25% { transform: translateX(-40px) rotate(-10deg); }
+    50% { transform: translateX(0) rotate(0); }
+    75% { transform: translateX(40px) rotate(10deg); }
+}
+.onboard-title { font-size: 22px; font-weight: 800; color: #fff; }
+.onboard-desc { font-size: 14px; color: var(--text2); line-height: 1.6; max-width: 280px; }
+.onboard-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; }
+.onboard-btn {
+    padding: 14px; border-radius: 14px; border: none;
+    font-family: var(--font); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: transform 0.15s;
+}
+.onboard-btn:active { transform: scale(0.96); }
+.onboard-btn-primary { background: var(--accent); color: #000; }
+.onboard-btn-secondary { background: rgba(255,255,255,0.08); color: var(--text2); }
 
 /* ========== DESKTOP ========== */
 @media (min-width: 431px) {
