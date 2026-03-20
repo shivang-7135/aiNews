@@ -3,7 +3,9 @@
    Page: #111113 | Cards: #1e1e22 | Accent: #2dd4a0
    ============================================================ */
 
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+*, *::before, *::after {
+    margin: 0; padding: 0; box-sizing: border-box;
+}
 
 :root {
     --bg: #111113;
@@ -15,16 +17,20 @@
     --text2: #b0b0b8;
     --text3: #7a7a85;
     --text4: #ababab;
-    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
-body {
-    font-family: var(--font); background: #0a0a0b; color: var(--text);
-    min-height: 100vh; min-height: 100dvh;
-    -webkit-font-smoothing: antialiased; overscroll-behavior-y: contain;
+body, button, input, select, textarea {
+    font-family: var(--font);
 }
 
+body {
+    background: #0a0a0b; color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: contain;
+}
 .app-shell {
     max-width: 430px; margin: 0 auto; background: var(--bg);
     min-height: 100vh; min-height: 100dvh;
@@ -244,28 +250,20 @@ body {
     font-size: 12px; color: var(--accent); font-style: italic; line-height: 1.4;
 }
 .card-footer { display: flex; align-items: center; justify-content: space-between; }
-.card-source { display: flex; align-items: center; gap: 7px; }
-.source-avatar {
-    width: 26px; height: 26px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
-}
-.source-name {
-    font-size: 13px; color: var(--text3); font-weight: 500;
-    max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.card-source { display: flex; align-items: center; justify-content: space-between; }
+.card-source-left { display: flex; align-items: center; gap: 8px; }
+.card-source-img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+.card-source-name { font-size: 13px; font-weight: 500; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
 .card-time { font-size: 12px; color: var(--text3); }
 
 /* Swipe hints */
 .swipe-hints {
-    display: flex; justify-content: space-between; width: 100%;
-    padding: 10px 28px; flex-shrink: 0;
+    position: absolute; bottom: 85px; width: 100%;
+    display: flex; justify-content: space-between;
+    padding: 0 40px; pointer-events: none; z-index: 10;
 }
-.hint-left, .hint-right {
-    font-size: 13px; font-weight: 600; opacity: 0.4;
-}
-.hint-left { color: var(--accent-red); }
-.hint-right { color: var(--accent); }
+.hint-left { color: #ef4444; font-size: 12px; font-weight: 600; opacity: 0.8; }
+.hint-right { color: var(--accent); font-size: 12px; font-weight: 600; opacity: 0.8; }
 
 /* Empty state */
 .swipe-empty {
@@ -347,14 +345,14 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-/* ========== STREAK ========== */
+/* ===== STREAK BADGE ===== */
 .streak-badge {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--card); color: var(--text);
-    border: 1px solid var(--accent);
-    padding: 10px 18px; border-radius: 999px;
-    font-size: 14px; font-weight: 600; z-index: 100; cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.06); border: 1px solid var(--accent);
+    color: #fff; font-size: 11px; font-weight: 600;
+    padding: 8px 16px; border-radius: 30px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    pointer-events: none; z-index: 400;
     animation: badgeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     animation-delay: 2s;
 }
