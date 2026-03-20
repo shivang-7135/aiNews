@@ -377,7 +377,11 @@ async def subscribe(req: SubscribeRequest):
     logger.info(f"📧 New subscriber: {email} (topics: {req.topics})")
 
     # Send welcome email with top 10 news (non-blocking)
+    # If store is empty (fresh boot), fetch once so first subscribers still get mail.
     tiles = NEWS_STORE.get("GLOBAL", [])
+    if not tiles:
+        await refresh_news("GLOBAL")
+        tiles = NEWS_STORE.get("GLOBAL", [])
     if tiles:
         from digest import send_welcome_email
         asyncio.create_task(send_welcome_email(email, tiles[:10]))

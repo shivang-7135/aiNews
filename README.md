@@ -37,6 +37,17 @@ cp .env.example .env
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
+### Email Setup (Resend)
+If emails are not being delivered to other subscribers, configure these environment variables:
+
+```bash
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL="DailyAI <news@your-verified-domain.com>"
+RESEND_REPLY_TO="support@your-verified-domain.com"  # optional
+```
+
+Important: `onboarding@resend.dev` is meant for testing and may not deliver to arbitrary recipients. For production delivery, verify your domain in Resend and use that sender in `RESEND_FROM_EMAIL`.
+
 Open **http://localhost:8000** on your phone or browser.
 
 ### 4. Install on Android

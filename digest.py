@@ -13,6 +13,8 @@ logger = logging.getLogger("dailyai.digest")
 
 # App URL
 APP_URL = os.getenv("APP_URL", "https://shark-app-96259.ondigitalocean.app")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "DailyAI <onboarding@resend.dev>")
+RESEND_REPLY_TO = os.getenv("RESEND_REPLY_TO", "")
 
 # Category colors for email
 CATEGORY_COLORS = {
@@ -178,13 +180,20 @@ async def send_welcome_email(email: str, tiles: list[dict]):
 
     html = generate_welcome_html(tiles[:10])
     try:
-        resend_mod.Emails.send({
-            "from": "DailyAI <onboarding@resend.dev>",
-            "to": email,
+        payload = {
+            "from": RESEND_FROM_EMAIL,
+            "to": [email],
             "subject": "👋 Welcome to DailyAI — Here's today's top AI news!",
             "html": html,
-        })
-        logger.info(f"[Welcome] ✅ Sent welcome email to {email}")
+        }
+        if RESEND_REPLY_TO:
+            payload["reply_to"] = RESEND_REPLY_TO
+
+        response = resend_mod.Emails.send(payload)
+        logger.info(f"[Welcome] ✅ Sent welcome email to {email} (response={response})")
+
+        if "@resend.dev" in RESEND_FROM_EMAIL.lower():
+            logger.warning("[Welcome] Using onboarding@resend.dev. This is test mode and may only deliver to verified/test recipients. Configure RESEND_FROM_EMAIL with your verified domain for production delivery.")
     except Exception as e:
         logger.warning(f"[Welcome] ❌ Failed to send to {email}: {e}")
 
@@ -214,14 +223,18 @@ async def send_digest():
     sent = 0
     for sub in subscribers:
         try:
-            resend_mod.Emails.send({
-                "from": "DailyAI <onboarding@resend.dev>",
-                "to": sub["email"],
+            payload = {
+                "from": RESEND_FROM_EMAIL,
+                "to": [sub["email"]],
                 "subject": f"🤖 DailyAI Brief — {date_str}",
                 "html": html,
-            })
+            }
+            if RESEND_REPLY_TO:
+                payload["reply_to"] = RESEND_REPLY_TO
+
+            response = resend_mod.Emails.send(payload)
             sent += 1
-            logger.info(f"[Digest] Sent to {sub['email']}")
+            logger.info(f"[Digest] Sent to {sub['email']} (response={response})")
         except Exception as e:
             logger.warning(f"[Digest] Failed to send to {sub['email']}: {e}")
 
