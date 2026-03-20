@@ -111,7 +111,7 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
-    "gemma2-9b-it",
+    "llama-3.2-3b-preview",
 ]
 
 
@@ -123,10 +123,14 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
         headers["Authorization"] = f"Bearer {token}"
 
     for model in models:
+        # Cap tokens for smaller models to avoid 413
+        model_max = max_tokens
+        if "8b" in model or "3b" in model:
+            model_max = min(max_tokens, 2048)
         payload = {
             "model": model,
             "messages": messages,
-            "max_tokens": max_tokens,
+            "max_tokens": model_max,
             "temperature": 0.3,
         }
         try:
@@ -140,6 +144,12 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
                         if content:
                             logger.info(f"[LLM] ✅ Got response from {model}")
                             return content
+                elif resp.status_code == 413:
+                    logger.warning(f"[LLM] {model} → 413 Payload too large, skipping")
+                    continue
+                elif resp.status_code == 429:
+                    logger.warning(f"[LLM] {model} → 429 Rate limited, skipping")
+                    continue
                 else:
                     logger.warning(f"[LLM] {model} → {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
@@ -209,15 +219,17 @@ class NewsAgent:
 
     async def _llm_filter_and_summarize(self, articles: list[dict], country_name: str) -> list[dict]:
         """Use the LLM to filter and summarize articles into tiles."""
+        # Cap at 20 articles to reduce payload size (avoids 413 errors)
+        capped = articles[:20]
         articles_text = "\n".join(
-            f"- [{i+1}] {a['title']} (Source: {a['source']}, Published: {a['published']}, Link: {a['link']})"
-            for i, a in enumerate(articles[:40])  # cap input
+            f"- [{i+1}] {a['title']} (Source: {a['source']}, Link: {a['link']})"
+            for i, a in enumerate(capped)
         )
 
         system_prompt = f"""You are an AI news curator agent. Your task is to analyze the following news articles and select the most important, impactful, and breaking news stories specifically about Artificial Intelligence, Machine Learning, LLMs, and AI companies.
 
 RULES:
-1. Select up to 12 most important and UNIQUE stories
+1. Select up to 15 most important and UNIQUE stories
 2. Focus on genuinely significant AI news (breakthroughs, major product launches, regulations, funding, research papers)
 3. Ignore duplicate or near-duplicate stories — pick the best version
 4. Ignore clickbait, opinion pieces, or vaguely AI-related stories
@@ -395,7 +407,7 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         }
 
         tiles = []
-        for i, a in enumerate(articles[:12]):
+        for i, a in enumerate(articles[:20]):
             title_lower = a["title"].lower()
             topic, category = "general", "general"
             importance = max(7 - i // 2, 4)  # 7, 7, 6, 6, 5, 5, 4...
@@ -422,4 +434,4 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         return tiles
 
 
-MAX_TILES_PER_FETCH = 12  # per refresh cycle; total cap is 24 in app.py
+MAX_TILES_PER_FETCH = 20  # per refresh cycle
