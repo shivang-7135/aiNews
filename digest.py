@@ -5,16 +5,49 @@ DailyAI — Email Digest Generator
 Uses Resend API for sending.
 """
 
-import os
 import logging
-from datetime import datetime, timezone
+import os
+import re
+from datetime import UTC, datetime
 
 logger = logging.getLogger("dailyai.digest")
 
 # App URL
 APP_URL = os.getenv("APP_URL", "https://shark-app-96259.ondigitalocean.app")
-RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "DailyAI <onboarding@resend.dev>")
 RESEND_REPLY_TO = os.getenv("RESEND_REPLY_TO", "")
+DEFAULT_FROM_EMAIL = "DailyAI <onboarding@resend.dev>"
+
+
+def _resolve_from_email() -> str:
+    """Return a valid Resend-compatible From value, with safe fallback."""
+    raw = os.getenv("RESEND_FROM_EMAIL", "").strip()
+    if not raw:
+        return DEFAULT_FROM_EMAIL
+
+    # Remove optional surrounding quotes from .env values.
+    if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+        raw = raw[1:-1].strip()
+
+    # Accept plain email format.
+    plain_email = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", raw)
+    if plain_email:
+        return raw
+
+    # Accept Name <email@example.com> format.
+    named_email = re.fullmatch(r"[^<>]+<\s*([^@\s<>]+@[^@\s<>]+\.[^@\s<>]+)\s*>", raw)
+    if named_email:
+        return raw
+
+    logger.warning(
+        "[Email] Invalid RESEND_FROM_EMAIL='%s'. Falling back to %s. "
+        "Use plain email or 'Name <email@example.com>' format.",
+        raw,
+        DEFAULT_FROM_EMAIL,
+    )
+    return DEFAULT_FROM_EMAIL
+
+
+RESEND_FROM_EMAIL = _resolve_from_email()
 
 # Category colors for email
 CATEGORY_COLORS = {
@@ -37,7 +70,11 @@ def _render_stories_html(tiles: list[dict]) -> str:
         importance = tile.get("importance", 5)
         stars = "🔥" if importance >= 8 else "⭐" if importance >= 6 else ""
         why = tile.get("why_it_matters", "")
-        why_html = f'<p style="margin:6px 0 0;font-size:13px;color:#2dd4a0;font-style:italic;">💡 {why}</p>' if why else ""
+        why_html = (
+            f'<p style="margin:6px 0 0;font-size:13px;color:#2dd4a0;font-style:italic;">💡 {why}</p>'
+            if why
+            else ""
+        )
         link = tile.get("link", "#")
         title = tile.get("title", "")
         summary = tile.get("summary", "")
@@ -61,8 +98,14 @@ def _render_stories_html(tiles: list[dict]) -> str:
     return stories_html
 
 
-def _build_email(subject_emoji: str, heading: str, subheading: str,
-                 intro_text: str, stories_html: str, date_str: str) -> str:
+def _build_email(
+    subject_emoji: str,
+    heading: str,
+    subheading: str,
+    intro_text: str,
+    stories_html: str,
+    date_str: str,
+) -> str:
     """Build a full HTML email wrapper around the stories."""
     return f"""<!DOCTYPE html>
 <html>
@@ -127,7 +170,7 @@ def _build_email(subject_emoji: str, heading: str, subheading: str,
 def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
     """Generate the daily digest HTML."""
     if not date_str:
-        date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
+        date_str = datetime.now(UTC).strftime("%B %d, %Y")
     stories = _render_stories_html(tiles)
     return _build_email(
         subject_emoji="🤖",
@@ -141,7 +184,7 @@ def generate_digest_html(tiles: list[dict], date_str: str = "") -> str:
 
 def generate_welcome_html(tiles: list[dict]) -> str:
     """Generate the welcome email HTML with top 10 current news."""
-    date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    date_str = datetime.now(UTC).strftime("%B %d, %Y")
     stories = _render_stories_html(tiles)
     return _build_email(
         subject_emoji="👋",
@@ -161,6 +204,7 @@ def _get_resend():
         return None
     try:
         import resend
+
         resend.api_key = resend_key
         return resend
     except ImportError:
@@ -193,7 +237,9 @@ async def send_welcome_email(email: str, tiles: list[dict]):
         logger.info(f"[Welcome] ✅ Sent welcome email to {email} (response={response})")
 
         if "@resend.dev" in RESEND_FROM_EMAIL.lower():
-            logger.warning("[Welcome] Using onboarding@resend.dev. This is test mode and may only deliver to verified/test recipients. Configure RESEND_FROM_EMAIL with your verified domain for production delivery.")
+            logger.warning(
+                "[Welcome] Using onboarding@resend.dev. This is test mode and may only deliver to verified/test recipients. Configure RESEND_FROM_EMAIL with your verified domain for production delivery."
+            )
     except Exception as e:
         logger.warning(f"[Welcome] ❌ Failed to send to {email}: {e}")
 
@@ -205,9 +251,9 @@ async def send_digest():
         return
 
     # Import here to avoid circular imports
-    from app import NEWS_STORE, load_subscribers
+    from app import NEWS_STORE, load_subscribers, store_key
 
-    tiles = NEWS_STORE.get("GLOBAL", [])
+    tiles = NEWS_STORE.get(store_key("GLOBAL", "en"), [])
     if not tiles:
         logger.info("[Digest] No tiles available — skipping digest")
         return
@@ -218,7 +264,7 @@ async def send_digest():
         return
 
     html = generate_digest_html(tiles[:10])
-    date_str = datetime.now(timezone.utc).strftime("%b %d")
+    date_str = datetime.now(UTC).strftime("%b %d")
 
     sent = 0
     for sub in subscribers:

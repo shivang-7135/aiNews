@@ -5,7 +5,9 @@ A mobile-friendly, agentic AI news application that fetches, filters, and summar
 ## ✨ Features
 
 - **🌍 Country-based news** — Select your region to get localized AI news
+- **🌐 3-language support** — Read summaries in English, Hindi, or German
 - **🤖 Agentic AI pipeline** — Uses HuggingFace LLM to filter, rank, and summarize news
+- **🎯 Higher-quality ranking** — Source trust + recency + topic diversity for better top stories
 - **⏰ Hourly updates** — Automatic background refresh every hour
 - **📱 PWA / Mobile-ready** — Install on Android as an app via "Add to Home Screen"
 - **🎨 Premium dark UI** — Glassmorphism, animations, responsive design
@@ -20,6 +22,28 @@ cd DailyAInews
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+### Dev Quality Setup (Recommended)
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+Run quality checks locally:
+```bash
+# Format + lint + types + security
+black --check .
+ruff check .
+isort --check-only .
+mypy .
+bandit -q -r . -c bandit.yaml
+```
+
+Auto-fix style/lint issues:
+```bash
+ruff check . --fix
+ruff format .
 ```
 
 ### 2. Configure API Token (Optional but recommended)

@@ -12,23 +12,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3.1">
+    <link rel="stylesheet" href="/static/styles.css?v=3.4">
 </head>
 <body>
     <div class="app-shell" id="appShell">
 
         <!-- ===== Onboarding Overlay ===== -->
         <div class="onboarding-overlay" id="onboardingOverlay" style="display:none;">
-            <div class="onboard-hand">👆</div>
-            <h2 class="onboard-title">Welcome to DailyAI</h2>
-            <p class="onboard-desc">
-                Swipe <strong>right</strong> to save stories you love.<br>
-                Swipe <strong>left</strong> to skip.<br>
-                Tap any card to read the full summary.
-            </p>
-            <div class="onboard-actions">
-                <button class="onboard-btn onboard-btn-primary" id="onboardStart">Got it, let's go! 🚀</button>
-                <button class="onboard-btn onboard-btn-secondary" id="onboardScroll">I prefer scrolling ↕</button>
+            <div class="onboard-panel">
+                <div class="onboard-hand">🧭</div>
+                <h2 class="onboard-title">Welcome to DailyAI</h2>
+                <p class="onboard-desc">Get personalized AI news in seconds.</p>
+                <ul class="onboard-feature-list">
+                    <li><span class="onboard-feature-icon">👆</span><span id="onboardFeatureSwipe">Swipe right to save and left to skip.</span></li>
+                    <li><span class="onboard-feature-icon">🌐</span><span id="onboardFeatureLanguage">Change language from the sidebar.</span></li>
+                    <li><span class="onboard-feature-icon">🌍</span><span id="onboardFeatureCountry">Change country to localize your feed.</span></li>
+                    <li><span class="onboard-feature-icon">📰</span><span id="onboardFeatureRead">Tap a card to read detailed brief.</span></li>
+                    <li><span class="onboard-feature-icon">⚡</span><span id="onboardFeatureCache">Your feed is cached for faster loading and fewer API calls.</span></li>
+                </ul>
+                <p class="onboard-cache-note" id="onboardCacheNote">You can refresh anytime from the top bar.</p>
+                <div class="onboard-actions">
+                    <button class="onboard-btn onboard-btn-primary" id="onboardStart">Start with Swipe 👆</button>
+                    <button class="onboard-btn onboard-btn-secondary" id="onboardScroll">Start with Scroll ↕</button>
+                </div>
             </div>
         </div>
 
@@ -54,6 +60,16 @@
                     <span class="sidebar-badge" id="savedCount">0</span>
                 </button>
             </nav>
+
+            <!-- Country Selector -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">🌐 Language</h3>
+                <select class="sidebar-country-select" id="languageSelect">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
 
             <!-- Country Selector -->
             <div class="sidebar-section">
@@ -104,6 +120,9 @@
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <button class="mode-toggle" id="modeToggle" title="Switch view mode">↕ Scroll</button>
+                <button class="top-bar-btn" aria-label="Refresh News" id="refreshNewsBtn" title="Refresh News">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </button>
                 <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </button>
@@ -158,6 +177,6 @@
         <div class="streak-badge" id="streakBadge" style="display:none;"></div>
     </div>
 
-    <script src="/static/app.js?v=3.0"></script>
+    <script src="/static/app.js?v=3.4"></script>
 </body>
 </html>

@@ -12,15 +12,16 @@ HuggingFace Inference API (free tier, using Qwen/Qwen2.5-72B-Instruct or
 mistralai/Mixtral-8x7B-Instruct-v0.1).
 """
 
-import json
-import re
-import logging
 import asyncio
-from datetime import datetime, timezone, timedelta
+import json
+import logging
+import os
+import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
 import feedparser
+import httpx
 
 logger = logging.getLogger("dailyai.agent")
 
@@ -33,21 +34,43 @@ FEED_QUERIES = {
     "ai_core": "artificial+intelligence+OR+AI+OR+machine+learning+OR+deep+learning+OR+LLM+OR+generative+AI",
     "ai_industry": "OpenAI+OR+Google+AI+OR+Meta+AI+OR+Anthropic+OR+Mistral+OR+DeepMind+OR+Hugging+Face",
     "ai_breakthroughs": "AI+breakthrough+OR+AI+launch+OR+AI+regulation+OR+AI+startup",
+    "ai_research": "AI+research+paper+OR+arXiv+AI+OR+foundation+model+benchmark",
+    "ai_infra": "NVIDIA+AI+chips+OR+AI+inference+OR+datacenter+AI+OR+GPU+cluster",
+    "ai_policy": "AI+Act+OR+AI+policy+OR+AI+governance+OR+AI+safety+institute",
+}
+
+SUPPORTED_OUTPUT_LANGUAGES = {
+    "en": "English",
+    "hi": "Hindi",
+    "de": "German",
 }
 
 LANG_MAP: dict[str, tuple[str, str]] = {
-    "US": ("en", "US"), "GB": ("en", "GB"), "IN": ("en", "IN"),
-    "DE": ("de", "DE"), "FR": ("fr", "FR"), "CA": ("en", "CA"),
-    "AU": ("en", "AU"), "JP": ("ja", "JP"), "KR": ("ko", "KR"),
-    "CN": ("zh-Hans", "CN"), "BR": ("pt-BR", "BR"), "SG": ("en", "SG"),
-    "AE": ("en", "AE"), "IL": ("en", "IL"), "GLOBAL": ("en", "US"),
+    "US": ("en", "US"),
+    "GB": ("en", "GB"),
+    "IN": ("en", "IN"),
+    "DE": ("de", "DE"),
+    "FR": ("fr", "FR"),
+    "CA": ("en", "CA"),
+    "AU": ("en", "AU"),
+    "JP": ("ja", "JP"),
+    "KR": ("ko", "KR"),
+    "CN": ("zh-Hans", "CN"),
+    "BR": ("pt-BR", "BR"),
+    "SG": ("en", "SG"),
+    "AE": ("en", "AE"),
+    "IL": ("en", "IL"),
+    "GLOBAL": ("en", "US"),
 }
 
 # ---------------------------------------------------------------------------
 # Tools available to the agent
 # ---------------------------------------------------------------------------
 
-async def fetch_rss_feed(query: str, gl: str = "US", hl: str = "en", max_items: int = 15) -> list[dict]:
+
+async def fetch_rss_feed(
+    query: str, gl: str = "US", hl: str = "en", max_items: int = 15
+) -> list[dict]:
     """Fetch items from Google News RSS."""
     url = GOOGLE_NEWS_RSS.format(query=query, hl=hl, gl=gl, ceid=f"{gl}:{hl}")
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
@@ -55,21 +78,26 @@ async def fetch_rss_feed(query: str, gl: str = "US", hl: str = "en", max_items: 
         resp.raise_for_status()
 
     feed = feedparser.parse(resp.text)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=26)  # slight overlap
+    cutoff = datetime.now(UTC) - timedelta(hours=26)  # slight overlap
     items = []
     for entry in feed.entries[:max_items]:
         published = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
             from time import mktime
-            published = datetime.fromtimestamp(mktime(entry.published_parsed), tz=timezone.utc)
+
+            published = datetime.fromtimestamp(mktime(entry.published_parsed), tz=UTC)
         if published and published < cutoff:
             continue
-        items.append({
-            "title": entry.get("title", ""),
-            "link": entry.get("link", ""),
-            "source": entry.get("source", {}).get("title", "") if hasattr(entry, "source") else "",
-            "published": published.isoformat() if published else "",
-        })
+        items.append(
+            {
+                "title": entry.get("title", ""),
+                "link": entry.get("link", ""),
+                "source": (
+                    entry.get("source", {}).get("title", "") if hasattr(entry, "source") else ""
+                ),
+                "published": published.isoformat() if published else "",
+            }
+        )
     return items
 
 
@@ -83,11 +111,23 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
         if isinstance(r, list):
             all_items.extend(r)
 
-    # Deduplicate by title
+    def normalize_title(title: str) -> str:
+        normalized = title.lower().strip()
+        # Remove common headline suffixes like "- Reuters" or "| TechCrunch"
+        normalized = re.sub(
+            r"\s*[\-|\|:]\s*(reuters|associated press|ap news|techcrunch|the verge|wired|forbes|bloomberg).*$",
+            "",
+            normalized,
+        )
+        normalized = re.sub(r"[^a-z0-9\s]", "", normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
+        return normalized
+
+    # Deduplicate by normalized title
     seen = set()
     unique = []
     for item in all_items:
-        key = item["title"].lower().strip()
+        key = normalize_title(item["title"])
         if key not in seen:
             seen.add(key)
             unique.append(item)
@@ -120,10 +160,36 @@ GROQ_MODELS = [
     "llama3-8b-8192",
 ]
 
+DISABLED_PROVIDERS: set[str] = set()
 
-async def _try_provider(url: str, models: list[str], messages: list[dict],
-                        token: str, max_tokens: int = 2048) -> str:
+
+def _get_ollama_config() -> tuple[str, list[str]]:
+    """Return OpenAI-compatible Ollama endpoint and model list from env."""
+    base = os.getenv("OLLAMA_BASE_URL", "").strip().rstrip("/")
+    if not base:
+        return "", []
+
+    # Supports both http://localhost:11434 and http://localhost:11434/v1
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+
+    model_csv = os.getenv("OLLAMA_MODELS", "llama3.1:8b")
+    models = [m.strip() for m in model_csv.split(",") if m.strip()]
+    return f"{base}/chat/completions", models
+
+
+async def _try_provider(
+    url: str,
+    models: list[str],
+    messages: list[dict],
+    token: str,
+    max_tokens: int = 2048,
+    provider_name: str = "",
+) -> str:
     """Try a list of models on a given OpenAI-compatible endpoint."""
+    if provider_name and provider_name in DISABLED_PROVIDERS:
+        return ""
+
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -146,7 +212,8 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
                     data = resp.json()
                     choices = data.get("choices", [])
                     if choices:
-                        content = choices[0].get("message", {}).get("content", "")
+                        content_obj = choices[0].get("message", {}).get("content", "")
+                        content = content_obj if isinstance(content_obj, str) else ""
                         if content:
                             logger.info(f"[LLM] ✅ Got response from {model}")
                             return content
@@ -156,6 +223,13 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
                 elif resp.status_code == 429:
                     logger.warning(f"[LLM] {model} → 429 Rate limited, skipping")
                     continue
+                elif resp.status_code == 401:
+                    logger.warning(
+                        f"[LLM] {model} → 401 Unauthorized. Check API key/token for this provider."
+                    )
+                    if provider_name:
+                        DISABLED_PROVIDERS.add(provider_name)
+                    return ""
                 else:
                     logger.warning(f"[LLM] {model} → {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
@@ -164,9 +238,18 @@ async def _try_provider(url: str, models: list[str], messages: list[dict],
     return ""
 
 
-async def _try_gemini(models: list[str], messages: list[dict],
-                      api_key: str, max_tokens: int = 2048) -> str:
+async def _try_gemini(
+    models: list[str], messages: list[dict], api_key: str, max_tokens: int = 2048
+) -> str:
     """Try Google Gemini models using the AI Studio OpenAI-compatible endpoint."""
+    if "gemini" in DISABLED_PROVIDERS:
+        return ""
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
     for model in models:
         payload = {
             "model": model,
@@ -176,22 +259,25 @@ async def _try_gemini(models: list[str], messages: list[dict],
         }
         try:
             async with httpx.AsyncClient(timeout=90) as client:
-                resp = await client.post(
-                    f"{GEMINI_API_URL}?key={api_key}",
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
+                resp = await client.post(GEMINI_API_URL, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     choices = data.get("choices", [])
                     if choices:
-                        content = choices[0].get("message", {}).get("content", "")
+                        content_obj = choices[0].get("message", {}).get("content", "")
+                        content = content_obj if isinstance(content_obj, str) else ""
                         if content:
                             logger.info(f"[LLM] ✅ Got response from {model}")
                             return content
                 elif resp.status_code == 429:
                     logger.warning(f"[LLM] {model} → 429 Rate limited, skipping")
                     continue
+                elif resp.status_code in (400, 401, 403):
+                    logger.warning(
+                        f"[LLM] {model} → {resp.status_code}. Gemini auth/permission issue. Check GOOGLE_AI_KEY."
+                    )
+                    DISABLED_PROVIDERS.add("gemini")
+                    return ""
                 else:
                     logger.warning(f"[LLM] {model} → {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
@@ -201,8 +287,22 @@ async def _try_gemini(models: list[str], messages: list[dict],
 
 
 async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Try Google Gemini first, then HuggingFace, then Groq as fallback."""
-    import os
+    """Try local Ollama first, then Gemini, then HuggingFace, then Groq."""
+
+    # Try local open-source models first (Ollama, optional)
+    ollama_url, ollama_models = _get_ollama_config()
+    if ollama_url and ollama_models:
+        result = await _try_provider(
+            ollama_url,
+            ollama_models,
+            messages,
+            token="",
+            max_tokens=max_tokens,
+            provider_name="ollama",
+        )
+        if result:
+            return result
+        logger.warning("[LLM] All Ollama models failed, trying cloud providers...")
 
     # Try Google Gemini first (most generous free tier)
     gemini_key = os.getenv("GOOGLE_AI_KEY", "")
@@ -214,7 +314,14 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
 
     # Try HuggingFace
     if hf_token:
-        result = await _try_provider(HF_API_URL, HF_MODELS, messages, hf_token, max_tokens)
+        result = await _try_provider(
+            HF_API_URL,
+            HF_MODELS,
+            messages,
+            hf_token,
+            max_tokens,
+            provider_name="huggingface",
+        )
         if result:
             return result
         logger.warning("[LLM] All HuggingFace models failed, trying Groq...")
@@ -222,7 +329,14 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
     # Try Groq as fallback
     groq_key = os.getenv("GROQ_API_KEY", "")
     if groq_key:
-        result = await _try_provider(GROQ_API_URL, GROQ_MODELS, messages, groq_key, max_tokens)
+        result = await _try_provider(
+            GROQ_API_URL,
+            GROQ_MODELS,
+            messages,
+            groq_key,
+            max_tokens,
+            provider_name="groq",
+        )
         if result:
             return result
 
@@ -241,11 +355,35 @@ class NewsAgent:
     3. Returns structured tiles
     """
 
-    def __init__(self, hf_token: str = ""):
-        self.hf_token = hf_token
+    def __init__(self, hf_token: str | None = None):
+        self.hf_token = hf_token or ""
+        self.high_trust_sources = {
+            "reuters",
+            "associated press",
+            "ap news",
+            "financial times",
+            "bloomberg",
+            "wsj",
+            "the economist",
+            "nature",
+            "science",
+            "mit technology review",
+            "arxiv",
+            "the verge",
+            "techcrunch",
+            "wired",
+            "bbc",
+            "the guardian",
+            "cnbc",
+        }
 
-    async def run(self, country_code: str, country_name: str) -> list[dict]:
+    async def run(
+        self, country_code: str, country_name: str, language_code: str = "en"
+    ) -> list[dict]:
         """Execute the full agentic pipeline."""
+        language_code = (language_code or "en").lower()
+        if language_code not in SUPPORTED_OUTPUT_LANGUAGES:
+            language_code = "en"
 
         # ---- Step 1: Tool call — fetch raw news ----
         logger.info(f"[Agent] Step 1: Fetching raw news for {country_name} ({country_code})")
@@ -258,37 +396,45 @@ class NewsAgent:
 
         # ---- Step 2: LLM call — filter, rank, summarize ----
         logger.info("[Agent] Step 2: Sending to LLM for filtering and summarization")
-        tiles = await self._llm_filter_and_summarize(raw_articles, country_name)
+        tiles = await self._llm_filter_and_summarize(raw_articles, country_name, language_code)
 
         # ---- Step 3: Fallback — if LLM fails, do basic processing ----
         if not tiles:
             logger.warning("[Agent] LLM filtering failed — using fallback processing")
-            tiles = self._fallback_process(raw_articles)
+            tiles = self._fallback_process(raw_articles, language_code)
+
+        tiles = self._quality_rerank(tiles)
+        tiles = self._enforce_topic_diversity(tiles)
 
         return tiles
 
-    async def _llm_filter_and_summarize(self, articles: list[dict], country_name: str) -> list[dict]:
+    async def _llm_filter_and_summarize(
+        self, articles: list[dict], country_name: str, language_code: str
+    ) -> list[dict]:
         """Use the LLM to filter and summarize articles into tiles."""
-        # Cap at 20 articles to reduce payload size (avoids 413 errors)
-        capped = articles[:20]
+        # Cap at 32 articles for richer candidate pool while staying below payload limits.
+        capped = articles[:32]
         articles_text = "\n".join(
             f"- [{i+1}] {a['title']} (Source: {a['source']}, Link: {a['link']})"
             for i, a in enumerate(capped)
         )
+        output_language = SUPPORTED_OUTPUT_LANGUAGES.get(language_code, "English")
 
         system_prompt = f"""You are an AI news curator agent. Your task is to analyze the following news articles and select the most important, impactful, and breaking news stories specifically about Artificial Intelligence, Machine Learning, LLMs, and AI companies.
 
 RULES:
-1. Select up to 15 most important and UNIQUE stories
+1. Select up to 20 most important and UNIQUE stories
 2. Focus on genuinely significant AI news (breakthroughs, major product launches, regulations, funding, research papers)
 3. Ignore duplicate or near-duplicate stories — pick the best version
 4. Ignore clickbait, opinion pieces, or vaguely AI-related stories
-5. For each selected story, provide a concise 1-2 sentence summary
-6. Add a "why_it_matters" field — a single punchy sentence explaining why a busy AI professional should care
+5. For each selected story, provide a concise 1-2 sentence summary based on factual details from the headline context
+6. Add a "why_it_matters" field — a single punchy sentence explaining why a busy AI professional should care (avoid hype)
 7. Assign a category: "breakthrough", "product", "regulation", "funding", "research", "industry", or "general"
 8. Assign a topic tag from: "llms", "robotics", "ai_safety", "funding", "research", "regulation", "startups", "big_tech", "open_source", "healthcare", "autonomous", "general"
 9. Assign an importance score from 1-10
 10. Consider relevance to {country_name} when applicable
+11. Prefer trustworthy, primary reporting sources over low-credibility or duplicate aggregators
+12. Return title, summary and why_it_matters in {output_language}
 
 OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
 [
@@ -303,13 +449,13 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
     "link": "URL",
     "published": "ISO date"
   }}
-]"""
+    ]"""
 
         user_prompt = f"""Here are the raw articles to analyze:
 
 {articles_text}
 
-Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
+    Select and summarize the top AI news stories in {output_language}. Respond ONLY with a JSON array."""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -318,6 +464,69 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
 
         response = await call_llm(messages, self.hf_token, max_tokens=4096)
         return self._parse_llm_response(response, articles)
+
+    def _source_quality_score(self, source: str) -> int:
+        src = (source or "").strip().lower()
+        if not src:
+            return 0
+        if any(trusted in src for trusted in self.high_trust_sources):
+            return 2
+        if "news" in src or "times" in src or "post" in src or "journal" in src:
+            return 1
+        return 0
+
+    def _quality_rerank(self, tiles: list[dict]) -> list[dict]:
+        now = datetime.now(UTC)
+
+        def recency_score(published: str) -> int:
+            if not published:
+                return 0
+            try:
+                dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+                age_hours = max((now - dt).total_seconds() / 3600, 0)
+                if age_hours <= 8:
+                    return 2
+                if age_hours <= 24:
+                    return 1
+            except Exception:
+                return 0
+            return 0
+
+        for t in tiles:
+            base = int(t.get("importance", 5))
+            src_bonus = self._source_quality_score(str(t.get("source", "")))
+            fresh_bonus = recency_score(str(t.get("published", "")))
+            t["quality_score"] = base * 10 + src_bonus * 3 + fresh_bonus
+
+        tiles.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
+        return tiles[:MAX_TILES_PER_FETCH]
+
+    def _enforce_topic_diversity(self, tiles: list[dict]) -> list[dict]:
+        """Avoid over-clustering by limiting repeated topics in top slots."""
+        if len(tiles) <= 6:
+            return tiles
+
+        selected: list[dict] = []
+        topic_counts: dict[str, int] = {}
+
+        for tile in tiles:
+            topic = str(tile.get("topic", "general") or "general")
+            cap = 3 if len(selected) < 12 else 4
+            if topic_counts.get(topic, 0) < cap:
+                selected.append(tile)
+                topic_counts[topic] = topic_counts.get(topic, 0) + 1
+            if len(selected) >= MAX_TILES_PER_FETCH:
+                break
+
+        if len(selected) < min(MAX_TILES_PER_FETCH, len(tiles)):
+            existing_titles = {s.get("title", "") for s in selected}
+            for tile in tiles:
+                if tile.get("title", "") not in existing_titles:
+                    selected.append(tile)
+                if len(selected) >= MAX_TILES_PER_FETCH:
+                    break
+
+        return selected
 
     def _parse_llm_response(self, response: str, original_articles: list[dict]) -> list[dict]:
         """Parse the LLM JSON response into tile dicts."""
@@ -333,8 +542,8 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
         # Method 1: Strip markdown code fences if present
         cleaned = response.strip()
         if cleaned.startswith("```"):
-            cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
-            cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+            cleaned = re.sub(r"^```(?:json)?\s*\n?", "", cleaned)
+            cleaned = re.sub(r"\n?```\s*$", "", cleaned)
             cleaned = cleaned.strip()
 
         # Method 2: Try direct parse of cleaned response
@@ -347,23 +556,25 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
 
         # Method 3: Find the first '[' and its matching ']' using bracket counting
         if json_str is None:
-            start_idx = response.find('[')
+            start_idx = response.find("[")
             if start_idx != -1:
                 depth = 0
                 end_found = False
                 for i in range(start_idx, len(response)):
-                    if response[i] == '[':
+                    if response[i] == "[":
                         depth += 1
-                    elif response[i] == ']':
+                    elif response[i] == "]":
                         depth -= 1
                         if depth == 0:
                             end_found = True
-                            candidate = response[start_idx:i + 1]
+                            candidate = response[start_idx : i + 1]
                             try:
                                 parsed = json.loads(candidate)
                                 if isinstance(parsed, list):
                                     json_str = candidate
-                                    logger.info(f"[Agent] Extracted JSON array ({len(parsed)} items) via bracket matching")
+                                    logger.info(
+                                        f"[Agent] Extracted JSON array ({len(parsed)} items) via bracket matching"
+                                    )
                             except json.JSONDecodeError:
                                 pass
                             break
@@ -374,31 +585,35 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
                     partial = response[start_idx:]
                     # Try to find the last complete object by looking for '},'
                     # and closing the array there
-                    last_complete = partial.rfind('},')
+                    last_complete = partial.rfind("},")
                     if last_complete == -1:
-                        last_complete = partial.rfind('}')
+                        last_complete = partial.rfind("}")
                     if last_complete != -1:
-                        candidate = partial[:last_complete + 1].rstrip(',') + ']'
+                        candidate = partial[: last_complete + 1].rstrip(",") + "]"
                         try:
                             parsed = json.loads(candidate)
                             if isinstance(parsed, list) and len(parsed) > 0:
                                 json_str = candidate
-                                logger.info(f"[Agent] Recovered {len(parsed)} items from truncated JSON")
+                                logger.info(
+                                    f"[Agent] Recovered {len(parsed)} items from truncated JSON"
+                                )
                         except json.JSONDecodeError:
                             # Try more aggressive trimming: remove last partial object
-                            last_comma = partial[:last_complete].rfind('},')
+                            last_comma = partial[:last_complete].rfind("},")
                             if last_comma != -1:
-                                candidate = partial[:last_comma + 1] + ']'
+                                candidate = partial[: last_comma + 1] + "]"
                                 try:
                                     parsed = json.loads(candidate)
                                     if isinstance(parsed, list) and len(parsed) > 0:
                                         json_str = candidate
-                                        logger.info(f"[Agent] Recovered {len(parsed)} items from truncated JSON (aggressive trim)")
+                                        logger.info(
+                                            f"[Agent] Recovered {len(parsed)} items from truncated JSON (aggressive trim)"
+                                        )
                                 except json.JSONDecodeError:
                                     pass
 
         if json_str is None:
-            logger.warning(f"[Agent] Could not find JSON array in LLM response")
+            logger.warning("[Agent] Could not find JSON array in LLM response")
             return []
 
         try:
@@ -409,27 +624,47 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
 
             # Validate and clean each tile
             clean_tiles = []
+            seen_titles: set[str] = set()
             for t in tiles:
                 if isinstance(t, dict) and "title" in t:
                     try:
-                        clean_tiles.append({
-                            "title": str(t.get("title", ""))[:150],
-                            "summary": str(t.get("summary", ""))[:300],
-                            "why_it_matters": str(t.get("why_it_matters", ""))[:200],
-                            "category": str(t.get("category", "general")).lower(),
-                            "topic": str(t.get("topic", "general")).lower(),
-                            "importance": min(max(int(t.get("importance", 5)), 1), 10),
-                            "source": str(t.get("source", "")),
-                            "link": str(t.get("link", "")),
-                            "published": str(t.get("published", "")),
-                            "fetched_at": datetime.now(timezone.utc).isoformat(),
-                        })
+                        normalized_title = re.sub(
+                            r"\W+", " ", str(t.get("title", "")).lower()
+                        ).strip()
+                        if normalized_title in seen_titles:
+                            continue
+                        seen_titles.add(normalized_title)
+
+                        importance_raw: Any = t.get("importance", 5)
+                        try:
+                            importance_val = int(importance_raw)
+                        except (TypeError, ValueError):
+                            importance_val = 5
+
+                        clean_tiles.append(
+                            {
+                                "title": str(t.get("title", ""))[:150],
+                                "summary": str(t.get("summary", ""))[:300],
+                                "why_it_matters": str(t.get("why_it_matters", ""))[:200],
+                                "category": str(t.get("category", "general")).lower(),
+                                "topic": str(t.get("topic", "general")).lower(),
+                                "importance": min(max(importance_val, 1), 10),
+                                "source": str(t.get("source", "")),
+                                "link": str(t.get("link", "")),
+                                "published": str(t.get("published", "")),
+                                "fetched_at": datetime.now(UTC).isoformat(),
+                            }
+                        )
                     except (ValueError, TypeError) as e:
                         logger.warning(f"[Agent] Skipping malformed tile: {e}")
                         continue
 
             # Sort by importance desc
-            clean_tiles.sort(key=lambda x: x["importance"], reverse=True)
+            def importance_sort_key(tile: dict[str, object]) -> int:
+                value = tile.get("importance", 0)
+                return value if isinstance(value, int) else 0
+
+            clean_tiles.sort(key=importance_sort_key, reverse=True)
             logger.info(f"[Agent] Successfully parsed {len(clean_tiles)} tiles from LLM")
             return clean_tiles[:MAX_TILES_PER_FETCH]
 
@@ -439,22 +674,46 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
 
         return []
 
-    def _fallback_process(self, articles: list[dict]) -> list[dict]:
+    def _fallback_process(self, articles: list[dict], language_code: str = "en") -> list[dict]:
         """Smart fallback when LLM is unavailable — assigns topics from keywords."""
         KEYWORD_TOPICS = {
-            "openai": ("big_tech", "industry"), "google": ("big_tech", "industry"),
-            "meta ": ("big_tech", "industry"), "anthropic": ("big_tech", "industry"),
-            "mistral": ("big_tech", "industry"), "deepmind": ("big_tech", "research"),
-            "llm": ("llms", "product"), "gpt": ("llms", "product"),
-            "chatgpt": ("llms", "product"), "gemini": ("llms", "product"),
-            "claude": ("llms", "product"), "llama": ("llms", "product"),
-            "robot": ("robotics", "product"), "autonomous": ("autonomous", "product"),
-            "regulat": ("regulation", "regulation"), "safety": ("ai_safety", "regulation"),
-            "funding": ("funding", "funding"), "rais": ("funding", "funding"),
-            "invest": ("funding", "funding"), "startup": ("startups", "funding"),
-            "open source": ("open_source", "product"), "research": ("research", "research"),
-            "paper": ("research", "research"), "health": ("healthcare", "product"),
+            "openai": ("big_tech", "industry"),
+            "google": ("big_tech", "industry"),
+            "meta ": ("big_tech", "industry"),
+            "anthropic": ("big_tech", "industry"),
+            "mistral": ("big_tech", "industry"),
+            "deepmind": ("big_tech", "research"),
+            "llm": ("llms", "product"),
+            "gpt": ("llms", "product"),
+            "chatgpt": ("llms", "product"),
+            "gemini": ("llms", "product"),
+            "claude": ("llms", "product"),
+            "llama": ("llms", "product"),
+            "robot": ("robotics", "product"),
+            "autonomous": ("autonomous", "product"),
+            "regulat": ("regulation", "regulation"),
+            "safety": ("ai_safety", "regulation"),
+            "funding": ("funding", "funding"),
+            "rais": ("funding", "funding"),
+            "invest": ("funding", "funding"),
+            "startup": ("startups", "funding"),
+            "open source": ("open_source", "product"),
+            "research": ("research", "research"),
+            "paper": ("research", "research"),
+            "health": ("healthcare", "product"),
         }
+
+        fallback_why = {
+            "en": "Stay informed - this story is trending in the AI community right now.",
+            "hi": "जानकारी में रहें - यह स्टोरी अभी AI समुदाय में तेजी से ट्रेंड कर रही है.",
+            "de": "Bleiben Sie informiert - diese Story ist gerade in der KI-Community im Trend.",
+        }
+        fallback_summary = {
+            "en": "Reported by {source}. Tap to read the full story and get more details on this developing AI news.",
+            "hi": "{source} की रिपोर्ट. पूरी स्टोरी पढ़ने और इस AI अपडेट की अधिक जानकारी के लिए टैप करें.",
+            "de": "Berichtet von {source}. Tippen Sie, um die ganze Story und mehr Details zu diesem KI-Update zu lesen.",
+        }
+        lang = language_code if language_code in fallback_summary else "en"
 
         tiles = []
         for i, a in enumerate(articles[:20]):
@@ -467,21 +726,83 @@ Select and summarize the top AI news stories. Respond ONLY with a JSON array."""
                     break
 
             source = a.get("source", "")
-            summary = f"Reported by {source}. Tap to read the full story and get more details on this developing AI news." if source else "Tap to read the full story and get more details on this AI news update."
+            if source:
+                summary = fallback_summary[lang].format(source=source)
+            else:
+                summary = {
+                    "en": "Tap to read the full story and get more details on this AI news update.",
+                    "hi": "इस AI न्यूज़ अपडेट की पूरी जानकारी के लिए पूरी स्टोरी पढ़ें.",
+                    "de": "Tippen Sie, um die ganze Story und weitere Details zu diesem KI-Update zu lesen.",
+                }.get(
+                    lang, "Tap to read the full story and get more details on this AI news update."
+                )
 
-            tiles.append({
-                "title": a["title"][:150],
-                "summary": summary,
-                "why_it_matters": "Stay informed — this story is trending in the AI community right now.",
-                "category": category,
-                "topic": topic,
-                "importance": importance,
-                "source": source,
-                "link": a.get("link", ""),
-                "published": a.get("published", ""),
-                "fetched_at": datetime.now(timezone.utc).isoformat(),
-            })
+            tiles.append(
+                {
+                    "title": a["title"][:150],
+                    "summary": summary,
+                    "why_it_matters": fallback_why.get(lang, fallback_why["en"]),
+                    "category": category,
+                    "topic": topic,
+                    "importance": importance,
+                    "source": source,
+                    "link": a.get("link", ""),
+                    "published": a.get("published", ""),
+                    "fetched_at": datetime.now(UTC).isoformat(),
+                }
+            )
         return tiles
+
+    async def generate_topic_brief(
+        self,
+        *,
+        title: str,
+        source: str,
+        link: str,
+        summary: str,
+        why_it_matters: str,
+        topic: str,
+        language_code: str = "en",
+    ) -> str:
+        """Generate a richer topic brief (~300 words) for one article on demand."""
+        language_code = (language_code or "en").lower()
+        output_language = SUPPORTED_OUTPUT_LANGUAGES.get(language_code, "English")
+
+        system_prompt = f"""You are an expert AI news analyst.
+Write a detailed but readable topic brief in {output_language}.
+
+RULES:
+1. Target length: 260 to 340 words.
+2. Stay factual and grounded in the provided information.
+3. Avoid hype and speculation.
+4. Include clear context, what happened, and practical implications for professionals.
+5. Keep paragraphing natural for mobile reading.
+6. Do not output markdown headings or bullet points.
+7. Output plain text only.
+"""
+
+        user_prompt = f"""Article data:
+Title: {title}
+Source: {source}
+Topic: {topic}
+Link: {link}
+Short summary: {summary}
+Why it matters: {why_it_matters}
+
+Write the detailed brief now."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        response = await call_llm(messages, self.hf_token, max_tokens=1200)
+        cleaned = (response or "").strip()
+        if not cleaned:
+            return summary or why_it_matters or "No additional details available yet."
+
+        # Hard cap to keep payload safe for mobile clients.
+        return cleaned[:2600]
 
 
 MAX_TILES_PER_FETCH = 20  # per refresh cycle

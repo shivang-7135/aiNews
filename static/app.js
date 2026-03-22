@@ -1,8 +1,364 @@
 // DailyAI v3.0 — Swipe + Scroll mode, Onboarding, Auto-dismiss streak
 const API_URL = '/api/articles';
+const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v1';
+const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
+const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
+const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 (function () {
     'use strict';
+
+    const I18N = {
+        en: {
+            htmlLang: 'en',
+            pageTitle: 'DailyAI - Discover AI News',
+            pageDescription: 'DailyAI - AI news, curated daily. No login required.',
+            onboardingTitle: 'Welcome to DailyAI',
+            onboardingDesc: 'Discover what you can do in one place.',
+            onboardingFeatureSwipe: 'Swipe right to save and left to skip.',
+            onboardingFeatureLanguage: 'Change language from the sidebar.',
+            onboardingFeatureCountry: 'Change country to localize your feed.',
+            onboardingFeatureRead: 'Tap a card to read a detailed brief.',
+            onboardingFeatureCache: 'Stories are cached locally for faster loading and fewer API calls.',
+            onboardingCacheNote: 'Use Refresh News in the top bar whenever you want fresh data.',
+            onboardingStart: 'Start with Swipe 👆',
+            onboardingScroll: 'Start with Scroll ↕',
+            navDiscover: 'Discover',
+            navSaved: 'Saved Articles',
+            languageTitle: '🌐 Language',
+            regionTitle: '🌍 Region',
+            sortBy: 'Sort by',
+            sortRelevance: '⚡ Relevance',
+            sortLatest: '🕐 Latest',
+            digestTitle: '📬 Daily Digest',
+            digestDesc: 'Get the top AI stories in your inbox every morning.',
+            readersSubscribed: 'readers subscribed',
+            emailPlaceholder: 'you@email.com',
+            subscribe: 'Subscribe',
+            subscribing: 'Subscribing...',
+            done: '✓ Done!',
+            sidebarHint: 'Swipe right to save - Left to skip',
+            noLogin: 'v3.0 - No login required',
+            modeScroll: '↕ Scroll',
+            modeSwipe: '👆 Swipe',
+            modeTitle: 'Switch view mode',
+            refreshNews: 'Refresh News',
+            refreshingNews: 'Refreshing news...',
+            refreshDone: 'News refreshed',
+            refreshFailed: 'Refresh failed',
+            topBarGlobal: '🌐 Global',
+            viewDiscover: 'Discover',
+            viewSaved: 'Saved',
+            forYou: 'For You',
+            topStories: 'Top Stories',
+            techScience: 'Tech & Science',
+            aiModels: 'AI Models',
+            tools: 'Tools',
+            research: 'Research',
+            business: 'Business',
+            hintSkip: '← Skip',
+            hintSave: 'Save →',
+            emptyCaughtUp: "You're all caught up!",
+            emptySub: 'Pull down or switch tabs for more stories.',
+            reloadFeed: 'Reload feed ↻',
+            noStories: 'No stories yet',
+            noStoriesSub: 'Pull down to refresh.',
+            noSavedTitle: 'No saved articles yet',
+            noSavedSub: 'Swipe right on cards to save them here.',
+            savedAppear: 'Saved articles appear after loading the feed.',
+            swipeLabelSave: 'SAVE',
+            swipeLabelSkip: 'SKIP',
+            sortedLatest: '🕐 Sorted by latest',
+            sortedRelevance: '⚡ Sorted by relevance',
+            switchedTo: 'Switched to {name}',
+            languageToast: 'Language: {name}',
+            subscribedToast: 'Subscribed! 🎉',
+            subscribedOk: 'Subscribed!',
+            networkError: 'Network error',
+            failed: 'Failed',
+            saveToast: 'Saved! 🔖',
+            readOriginal: 'Read original →',
+            saveAction: '🔖 Save',
+            savedAction: '✓ Saved',
+            addedSaved: '✓ Added to saved articles',
+            loadingBrief: 'Generating detailed brief...',
+            briefUnavailable: 'Detailed brief is not available yet. Please try again.',
+            updatedAt: 'Updated',
+            streakLine: '🔥 Day {count} reading streak',
+            streakBadge: '🔥 Day {count} reading DailyAI',
+        },
+        hi: {
+            htmlLang: 'hi',
+            pageTitle: 'DailyAI - AI समाचार खोजें',
+            pageDescription: 'DailyAI - रोज़ाना चुनी हुई AI खबरें। लॉगिन की जरूरत नहीं।',
+            onboardingTitle: 'DailyAI में आपका स्वागत है',
+            onboardingDesc: 'एक ही जगह पर सभी फीचर्स समझें।',
+            onboardingFeatureSwipe: 'सेव करने के लिए दाईं और स्किप के लिए बाईं ओर स्वाइप करें।',
+            onboardingFeatureLanguage: 'साइडबार से भाषा बदलें।',
+            onboardingFeatureCountry: 'अपनी फीड को स्थानीय बनाने के लिए देश बदलें।',
+            onboardingFeatureRead: 'विस्तृत विवरण पढ़ने के लिए किसी कार्ड पर टैप करें।',
+            onboardingFeatureCache: 'स्टोरीज़ लोकल कैश में सेव होती हैं, इसलिए लोडिंग तेज और API कॉल कम होती हैं।',
+            onboardingCacheNote: 'नई खबरों के लिए ऊपर Refresh News का उपयोग करें।',
+            onboardingStart: 'स्वाइप से शुरू करें 👆',
+            onboardingScroll: 'स्क्रॉल से शुरू करें ↕',
+            navDiscover: 'खोजें',
+            navSaved: 'सेव्ड लेख',
+            languageTitle: '🌐 भाषा',
+            regionTitle: '🌍 क्षेत्र',
+            sortBy: 'क्रमबद्ध करें',
+            sortRelevance: '⚡ प्रासंगिकता',
+            sortLatest: '🕐 नवीनतम',
+            digestTitle: '📬 दैनिक डाइजेस्ट',
+            digestDesc: 'हर सुबह अपने इनबॉक्स में AI की टॉप खबरें पाएं।',
+            readersSubscribed: 'पाठक सदस्य हैं',
+            emailPlaceholder: 'you@email.com',
+            subscribe: 'सदस्य बनें',
+            subscribing: 'सदस्यता ली जा रही है...',
+            done: '✓ हो गया!',
+            sidebarHint: 'सेव करने के लिए दाएं स्वाइप करें - स्किप के लिए बाएं',
+            noLogin: 'v3.0 - लॉगिन आवश्यक नहीं',
+            modeScroll: '↕ स्क्रॉल',
+            modeSwipe: '👆 स्वाइप',
+            modeTitle: 'व्यू मोड बदलें',
+            refreshNews: 'समाचार रिफ्रेश करें',
+            refreshingNews: 'समाचार रिफ्रेश हो रहे हैं...',
+            refreshDone: 'समाचार रिफ्रेश हो गए',
+            refreshFailed: 'रिफ्रेश असफल',
+            topBarGlobal: '🌐 ग्लोबल',
+            viewDiscover: 'खोजें',
+            viewSaved: 'सेव्ड',
+            forYou: 'आपके लिए',
+            topStories: 'मुख्य खबरें',
+            techScience: 'टेक और साइंस',
+            aiModels: 'AI मॉडल्स',
+            tools: 'टूल्स',
+            research: 'रिसर्च',
+            business: 'बिज़नेस',
+            hintSkip: '← स्किप',
+            hintSave: 'सेव →',
+            emptyCaughtUp: 'आपने सब देख लिया!',
+            emptySub: 'और खबरों के लिए नीचे खींचें या टैब बदलें।',
+            reloadFeed: 'फीड फिर लोड करें ↻',
+            noStories: 'अभी कोई स्टोरी नहीं',
+            noStoriesSub: 'रिफ्रेश करने के लिए नीचे खींचें।',
+            noSavedTitle: 'अभी कोई सेव्ड लेख नहीं',
+            noSavedSub: 'लेख सेव करने के लिए कार्ड पर दाईं ओर स्वाइप करें।',
+            savedAppear: 'फीड लोड होने के बाद सेव्ड लेख यहां दिखेंगे।',
+            swipeLabelSave: 'सेव',
+            swipeLabelSkip: 'स्किप',
+            sortedLatest: '🕐 नवीनतम के अनुसार क्रमबद्ध',
+            sortedRelevance: '⚡ प्रासंगिकता के अनुसार क्रमबद्ध',
+            switchedTo: '{name} पर स्विच किया गया',
+            languageToast: 'भाषा: {name}',
+            subscribedToast: 'सदस्यता सफल! 🎉',
+            subscribedOk: 'सदस्यता सफल!',
+            networkError: 'नेटवर्क त्रुटि',
+            failed: 'असफल',
+            saveToast: 'सेव किया गया! 🔖',
+            readOriginal: 'मूल लेख पढ़ें →',
+            saveAction: '🔖 सेव करें',
+            savedAction: '✓ सेव्ड',
+            addedSaved: '✓ सेव्ड लेखों में जोड़ा गया',
+            loadingBrief: 'विस्तृत विवरण तैयार किया जा रहा है...',
+            briefUnavailable: 'विस्तृत विवरण अभी उपलब्ध नहीं है। कृपया फिर कोशिश करें।',
+            updatedAt: 'अपडेट किया गया',
+            streakLine: '🔥 दिन {count} पढ़ने की स्ट्रीक',
+            streakBadge: '🔥 दिन {count} DailyAI पढ़ना',
+        },
+        de: {
+            htmlLang: 'de',
+            pageTitle: 'DailyAI - KI-News entdecken',
+            pageDescription: 'DailyAI - taeglich kuratierte KI-News. Kein Login erforderlich.',
+            onboardingTitle: 'Willkommen bei DailyAI',
+            onboardingDesc: 'Alle Funktionen auf einen Blick.',
+            onboardingFeatureSwipe: 'Nach rechts wischen zum Speichern, nach links zum Ueberspringen.',
+            onboardingFeatureLanguage: 'Sprache in der Seitenleiste wechseln.',
+            onboardingFeatureCountry: 'Land wechseln, um den Feed zu lokalisieren.',
+            onboardingFeatureRead: 'Auf eine Karte tippen, um einen detaillierten Brief zu lesen.',
+            onboardingFeatureCache: 'Stories werden lokal zwischengespeichert fuer schnelleres Laden und weniger API-Aufrufe.',
+            onboardingCacheNote: 'Mit "News aktualisieren" in der Top-Leiste holst du frische Daten.',
+            onboardingStart: 'Mit Wischen starten 👆',
+            onboardingScroll: 'Mit Scrollen starten ↕',
+            navDiscover: 'Entdecken',
+            navSaved: 'Gespeicherte Artikel',
+            languageTitle: '🌐 Sprache',
+            regionTitle: '🌍 Region',
+            sortBy: 'Sortieren nach',
+            sortRelevance: '⚡ Relevanz',
+            sortLatest: '🕐 Neueste',
+            digestTitle: '📬 Taeglicher Digest',
+            digestDesc: 'Erhalte jeden Morgen die wichtigsten KI-Storys per E-Mail.',
+            readersSubscribed: 'Leser abonniert',
+            emailPlaceholder: 'you@email.com',
+            subscribe: 'Abonnieren',
+            subscribing: 'Wird abonniert...',
+            done: '✓ Fertig!',
+            sidebarHint: 'Nach rechts zum Speichern - nach links zum Ueberspringen',
+            noLogin: 'v3.0 - Kein Login erforderlich',
+            modeScroll: '↕ Scrollen',
+            modeSwipe: '👆 Wischen',
+            modeTitle: 'Ansichtsmodus wechseln',
+            refreshNews: 'News aktualisieren',
+            refreshingNews: 'News werden aktualisiert...',
+            refreshDone: 'News aktualisiert',
+            refreshFailed: 'Aktualisierung fehlgeschlagen',
+            topBarGlobal: '🌐 Global',
+            viewDiscover: 'Entdecken',
+            viewSaved: 'Gespeichert',
+            forYou: 'Fuer dich',
+            topStories: 'Top-Storys',
+            techScience: 'Technik & Wissenschaft',
+            aiModels: 'KI-Modelle',
+            tools: 'Tools',
+            research: 'Forschung',
+            business: 'Business',
+            hintSkip: '← Ueberspringen',
+            hintSave: 'Speichern →',
+            emptyCaughtUp: 'Du bist auf dem neuesten Stand!',
+            emptySub: 'Ziehe nach unten oder wechsle Tabs fuer mehr Storys.',
+            reloadFeed: 'Feed neu laden ↻',
+            noStories: 'Noch keine Storys',
+            noStoriesSub: 'Zum Aktualisieren nach unten ziehen.',
+            noSavedTitle: 'Noch keine gespeicherten Artikel',
+            noSavedSub: 'Wische nach rechts auf Karten, um sie hier zu speichern.',
+            savedAppear: 'Gespeicherte Artikel erscheinen nach dem Laden des Feeds.',
+            swipeLabelSave: 'SPEICHERN',
+            swipeLabelSkip: 'SKIP',
+            sortedLatest: '🕐 Nach Neueste sortiert',
+            sortedRelevance: '⚡ Nach Relevanz sortiert',
+            switchedTo: 'Gewechselt zu {name}',
+            languageToast: 'Sprache: {name}',
+            subscribedToast: 'Abonniert! 🎉',
+            subscribedOk: 'Abonniert!',
+            networkError: 'Netzwerkfehler',
+            failed: 'Fehlgeschlagen',
+            saveToast: 'Gespeichert! 🔖',
+            readOriginal: 'Original lesen →',
+            saveAction: '🔖 Speichern',
+            savedAction: '✓ Gespeichert',
+            addedSaved: '✓ Zu gespeicherten Artikeln hinzugefuegt',
+            loadingBrief: 'Ausfuehrlicher Brief wird erstellt...',
+            briefUnavailable: 'Ausfuehrlicher Brief ist noch nicht verfuegbar. Bitte erneut versuchen.',
+            updatedAt: 'Aktualisiert',
+            streakLine: '🔥 Tag {count} Lesestreak',
+            streakBadge: '🔥 Tag {count} DailyAI gelesen',
+        },
+    };
+
+    function t(key, vars = {}) {
+        const dict = I18N[currentLanguage] || I18N.en;
+        const fallback = I18N.en;
+        let text = dict[key] || fallback[key] || key;
+        Object.entries(vars).forEach(([k, v]) => {
+            text = text.replaceAll(`{${k}}`, String(v));
+        });
+        return text;
+    }
+
+    function applyTranslations() {
+        document.documentElement.lang = t('htmlLang');
+        document.title = t('pageTitle');
+
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) metaDesc.setAttribute('content', t('pageDescription'));
+
+        const setText = (selector, value) => {
+            const el = document.querySelector(selector);
+            if (el) el.textContent = value;
+        };
+        setText('.onboard-title', t('onboardingTitle'));
+        setText('.onboard-desc', t('onboardingDesc'));
+        setText('#onboardFeatureSwipe', t('onboardingFeatureSwipe'));
+        setText('#onboardFeatureLanguage', t('onboardingFeatureLanguage'));
+        setText('#onboardFeatureCountry', t('onboardingFeatureCountry'));
+        setText('#onboardFeatureRead', t('onboardingFeatureRead'));
+        setText('#onboardFeatureCache', t('onboardingFeatureCache'));
+        setText('#onboardCacheNote', t('onboardingCacheNote'));
+        setText('#onboardStart', t('onboardingStart'));
+        setText('#onboardScroll', t('onboardingScroll'));
+
+        const navDiscover = $('navDiscover');
+        if (navDiscover) navDiscover.innerHTML = `<span class="sidebar-icon">🏠</span> ${t('navDiscover')}`;
+        const navSaved = $('navSaved');
+        if (navSaved) navSaved.innerHTML = `<span class="sidebar-icon">🔖</span> ${t('navSaved')}<span class="sidebar-badge" id="savedCount">${Object.keys(bookmarks).length}</span>`;
+
+        const sidebarTitles = document.querySelectorAll('.sidebar-section-title');
+        if (sidebarTitles[0]) sidebarTitles[0].textContent = t('languageTitle');
+        if (sidebarTitles[1]) sidebarTitles[1].textContent = t('regionTitle');
+        if (sidebarTitles[2]) sidebarTitles[2].textContent = t('sortBy');
+        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('digestTitle');
+
+        setText('.sidebar-desc', t('digestDesc'));
+        setText('#subscribeBtn', t('subscribe'));
+        const emailInput = $('emailInput');
+        if (emailInput) emailInput.setAttribute('placeholder', t('emailPlaceholder'));
+
+        const subWrap = $('subCountWrap');
+        if (subWrap && subWrap.style.display !== 'none') {
+            subWrap.innerHTML = `<span id="subCountVal">${$('subCountVal')?.textContent || '0'}</span> ${t('readersSubscribed')}`;
+        }
+
+        const footerLines = document.querySelectorAll('.sidebar-footer p');
+        if (footerLines[0]) footerLines[0].textContent = t('sidebarHint');
+        if (footerLines[2]) footerLines[2].textContent = t('noLogin');
+
+        const savedBtn = $('savedBtn');
+        if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
+        const menuBtn = $('menuBtn');
+        if (menuBtn) menuBtn.setAttribute('aria-label', t('navDiscover'));
+
+        const modeBtn = $('modeToggle');
+        if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
+
+        const refreshBtn = $('refreshNewsBtn');
+        if (refreshBtn) {
+            refreshBtn.setAttribute('title', t('refreshNews'));
+            refreshBtn.setAttribute('aria-label', t('refreshNews'));
+        }
+
+        const pills = document.querySelectorAll('.filter-pill');
+        pills.forEach((pill) => {
+            const topic = pill.dataset.topic || '';
+            const map = {
+                'For You': t('forYou'),
+                'Top Stories': t('topStories'),
+                'Tech & Science': t('techScience'),
+                'AI Models': t('aiModels'),
+                'Tools': t('tools'),
+                'Research': t('research'),
+                'Business': t('business'),
+            };
+            if (map[topic]) pill.textContent = map[topic];
+        });
+
+        setText('.hint-left', t('hintSkip'));
+        setText('.hint-right', t('hintSave'));
+        setText('.empty-title', t('emptyCaughtUp'));
+        setText('.empty-sub', t('emptySub'));
+        setText('#reloadBtn', t('reloadFeed'));
+
+        switchView(currentView);
+        restoreSort();
+        restoreFeedMode();
+        showStreak();
+    }
+
+    function translateCountryName(code, name) {
+        const COUNTRY_LABELS = {
+            en: { GLOBAL: 'Global / Worldwide' },
+            hi: {
+                US: 'संयुक्त राज्य अमेरिका', GB: 'यूनाइटेड किंगडम', IN: 'भारत', DE: 'जर्मनी', FR: 'फ्रांस',
+                CA: 'कनाडा', AU: 'ऑस्ट्रेलिया', JP: 'जापान', KR: 'दक्षिण कोरिया', CN: 'चीन',
+                BR: 'ब्राज़ील', SG: 'सिंगापुर', AE: 'यूएई', IL: 'इज़राइल', GLOBAL: 'ग्लोबल / विश्वव्यापी',
+            },
+            de: {
+                US: 'Vereinigte Staaten', GB: 'Vereinigtes Koenigreich', IN: 'Indien', DE: 'Deutschland', FR: 'Frankreich',
+                CA: 'Kanada', AU: 'Australien', JP: 'Japan', KR: 'Suedkorea', CN: 'China',
+                BR: 'Brasilien', SG: 'Singapur', AE: 'VAE', IL: 'Israel', GLOBAL: 'Global / Weltweit',
+            },
+        };
+        return (COUNTRY_LABELS[currentLanguage] && COUNTRY_LABELS[currentLanguage][code]) || name;
+    }
 
     // ---- Config ----
     const TOPIC_GRADIENTS = {
@@ -29,10 +385,49 @@ const API_URL = '/api/articles';
         { id:'fb-3', headline:'New Open-Source LLM Surpasses Commercial Models', summary:'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters:'Open-source AI is closing the gap, democratizing access to powerful tools.', topic:'Research', source_name:'ArXiv', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
     ];
 
+    function getFeedCacheKey(topicParam, country, language) {
+        return `${FEED_CACHE_PREFIX}:${country}:${language}:${(topicParam || 'all').toLowerCase()}`;
+    }
+    function getBriefCacheKey(article) {
+        const fingerprint = `${article.id || ''}|${article.article_url || ''}|${article.headline || ''}|${currentLanguage}`;
+        return `${BRIEF_CACHE_PREFIX}:${hashCode(fingerprint)}`;
+    }
+    function readCacheEntry(cacheKey, ttlMs, allowExpired = false) {
+        try {
+            const raw = localStorage.getItem(cacheKey);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed.savedAt !== 'number') return null;
+            const isExpired = Date.now() - parsed.savedAt > ttlMs;
+            if (isExpired && !allowExpired) return null;
+            return parsed.data;
+        } catch {
+            return null;
+        }
+    }
+    function writeCacheEntry(cacheKey, data) {
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data }));
+        } catch {
+            // Cache writes can fail on storage limits; app should continue without breaking.
+        }
+    }
+    function hydrateTopicCachesFromAll(articles) {
+        const topics = new Set((articles || []).map(a => (a.topic || '').trim()).filter(Boolean));
+        topics.forEach((topicName) => {
+            const topicArticles = (articles || []).filter(a => (a.topic || '').toLowerCase() === topicName.toLowerCase());
+            if (topicArticles.length > 0) {
+                const topicCacheKey = getFeedCacheKey(topicName, currentCountry, currentLanguage);
+                writeCacheEntry(topicCacheKey, topicArticles);
+            }
+        });
+    }
+
     // ---- State ----
     let allArticles = [];
     let currentTopic = 'For You';
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
+    let currentLanguage = localStorage.getItem('dailyai_language') || 'en';
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let currentView = 'discover';
     let feedMode = localStorage.getItem('dailyai_mode') || 'swipe'; // 'swipe' or 'scroll'
@@ -58,7 +453,9 @@ const API_URL = '/api/articles';
     const viewTitle = $('viewTitle');
     const topBarCountry = $('topBarCountry');
     const countrySelect = $('countrySelect');
+    const languageSelect = $('languageSelect');
     const modeToggle = $('modeToggle');
+    const refreshNewsBtn = $('refreshNewsBtn');
 
     // ====================== INIT ======================
     function init() {
@@ -78,6 +475,9 @@ const API_URL = '/api/articles';
         // Country
         countrySelect.addEventListener('change', onCountryChange);
 
+        // Language
+        languageSelect.addEventListener('change', onLanguageChange);
+
         // Newsletter
         $('subscribeForm').addEventListener('submit', onSubscribe);
 
@@ -88,11 +488,8 @@ const API_URL = '/api/articles';
         modeToggle.addEventListener('click', toggleFeedMode);
 
         // Reload
-        $('reloadBtn').addEventListener('click', () => {
-            swipeCardIndex = 0;
-            swipeEmpty.style.display = 'none';
-            renderFeed();
-        });
+        $('reloadBtn').addEventListener('click', refreshNewsNow);
+        refreshNewsBtn?.addEventListener('click', refreshNewsNow);
 
         // Bottom sheet
         sheetBackdrop.addEventListener('click', closeSheet);
@@ -104,10 +501,12 @@ const API_URL = '/api/articles';
         }, { passive: true });
 
         // Init
+        applyTranslations();
         showStreak();
         updateSavedCount();
         restoreSort();
         restoreFeedMode();
+        loadLanguages();
         loadCountries();
         fetchSubscriberCount();
 
@@ -158,15 +557,15 @@ const API_URL = '/api/articles';
         localStorage.setItem('dailyai_mode', feedMode);
         restoreFeedMode();
         renderFeed();
-        showToast(feedMode === 'scroll' ? '↕ Scroll mode' : '👆 Swipe mode');
+        showToast(feedMode === 'scroll' ? t('modeScroll') : t('modeSwipe'));
     }
 
     function restoreFeedMode() {
         if (feedMode === 'scroll') {
-            modeToggle.textContent = '👆 Swipe';
+            modeToggle.textContent = t('modeSwipe');
             modeToggle.classList.add('active');
         } else {
-            modeToggle.textContent = '↕ Scroll';
+            modeToggle.textContent = t('modeScroll');
             modeToggle.classList.remove('active');
         }
     }
@@ -189,7 +588,7 @@ const API_URL = '/api/articles';
         scrollFeed.innerHTML = '';
         const articles = getFilteredArticles();
         if (articles.length === 0) {
-            scrollFeed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">📰</p><p style="font-size:16px;font-weight:600;">No stories yet</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">Pull down to refresh.</p></div>';
+            scrollFeed.innerHTML = `<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">📰</p><p style="font-size:16px;font-weight:600;">${t('noStories')}</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">${t('noStoriesSub')}</p></div>`;
             return;
         }
         articles.forEach(article => {
@@ -220,7 +619,7 @@ const API_URL = '/api/articles';
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
-                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                    <span class="card-time">${getCardTimeMarkup(article)}</span>
                 </div>
             </div>
         `;
@@ -244,12 +643,43 @@ const API_URL = '/api/articles';
                 const flag = COUNTRY_FLAGS[code] || '🏳️';
                 const opt = document.createElement('option');
                 opt.value = code;
-                opt.textContent = `${flag} ${name}`;
+                opt.textContent = `${flag} ${translateCountryName(code, name)}`;
                 if (code === currentCountry) opt.selected = true;
                 countrySelect.appendChild(opt);
             }
             updateTopBarCountry();
         } catch { /* fallback: keep default */ }
+    }
+
+    async function loadLanguages() {
+        const fallback = { en: 'English', hi: 'Hindi', de: 'German' };
+        try {
+            const resp = await fetch('/api/languages');
+            const data = await resp.json();
+            const languages = data.languages || fallback;
+            languageSelect.innerHTML = '';
+            for (const [code, name] of Object.entries(languages)) {
+                const opt = document.createElement('option');
+                opt.value = code;
+                const localizedLabel = {
+                    en: { en: 'English', hi: 'Hindi', de: 'German' },
+                    hi: { en: 'अंग्रेजी', hi: 'हिंदी', de: 'जर्मन' },
+                    de: { en: 'Englisch', hi: 'Hindi', de: 'Deutsch' },
+                };
+                opt.textContent = (localizedLabel[currentLanguage] && localizedLabel[currentLanguage][code]) || name;
+                if (code === currentLanguage) opt.selected = true;
+                languageSelect.appendChild(opt);
+            }
+        } catch {
+            languageSelect.innerHTML = '';
+            for (const [code, name] of Object.entries(fallback)) {
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.textContent = name;
+                if (code === currentLanguage) opt.selected = true;
+                languageSelect.appendChild(opt);
+            }
+        }
     }
 
     function onCountryChange() {
@@ -260,7 +690,20 @@ const API_URL = '/api/articles';
         showSkeleton();
         fetchArticles(currentTopic);
         const name = countrySelect.options[countrySelect.selectedIndex]?.textContent || currentCountry;
-        showToast(`Switched to ${name}`);
+        showToast(t('switchedTo', { name }));
+    }
+
+    function onLanguageChange() {
+        currentLanguage = languageSelect.value || 'en';
+        localStorage.setItem('dailyai_language', currentLanguage);
+        applyTranslations();
+        loadCountries();
+        loadLanguages();
+        closeSidebar();
+        showSkeleton();
+        fetchArticles(currentTopic);
+        const name = languageSelect.options[languageSelect.selectedIndex]?.textContent || currentLanguage;
+        showToast(t('languageToast', { name }));
     }
 
     function updateTopBarCountry() {
@@ -277,7 +720,8 @@ const API_URL = '/api/articles';
             const data = await resp.json();
             const count = data.count || 0;
             if (count > 0) {
-                $('subCountVal').textContent = count.toLocaleString();
+                const subCountWrap = $('subCountWrap');
+                subCountWrap.innerHTML = `<span id="subCountVal">${count.toLocaleString()}</span> ${t('readersSubscribed')}`;
                 $('subCountWrap').style.display = 'block';
             }
         } catch { /* silently ignore */ }
@@ -300,7 +744,7 @@ const API_URL = '/api/articles';
         document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
         if (view === 'discover') {
             $('navDiscover').classList.add('active');
-            viewTitle.textContent = 'Discover';
+            viewTitle.textContent = t('viewDiscover');
             filterTabs.style.display = '';
             feed.style.display = 'none';
             $('savedBtn').classList.remove('has-saved');
@@ -308,7 +752,7 @@ const API_URL = '/api/articles';
             renderFeed();
         } else {
             $('navSaved').classList.add('active');
-            viewTitle.textContent = 'Saved';
+            viewTitle.textContent = t('viewSaved');
             filterTabs.style.display = 'none';
             swipeContainer.style.display = 'none';
             scrollFeed.style.display = 'none';
@@ -322,7 +766,7 @@ const API_URL = '/api/articles';
     function renderSavedList() {
         const savedIds = Object.keys(bookmarks);
         if (savedIds.length === 0) {
-            feed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">🔖</p><p style="font-size:16px;font-weight:600;">No saved articles yet</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">Swipe right on cards to save them here.</p></div>';
+            feed.innerHTML = `<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">🔖</p><p style="font-size:16px;font-weight:600;">${t('noSavedTitle')}</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">${t('noSavedSub')}</p></div>`;
             return;
         }
         const saved = allArticles.filter(a => bookmarks[a.id]);
@@ -332,7 +776,7 @@ const API_URL = '/api/articles';
             if (!combined.find(c => c.id === s.id)) combined.push(s);
         }
         if (combined.length === 0) {
-            feed.innerHTML = '<div style="padding:60px 20px;text-align:center;"><p style="font-size:14px;color:var(--text3);">Saved articles appear after loading the feed.</p></div>';
+            feed.innerHTML = `<div style="padding:60px 20px;text-align:center;"><p style="font-size:14px;color:var(--text3);">${t('savedAppear')}</p></div>`;
             return;
         }
         feed.innerHTML = combined.map((a, i) => createFeedCardHTML(a, i)).join('');
@@ -361,7 +805,7 @@ const API_URL = '/api/articles';
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
-                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                    <span class="card-time">${getCardTimeMarkup(article)}</span>
                 </div>
             </div>
         </div>`;
@@ -383,7 +827,7 @@ const API_URL = '/api/articles';
         swipeCardIndex = 0;
         renderFeed();
         closeSidebar();
-        showToast(currentSort === 'time' ? '🕐 Sorted by latest' : '⚡ Sorted by relevance');
+        showToast(currentSort === 'time' ? t('sortedLatest') : t('sortedRelevance'));
     }
     function sortArticles() {
         if (currentSort === 'time') {
@@ -397,48 +841,94 @@ const API_URL = '/api/articles';
         const email = $('emailInput').value.trim();
         if (!email) return;
         const btn = $('subscribeBtn');
-        btn.disabled = true; btn.textContent = 'Subscribing...';
+        btn.disabled = true; btn.textContent = t('subscribing');
         try {
             const resp = await fetch('/api/subscribe', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, topics: [], country: currentCountry }),
+                body: JSON.stringify({ email, topics: [], country: currentCountry, language: currentLanguage }),
             });
             const data = await resp.json();
             if (resp.ok) {
-                $('subStatus').textContent = '✅ ' + (data.message || 'Subscribed!');
+                $('subStatus').textContent = '✅ ' + (data.message || t('subscribedOk'));
                 $('emailInput').value = '';
-                btn.textContent = '✓ Done!';
-                showToast('Subscribed! 🎉');
+                btn.textContent = t('done');
+                showToast(t('subscribedToast'));
                 fetchSubscriberCount();
-                setTimeout(() => { btn.textContent = 'Subscribe'; }, 3000);
+                setTimeout(() => { btn.textContent = t('subscribe'); }, 3000);
             } else {
-                $('subStatus').textContent = '❌ ' + (data.error || 'Failed');
-                btn.textContent = 'Subscribe';
+                $('subStatus').textContent = '❌ ' + (data.error || t('failed'));
+                btn.textContent = t('subscribe');
             }
         } catch {
-            $('subStatus').textContent = '❌ Network error';
-            btn.textContent = 'Subscribe';
+            $('subStatus').textContent = '❌ ' + t('networkError');
+            btn.textContent = t('subscribe');
         } finally { btn.disabled = false; }
     }
 
     // ====================== FETCH ======================
-    async function fetchArticles(topic) {
+    async function fetchArticles(topic, options = {}) {
+        const { forceRefresh = false } = options;
         const param = topic === 'For You' ? 'all' : topic;
+        const cacheKey = getFeedCacheKey(param, currentCountry, currentLanguage);
+        if (!forceRefresh) {
+            const cachedArticles = readCacheEntry(cacheKey, FEED_CACHE_TTL_MS);
+            if (cachedArticles && cachedArticles.length > 0) {
+                allArticles = cachedArticles;
+                sortArticles();
+                swipeCardIndex = 0;
+                swipeEmpty.style.display = 'none';
+                renderFeed();
+                return;
+            }
+        }
         const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000));
         try {
             const resp = await Promise.race([
-                fetch(`${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}`),
+                fetch(`${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}&language=${encodeURIComponent(currentLanguage)}`),
                 timeout,
             ]);
             const data = await resp.json();
             allArticles = (data.articles && data.articles.length > 0) ? data.articles : FALLBACK_ARTICLES;
+            if (data.articles && data.articles.length > 0) {
+                writeCacheEntry(cacheKey, data.articles);
+                if (param === 'all') hydrateTopicCachesFromAll(data.articles);
+            }
         } catch {
-            allArticles = FALLBACK_ARTICLES;
+            const staleArticles = readCacheEntry(cacheKey, FEED_CACHE_TTL_MS, true);
+            allArticles = (staleArticles && staleArticles.length > 0) ? staleArticles : FALLBACK_ARTICLES;
         }
         sortArticles();
         swipeCardIndex = 0;
         swipeEmpty.style.display = 'none';
         renderFeed();
+    }
+
+    async function refreshNewsNow() {
+        if (refreshNewsBtn?.dataset.loading === '1') return;
+        if (refreshNewsBtn) {
+            refreshNewsBtn.dataset.loading = '1';
+            refreshNewsBtn.classList.add('loading');
+            refreshNewsBtn.disabled = true;
+        }
+        showToast(t('refreshingNews'));
+        showSkeleton();
+        try {
+            const resp = await fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
+                method: 'POST',
+            });
+            if (!resp.ok) throw new Error('refresh_failed');
+            await fetchArticles(currentTopic, { forceRefresh: true });
+            showToast(t('refreshDone'));
+        } catch {
+            await fetchArticles(currentTopic);
+            showToast(t('refreshFailed'));
+        } finally {
+            if (refreshNewsBtn) {
+                refreshNewsBtn.dataset.loading = '0';
+                refreshNewsBtn.classList.remove('loading');
+                refreshNewsBtn.disabled = false;
+            }
+        }
     }
 
     // ====================== TABS ======================
@@ -482,8 +972,8 @@ const API_URL = '/api/articles';
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
         card.innerHTML = `
-            <div class="swipe-label swipe-label-save">SAVE</div>
-            <div class="swipe-label swipe-label-skip">SKIP</div>
+            <div class="swipe-label swipe-label-save">${t('swipeLabelSave')}</div>
+            <div class="swipe-label swipe-label-skip">${t('swipeLabelSkip')}</div>
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
@@ -491,7 +981,7 @@ const API_URL = '/api/articles';
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
-                    <span class="card-time">${getTimeAgo(article.published_at)}</span>
+                    <span class="card-time">${getCardTimeMarkup(article)}</span>
                 </div>
             </div>
         `;
@@ -553,7 +1043,7 @@ const API_URL = '/api/articles';
         if (dir > 0 && article) {
             bookmarks[article.id] = article;
             localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
-            showToast('Saved! 🔖');
+            showToast(t('saveToast'));
             updateSavedCount();
         }
         swipeCardIndex++;
@@ -585,14 +1075,32 @@ const API_URL = '/api/articles';
         sheetContent.innerHTML = `
             <h2 class="sheet-headline">${esc(article.headline)}</h2>
             <p class="sheet-summary">${esc(article.summary)}</p>
-            ${whyHtml}
-            <p class="sheet-meta">${esc(article.source_name)} • ${getTimeAgo(article.published_at)}</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">Read original →</a>
-                <button class="sheet-link" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;" onclick="this.closest('.sheet-content').querySelector('.save-feedback').style.display='block';${isSaved ? '' : `window._saveFromSheet('${esc(article.id)}')`}">${isSaved ? '✓ Saved' : '🔖 Save'}</button>
+            <div class="sheet-brief-wrap" id="sheetBriefWrap">
+                <div class="sheet-brief-loading" id="sheetBriefLoading">
+                    <p class="sheet-brief" style="margin-bottom:4px;">${esc(t('loadingBrief'))}</p>
+                    <div class="line w95"></div>
+                    <div class="line w88"></div>
+                    <div class="line w90"></div>
+                    <div class="line w80"></div>
+                    <div class="line w92"></div>
+                </div>
+                <p class="sheet-brief" id="sheetBrief" style="display:none;"></p>
             </div>
-            <p class="save-feedback" style="display:none;margin-top:8px;font-size:12px;color:var(--accent);">✓ Added to saved articles</p>
+            ${whyHtml}
+            <p class="sheet-meta">${esc(article.source_name)} • ${esc(getTimeAgo(article.published_at))} • ${esc(getExactTimestamp(article.published_at))}</p>
         `;
+
+        const actionsHtml = `
+            <div class="sheet-actions">
+                <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
+                <button class="sheet-link" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;" onclick="this.closest('.sheet-actions').querySelector('.save-feedback').style.display='block';${isSaved ? '' : `window._saveFromSheet('${esc(article.id)}')`}">${isSaved ? t('savedAction') : t('saveAction')}</button>
+                <p class="save-feedback" style="display:none;">${t('addedSaved')}</p>
+            </div>
+        `;
+
+        const existingActions = bottomSheet.querySelector('.sheet-actions');
+        if (existingActions) existingActions.remove();
+        bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
         // Expose save function
         window._saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id);
@@ -602,13 +1110,66 @@ const API_URL = '/api/articles';
                 updateSavedCount();
             }
         };
+
+        loadDetailedBrief(article);
         sheetBackdrop.classList.add('show');
         bottomSheet.classList.add('show');
         document.body.style.overflow = 'hidden';
     }
+
+    async function loadDetailedBrief(article) {
+        const briefEl = $('sheetBrief');
+        const loadingEl = $('sheetBriefLoading');
+        const briefWrap = $('sheetBriefWrap');
+        if (!briefEl) return;
+
+        const briefCacheKey = getBriefCacheKey(article);
+        const cachedBrief = readCacheEntry(briefCacheKey, BRIEF_CACHE_TTL_MS);
+        if (cachedBrief) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            briefEl.style.display = 'block';
+            briefEl.textContent = cachedBrief;
+            if (briefWrap) briefWrap.scrollTop = 0;
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/articles/brief', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: article.headline || '',
+                    source: article.source_name || '',
+                    link: article.article_url || '',
+                    summary: article.summary || '',
+                    why_it_matters: article.why_it_matters || '',
+                    topic: article.topic || 'general',
+                    language: currentLanguage,
+                }),
+            });
+            const data = await resp.json();
+            if (resp.ok && data.brief) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                briefEl.style.display = 'block';
+                briefEl.textContent = data.brief;
+                writeCacheEntry(briefCacheKey, data.brief);
+                if (briefWrap) briefWrap.scrollTop = 0;
+            } else {
+                if (loadingEl) loadingEl.style.display = 'none';
+                briefEl.style.display = 'block';
+                briefEl.textContent = t('briefUnavailable');
+            }
+        } catch {
+            if (loadingEl) loadingEl.style.display = 'none';
+            briefEl.style.display = 'block';
+            briefEl.textContent = t('briefUnavailable');
+        }
+    }
     function closeSheet() {
         sheetBackdrop.classList.remove('show');
         bottomSheet.classList.remove('show');
+        const existingActions = bottomSheet.querySelector('.sheet-actions');
+        if (existingActions) existingActions.remove();
         document.body.style.overflow = '';
     }
 
@@ -624,10 +1185,10 @@ const API_URL = '/api/articles';
             localStorage.setItem('dailyai_streak_count', String(streak));
         }
         // Show in sidebar
-        $('sidebarStreak').textContent = `🔥 Day ${streak} reading streak`;
+        $('sidebarStreak').textContent = t('streakLine', { count: streak });
         // Show floating badge — auto-dismiss after 4 seconds
         if (!sessionStorage.getItem('dailyai_streak_dismissed') && streak >= 1) {
-            streakBadge.textContent = `🔥 Day ${streak} reading DailyAI`;
+            streakBadge.textContent = t('streakBadge', { count: streak });
             streakBadge.style.display = 'block';
             // Fade in after animation delay
             setTimeout(() => streakBadge.classList.add('visible'), 600);
@@ -655,14 +1216,38 @@ const API_URL = '/api/articles';
         try {
             const d = new Date(dateStr), now = new Date();
             const m = Math.floor((now - d) / 60000);
-            if (m < 1) return 'Just now';
-            if (m < 60) return `${m}m ago`;
+            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+            if (m < 1) return currentLanguage === 'de' ? 'Gerade eben' : currentLanguage === 'hi' ? 'अभी' : 'Just now';
+            if (m < 60) return currentLanguage === 'de' ? `vor ${m} Min` : currentLanguage === 'hi' ? `${m} मिनट पहले` : `${m}m ago`;
             const h = Math.floor(m / 60);
-            if (h < 24) return `${h}h ago`;
+            if (h < 24) return currentLanguage === 'de' ? `vor ${h} Std` : currentLanguage === 'hi' ? `${h} घंटे पहले` : `${h}h ago`;
             const dy = Math.floor(h / 24);
-            if (dy < 7) return `${dy}d ago`;
-            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            if (dy < 7) return currentLanguage === 'de' ? `vor ${dy} Tg` : currentLanguage === 'hi' ? `${dy} दिन पहले` : `${dy}d ago`;
+            return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         } catch { return ''; }
+    }
+    function getExactTimestamp(dateStr) {
+        if (!dateStr) return `${t('updatedAt')}: -`;
+        try {
+            const d = new Date(dateStr);
+            if (Number.isNaN(d.getTime())) return `${t('updatedAt')}: -`;
+            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+            const formatted = d.toLocaleString(locale, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+            return `${t('updatedAt')}: ${formatted}`;
+        } catch {
+            return `${t('updatedAt')}: -`;
+        }
+    }
+    function getCardTimeMarkup(article) {
+        const relative = esc(getTimeAgo(article.published_at));
+        const exact = esc(getExactTimestamp(article.published_at));
+        return `<span class="card-time-relative">${relative}</span><span class="card-time-exact">${exact}</span>`;
     }
     function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }

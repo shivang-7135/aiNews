@@ -1,0 +1,33 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = "\\.pyi?$"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+py_version = 39
+skip = ["__pycache__"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = ["__pycache__"]

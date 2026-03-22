@@ -1,0 +1,9 @@
+exclude_dirs:
+  - .git
+  - __pycache__
+  - venv
+  - .venv
+
+# B608 is a false positive for multiline LLM prompt templates in this codebase.
+skips:
+  - B608
