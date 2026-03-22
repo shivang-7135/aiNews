@@ -4,6 +4,8 @@ const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v1';
 const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
 const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
+const VERSION_POLL_MS = 45 * 1000;
 
 (function () {
     'use strict';
@@ -72,6 +74,11 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
             sortedRelevance: '⚡ Sorted by relevance',
             switchedTo: 'Switched to {name}',
             languageToast: 'Language: {name}',
+            languageReloadTitle: 'Language Updated',
+            languageReloadPrompt: 'Language changed. Reload now for the best experience?',
+            languageReloadNow: 'Reload Now',
+            languageReloadLaterAction: 'Later',
+            languageReloadLater: 'Language changed. You can reload anytime for a full refresh.',
             subscribedToast: 'Subscribed! 🎉',
             subscribedOk: 'Subscribed!',
             networkError: 'Network error',
@@ -150,6 +157,11 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
             sortedRelevance: '⚡ प्रासंगिकता के अनुसार क्रमबद्ध',
             switchedTo: '{name} पर स्विच किया गया',
             languageToast: 'भाषा: {name}',
+            languageReloadTitle: 'भाषा अपडेट हुई',
+            languageReloadPrompt: 'भाषा बदल गई है। बेहतर अनुभव के लिए अभी रीलोड करें?',
+            languageReloadNow: 'अभी रीलोड करें',
+            languageReloadLaterAction: 'बाद में',
+            languageReloadLater: 'भाषा बदल गई है। पूर्ण रिफ्रेश के लिए आप कभी भी रीलोड कर सकते हैं।',
             subscribedToast: 'सदस्यता सफल! 🎉',
             subscribedOk: 'सदस्यता सफल!',
             networkError: 'नेटवर्क त्रुटि',
@@ -228,6 +240,11 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
             sortedRelevance: '⚡ Nach Relevanz sortiert',
             switchedTo: 'Gewechselt zu {name}',
             languageToast: 'Sprache: {name}',
+            languageReloadTitle: 'Sprache aktualisiert',
+            languageReloadPrompt: 'Sprache wurde geaendert. Jetzt neu laden fuer das beste Erlebnis?',
+            languageReloadNow: 'Jetzt neu laden',
+            languageReloadLaterAction: 'Spaeter',
+            languageReloadLater: 'Sprache wurde geaendert. Du kannst jederzeit neu laden fuer eine vollstaendige Aktualisierung.',
             subscribedToast: 'Abonniert! 🎉',
             subscribedOk: 'Abonniert!',
             networkError: 'Netzwerkfehler',
@@ -276,6 +293,10 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
         setText('#onboardCacheNote', t('onboardingCacheNote'));
         setText('#onboardStart', t('onboardingStart'));
         setText('#onboardScroll', t('onboardingScroll'));
+        setText('#langReloadTitle', t('languageReloadTitle'));
+        setText('#langReloadBody', t('languageReloadPrompt'));
+        setText('#langReloadNowBtn', t('languageReloadNow'));
+        setText('#langReloadLaterBtn', t('languageReloadLaterAction'));
 
         const navDiscover = $('navDiscover');
         if (navDiscover) navDiscover.innerHTML = `<span class="sidebar-icon">🏠</span> ${t('navDiscover')}`;
@@ -434,6 +455,7 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
     let bookmarks = JSON.parse(localStorage.getItem('dailyai_bookmarks') || '{}');
     let swipeCardIndex = 0;
     let isDragging = false, startX = 0, startY = 0, deltaX = 0;
+    let versionPollTimer = null;
 
     // ---- DOM ----
     const $ = id => document.getElementById(id);
@@ -456,6 +478,9 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
     const languageSelect = $('languageSelect');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('refreshNewsBtn');
+    const langReloadBackdrop = $('langReloadBackdrop');
+    const langReloadNowBtn = $('langReloadNowBtn');
+    const langReloadLaterBtn = $('langReloadLaterBtn');
 
     // ====================== INIT ======================
     function init() {
@@ -493,12 +518,30 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
         // Bottom sheet
         sheetBackdrop.addEventListener('click', closeSheet);
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeSidebar(); } });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeSheet();
+                closeSidebar();
+                closeLanguageReloadModal();
+            }
+        });
         let sheetTouchStartY = 0;
         bottomSheet.addEventListener('touchstart', e => { sheetTouchStartY = e.touches[0].clientY; }, { passive: true });
         bottomSheet.addEventListener('touchmove', e => {
             if (e.touches[0].clientY - sheetTouchStartY > 80) closeSheet();
         }, { passive: true });
+
+        langReloadNowBtn?.addEventListener('click', () => location.reload());
+        langReloadLaterBtn?.addEventListener('click', () => {
+            closeLanguageReloadModal();
+            showToast(t('languageReloadLater'));
+        });
+        langReloadBackdrop?.addEventListener('click', (e) => {
+            if (e.target === langReloadBackdrop) {
+                closeLanguageReloadModal();
+                showToast(t('languageReloadLater'));
+            }
+        });
 
         // Init
         applyTranslations();
@@ -509,6 +552,8 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
         loadLanguages();
         loadCountries();
         fetchSubscriberCount();
+        setupServiceWorker();
+        startVersionWatcher();
 
         // Onboarding check
         if (!localStorage.getItem('dailyai_onboarded')) {
@@ -518,6 +563,68 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
         // Load feed
         showSkeleton();
         fetchArticles(currentTopic);
+    }
+
+    function setupServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register(`/static/sw.js?v=${encodeURIComponent(RELEASE_VERSION)}`).catch(() => {
+                // Service worker registration is optional; continue app flow.
+            });
+        });
+    }
+
+    function startVersionWatcher() {
+        if (versionPollTimer) clearInterval(versionPollTimer);
+        versionPollTimer = setInterval(checkForDeploymentUpdate, VERSION_POLL_MS);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkForDeploymentUpdate();
+        });
+        checkForDeploymentUpdate();
+    }
+
+    async function checkForDeploymentUpdate() {
+        try {
+            const resp = await fetch('/api/version', { cache: 'no-store' });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const latestVersion = String(data.version || '').trim();
+            if (!latestVersion || latestVersion === RELEASE_VERSION) return;
+
+            const markerKey = 'dailyai_last_auto_reload_version';
+            if (sessionStorage.getItem(markerKey) === latestVersion) return;
+            sessionStorage.setItem(markerKey, latestVersion);
+
+            await clearClientCaches();
+            location.reload();
+        } catch {
+            // Ignore version check failures; next poll will retry.
+        }
+    }
+
+    async function clearClientCaches() {
+        try {
+            const keysToDelete = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                if (key.startsWith(FEED_CACHE_PREFIX) || key.startsWith(BRIEF_CACHE_PREFIX)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach((key) => localStorage.removeItem(key));
+        } catch {
+            // Best effort cache cleanup.
+        }
+
+        if ('caches' in window) {
+            try {
+                const cacheKeys = await caches.keys();
+                await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+            } catch {
+                // Ignore cache API cleanup errors.
+            }
+        }
     }
 
     // ====================== ONBOARDING ======================
@@ -697,6 +804,7 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
         currentLanguage = languageSelect.value || 'en';
         localStorage.setItem('dailyai_language', currentLanguage);
         applyTranslations();
+
         loadCountries();
         loadLanguages();
         closeSidebar();
@@ -704,6 +812,21 @@ const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
         fetchArticles(currentTopic);
         const name = languageSelect.options[languageSelect.selectedIndex]?.textContent || currentLanguage;
         showToast(t('languageToast', { name }));
+        openLanguageReloadModal();
+    }
+
+    function openLanguageReloadModal() {
+        if (!langReloadBackdrop) return;
+        langReloadBackdrop.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLanguageReloadModal() {
+        if (!langReloadBackdrop) return;
+        langReloadBackdrop.style.display = 'none';
+        if (!bottomSheet.classList.contains('show')) {
+            document.body.style.overflow = '';
+        }
     }
 
     function updateTopBarCountry() {

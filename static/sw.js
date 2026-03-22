@@ -1,10 +1,7 @@
-// DailyAI Service Worker — basic offline caching
-const CACHE_NAME = 'dailyai-v1';
-const PRECACHE = [
-    '/',
-    '/static/styles.css',
-    '/static/app.js',
-];
+// DailyAI Service Worker — deployment-aware caching
+const SW_VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
+const CACHE_NAME = `dailyai-${SW_VERSION}`;
+const PRECACHE = ['/'];
 
 self.addEventListener('install', (e) => {
     e.waitUntil(
@@ -23,8 +20,10 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+    const url = new URL(e.request.url);
+
     // Network-first for API calls
-    if (e.request.url.includes('/api/')) {
+    if (url.pathname.startsWith('/api/')) {
         e.respondWith(
             fetch(e.request)
                 .then(resp => {
@@ -37,8 +36,28 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Cache-first for static assets
+    // Network-first for page navigations to avoid stale HTML after deploy.
+    if (e.request.mode === 'navigate') {
+        e.respondWith(
+            fetch(e.request)
+                .then(resp => {
+                    const clone = resp.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+                    return resp;
+                })
+                .catch(() => caches.match(e.request))
+        );
+        return;
+    }
+
+    // Network-first for static assets; cache fallback for resilience.
     e.respondWith(
-        caches.match(e.request).then(cached => cached || fetch(e.request))
+        fetch(e.request)
+            .then(resp => {
+                const clone = resp.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+                return resp;
+            })
+            .catch(() => caches.match(e.request))
     );
 });

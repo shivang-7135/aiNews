@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-release-version="{{ app_version }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3.4">
+    <link rel="stylesheet" href="/static/styles.css?v=3.6">
 </head>
 <body>
     <div class="app-shell" id="appShell">
@@ -173,10 +173,22 @@
         <!-- ===== Toast ===== -->
         <div class="toast" id="toast"></div>
 
+        <!-- ===== Language Reload Modal ===== -->
+        <div class="modal-backdrop" id="langReloadBackdrop" style="display:none;">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="langReloadTitle" aria-describedby="langReloadBody">
+                <h3 class="modal-title" id="langReloadTitle">Language changed</h3>
+                <p class="modal-body" id="langReloadBody">Reload now for best experience?</p>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-secondary" id="langReloadLaterBtn">Later</button>
+                    <button class="modal-btn modal-btn-primary" id="langReloadNowBtn">Reload Now</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== Streak Badge ===== -->
         <div class="streak-badge" id="streakBadge" style="display:none;"></div>
     </div>
 
-    <script src="/static/app.js?v=3.4"></script>
+    <script src="/static/app.js?v=3.6"></script>
 </body>
 </html>

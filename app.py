@@ -31,6 +31,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("dailyai")
 
+APP_VERSION = (
+    os.getenv("APP_VERSION")
+    or os.getenv("SOURCE_VERSION")
+    or os.getenv("GITHUB_SHA")
+    or datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+)
+DEPLOYED_AT = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
 # ---------------------------------------------------------------------------
 # In-memory store  (max 24 tiles, rolling)
 # ---------------------------------------------------------------------------
@@ -347,8 +355,14 @@ async def index(request: Request):
             "request": request,
             "countries": COUNTRIES,
             "topics": TOPICS,
+            "app_version": APP_VERSION,
         },
     )
+
+
+@app.get("/api/version")
+async def get_app_version():
+    return {"version": APP_VERSION, "deployed_at": DEPLOYED_AT}
 
 
 # ---------------------------------------------------------------------------
