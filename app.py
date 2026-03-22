@@ -349,7 +349,7 @@ async def health_check():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "index.html",
         {
             "request": request,
@@ -358,6 +358,11 @@ async def index(request: Request):
             "app_version": APP_VERSION,
         },
     )
+    # Prevent stale HTML shell so clients can pick up the latest JS/CSS build.
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.get("/api/version")

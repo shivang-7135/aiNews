@@ -6,7 +6,7 @@ const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
-const UI_VERSION = 'v3.7';
+const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
 const APP_FUNCTIONALITY_GUIDE = {
     en: [
         'Swipe right to save and left to skip stories you do not need.',
@@ -374,7 +374,7 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const footerLines = document.querySelectorAll('.sidebar-footer p');
         if (footerLines[0]) footerLines[0].textContent = t('sidebarHint');
-        if (footerLines[2]) footerLines[2].textContent = `${UI_VERSION} - ${t('noLogin').replace(/^v\d+\.\d+\s*-\s*/, '')}`;
+        if (footerLines[2]) footerLines[2].textContent = getBuildFooterText();
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
@@ -415,6 +415,13 @@ const APP_FUNCTIONALITY_GUIDE = {
         restoreSort();
         restoreFeedMode();
         showStreak();
+    }
+
+    function getBuildFooterText() {
+        const safeVersion = String(RELEASE_VERSION || 'dev').trim();
+        const shortVersion = safeVersion.length > 10 ? safeVersion.slice(0, 10) : safeVersion;
+        const noLoginText = t('noLogin').replace(/^v\d+\.\d+\s*-\s*/, '');
+        return `Build ${shortVersion} - ${noLoginText}`;
     }
 
     function translateCountryName(code, name) {
@@ -576,7 +583,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     const whatsNewList = $('whatsNewList');
 
     // ====================== INIT ======================
-    function init() {
+    async function init() {
         // Sidebar
         $('menuBtn').addEventListener('click', openSidebar);
         $('sidebarClose').addEventListener('click', closeSidebar);
@@ -643,6 +650,9 @@ const APP_FUNCTIONALITY_GUIDE = {
         });
 
         // Init
+        const reloadedForBuildUpdate = await enforceBuildResetIfNeeded();
+        if (reloadedForBuildUpdate) return;
+
         applyTranslations();
         showWhatsNewIfNeeded();
         showStreak();
@@ -695,14 +705,36 @@ const APP_FUNCTIONALITY_GUIDE = {
             if (sessionStorage.getItem(markerKey) === latestVersion) return;
             sessionStorage.setItem(markerKey, latestVersion);
 
-            await clearClientCaches();
+            await clearClientCaches({ includeServiceWorkers: true });
+            try {
+                localStorage.setItem(BUILD_MARKER_KEY, latestVersion);
+            } catch {
+                // Ignore storage write failures.
+            }
             location.reload();
         } catch {
             // Ignore version check failures; next poll will retry.
         }
     }
 
-    async function clearClientCaches() {
+    async function enforceBuildResetIfNeeded() {
+        try {
+            const previousBuild = String(localStorage.getItem(BUILD_MARKER_KEY) || '').trim();
+            if (previousBuild && previousBuild !== RELEASE_VERSION) {
+                await clearClientCaches({ includeServiceWorkers: true });
+                localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
+                location.reload();
+                return true;
+            }
+            localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
+        } catch {
+            // Ignore localStorage failures and continue.
+        }
+        return false;
+    }
+
+    async function clearClientCaches(options = {}) {
+        const includeServiceWorkers = Boolean(options.includeServiceWorkers);
         try {
             const keysToDelete = [];
             for (let i = 0; i < localStorage.length; i++) {
@@ -723,6 +755,15 @@ const APP_FUNCTIONALITY_GUIDE = {
                 await Promise.all(cacheKeys.map((key) => caches.delete(key)));
             } catch {
                 // Ignore cache API cleanup errors.
+            }
+        }
+
+        if (includeServiceWorkers && 'serviceWorker' in navigator) {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map((reg) => reg.unregister()));
+            } catch {
+                // Ignore SW unregister errors.
             }
         }
     }
