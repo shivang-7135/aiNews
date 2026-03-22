@@ -479,6 +479,7 @@ async def get_articles(topic: str = "all", country: str = "GLOBAL", language: st
                 "image_url": None,
                 "article_url": t.get("link", "#"),
                 "published_at": t.get("published", t.get("fetched_at", "")),
+                "updated_at": t.get("fetched_at", t.get("published", "")),
             }
         )
     return {

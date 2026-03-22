@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-label="Research">
+  <defs>
+    <linearGradient id="g6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d0d0d"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#g6)"/>
+  <g fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="3">
+    <ellipse cx="300" cy="200" rx="120" ry="70"/>
+    <ellipse cx="450" cy="200" rx="120" ry="70"/>
+    <line x1="360" y1="140" x2="390" y2="260"/>
+  </g>
+  <text x="40" y="350" fill="#ffffff" font-size="56" font-family="Inter, sans-serif" font-weight="700">RESEARCH</text>
+</svg>

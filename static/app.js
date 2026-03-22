@@ -1,11 +1,35 @@
 // DailyAI v3.0 — Swipe + Scroll mode, Onboarding, Auto-dismiss streak
 const API_URL = '/api/articles';
-const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v1';
+const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v2';
 const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
 const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
+const UI_VERSION = 'v3.7';
+const APP_FUNCTIONALITY_GUIDE = {
+    en: [
+        'Swipe right to save and left to skip stories you do not need.',
+        'Open Menu to change language, country, sort order, and refresh news.',
+        'Tap any card to open detailed reading view with source link.',
+        'Use Expand View inside article panel for more comfortable reading.',
+        'Your feed is cached, so repeat opens are faster and lighter on data.',
+    ],
+    hi: [
+        'पसंदीदा खबरें सेव करने के लिए दाएं स्वाइप करें और छोड़ने के लिए बाएं स्वाइप करें।',
+        'Menu से भाषा, देश, सॉर्ट और Refresh News कंट्रोल करें।',
+        'किसी भी कार्ड पर टैप करके विस्तृत पढ़ने वाला व्यू और source लिंक खोलें।',
+        'अच्छी पढ़ाई के लिए आर्टिकल पैनल में Expand View का उपयोग करें।',
+        'फीड कैश में सेव रहती है, इसलिए अगली बार ऐप तेज खुलेगा।',
+    ],
+    de: [
+        'Nach rechts wischen speichert Stories, nach links werden sie uebersprungen.',
+        'Im Menu kannst du Sprache, Land, Sortierung und News aktualisieren steuern.',
+        'Tippe auf eine Karte fuer die Detailansicht mit Originalquelle.',
+        'Nutze Expand View im Artikelbereich fuer angenehmes Lesen.',
+        'Der Feed wird lokal zwischengespeichert und laedt beim naechsten Mal schneller.',
+    ],
+};
 
 (function () {
     'use strict';
@@ -22,7 +46,7 @@ const VERSION_POLL_MS = 45 * 1000;
             onboardingFeatureCountry: 'Change country to localize your feed.',
             onboardingFeatureRead: 'Tap a card to read a detailed brief.',
             onboardingFeatureCache: 'Stories are cached locally for faster loading and fewer API calls.',
-            onboardingCacheNote: 'Use Refresh News in the top bar whenever you want fresh data.',
+            onboardingCacheNote: 'Use Refresh News from the menu whenever you want fresh data.',
             onboardingStart: 'Start with Swipe 👆',
             onboardingScroll: 'Start with Scroll ↕',
             navDiscover: 'Discover',
@@ -45,6 +69,7 @@ const VERSION_POLL_MS = 45 * 1000;
             modeSwipe: '👆 Swipe',
             modeTitle: 'Switch view mode',
             refreshNews: 'Refresh News',
+            refreshSectionTitle: '🔄 Refresh',
             refreshingNews: 'Refreshing news...',
             refreshDone: 'News refreshed',
             refreshFailed: 'Refresh failed',
@@ -88,9 +113,15 @@ const VERSION_POLL_MS = 45 * 1000;
             saveAction: '🔖 Save',
             savedAction: '✓ Saved',
             addedSaved: '✓ Added to saved articles',
+            expandView: 'Expand View',
+            collapseView: 'Compact View',
             loadingBrief: 'Generating detailed brief...',
             briefUnavailable: 'Detailed brief is not available yet. Please try again.',
+            publishedAt: 'Published',
             updatedAt: 'Updated',
+            whatsNewTitle: 'How to Use DailyAI',
+            whatsNewBody: 'Quick guide to use the app better:',
+            whatsNewAcknowledge: 'Start Exploring',
             streakLine: '🔥 Day {count} reading streak',
             streakBadge: '🔥 Day {count} reading DailyAI',
         },
@@ -105,7 +136,7 @@ const VERSION_POLL_MS = 45 * 1000;
             onboardingFeatureCountry: 'अपनी फीड को स्थानीय बनाने के लिए देश बदलें।',
             onboardingFeatureRead: 'विस्तृत विवरण पढ़ने के लिए किसी कार्ड पर टैप करें।',
             onboardingFeatureCache: 'स्टोरीज़ लोकल कैश में सेव होती हैं, इसलिए लोडिंग तेज और API कॉल कम होती हैं।',
-            onboardingCacheNote: 'नई खबरों के लिए ऊपर Refresh News का उपयोग करें।',
+            onboardingCacheNote: 'नई खबरों के लिए मेन्यू में Refresh News का उपयोग करें।',
             onboardingStart: 'स्वाइप से शुरू करें 👆',
             onboardingScroll: 'स्क्रॉल से शुरू करें ↕',
             navDiscover: 'खोजें',
@@ -128,6 +159,7 @@ const VERSION_POLL_MS = 45 * 1000;
             modeSwipe: '👆 स्वाइप',
             modeTitle: 'व्यू मोड बदलें',
             refreshNews: 'समाचार रिफ्रेश करें',
+            refreshSectionTitle: '🔄 रिफ्रेश',
             refreshingNews: 'समाचार रिफ्रेश हो रहे हैं...',
             refreshDone: 'समाचार रिफ्रेश हो गए',
             refreshFailed: 'रिफ्रेश असफल',
@@ -171,9 +203,15 @@ const VERSION_POLL_MS = 45 * 1000;
             saveAction: '🔖 सेव करें',
             savedAction: '✓ सेव्ड',
             addedSaved: '✓ सेव्ड लेखों में जोड़ा गया',
+            expandView: 'व्यू बढ़ाएं',
+            collapseView: 'कॉम्पैक्ट व्यू',
             loadingBrief: 'विस्तृत विवरण तैयार किया जा रहा है...',
             briefUnavailable: 'विस्तृत विवरण अभी उपलब्ध नहीं है। कृपया फिर कोशिश करें।',
+            publishedAt: 'प्रकाशित',
             updatedAt: 'अपडेट किया गया',
+            whatsNewTitle: 'DailyAI कैसे उपयोग करें',
+            whatsNewBody: 'ऐप को बेहतर तरीके से उपयोग करने के लिए त्वरित गाइड:',
+            whatsNewAcknowledge: 'शुरू करें',
             streakLine: '🔥 दिन {count} पढ़ने की स्ट्रीक',
             streakBadge: '🔥 दिन {count} DailyAI पढ़ना',
         },
@@ -188,7 +226,7 @@ const VERSION_POLL_MS = 45 * 1000;
             onboardingFeatureCountry: 'Land wechseln, um den Feed zu lokalisieren.',
             onboardingFeatureRead: 'Auf eine Karte tippen, um einen detaillierten Brief zu lesen.',
             onboardingFeatureCache: 'Stories werden lokal zwischengespeichert fuer schnelleres Laden und weniger API-Aufrufe.',
-            onboardingCacheNote: 'Mit "News aktualisieren" in der Top-Leiste holst du frische Daten.',
+            onboardingCacheNote: 'Mit "News aktualisieren" im Menue holst du frische Daten.',
             onboardingStart: 'Mit Wischen starten 👆',
             onboardingScroll: 'Mit Scrollen starten ↕',
             navDiscover: 'Entdecken',
@@ -211,6 +249,7 @@ const VERSION_POLL_MS = 45 * 1000;
             modeSwipe: '👆 Wischen',
             modeTitle: 'Ansichtsmodus wechseln',
             refreshNews: 'News aktualisieren',
+            refreshSectionTitle: '🔄 Aktualisieren',
             refreshingNews: 'News werden aktualisiert...',
             refreshDone: 'News aktualisiert',
             refreshFailed: 'Aktualisierung fehlgeschlagen',
@@ -254,9 +293,15 @@ const VERSION_POLL_MS = 45 * 1000;
             saveAction: '🔖 Speichern',
             savedAction: '✓ Gespeichert',
             addedSaved: '✓ Zu gespeicherten Artikeln hinzugefuegt',
+            expandView: 'Ansicht vergroessern',
+            collapseView: 'Kompakte Ansicht',
             loadingBrief: 'Ausfuehrlicher Brief wird erstellt...',
             briefUnavailable: 'Ausfuehrlicher Brief ist noch nicht verfuegbar. Bitte erneut versuchen.',
+            publishedAt: 'Veroeffentlicht',
             updatedAt: 'Aktualisiert',
+            whatsNewTitle: 'So nutzt du DailyAI',
+            whatsNewBody: 'Kurzanleitung fuer die beste Nutzung:',
+            whatsNewAcknowledge: 'Los gehts',
             streakLine: '🔥 Tag {count} Lesestreak',
             streakBadge: '🔥 Tag {count} DailyAI gelesen',
         },
@@ -297,6 +342,9 @@ const VERSION_POLL_MS = 45 * 1000;
         setText('#langReloadBody', t('languageReloadPrompt'));
         setText('#langReloadNowBtn', t('languageReloadNow'));
         setText('#langReloadLaterBtn', t('languageReloadLaterAction'));
+        setText('#whatsNewTitle', t('whatsNewTitle'));
+        setText('#whatsNewBody', t('whatsNewBody'));
+        setText('#whatsNewOkBtn', t('whatsNewAcknowledge'));
 
         const navDiscover = $('navDiscover');
         if (navDiscover) navDiscover.innerHTML = `<span class="sidebar-icon">🏠</span> ${t('navDiscover')}`;
@@ -307,9 +355,11 @@ const VERSION_POLL_MS = 45 * 1000;
         if (sidebarTitles[0]) sidebarTitles[0].textContent = t('languageTitle');
         if (sidebarTitles[1]) sidebarTitles[1].textContent = t('regionTitle');
         if (sidebarTitles[2]) sidebarTitles[2].textContent = t('sortBy');
-        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('digestTitle');
+        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('refreshSectionTitle');
+        if (sidebarTitles[4]) sidebarTitles[4].textContent = t('digestTitle');
 
         setText('.sidebar-desc', t('digestDesc'));
+        setText('#sidebarRefreshBtn', t('refreshNews'));
         setText('#subscribeBtn', t('subscribe'));
         const emailInput = $('emailInput');
         if (emailInput) emailInput.setAttribute('placeholder', t('emailPlaceholder'));
@@ -321,7 +371,7 @@ const VERSION_POLL_MS = 45 * 1000;
 
         const footerLines = document.querySelectorAll('.sidebar-footer p');
         if (footerLines[0]) footerLines[0].textContent = t('sidebarHint');
-        if (footerLines[2]) footerLines[2].textContent = t('noLogin');
+        if (footerLines[2]) footerLines[2].textContent = `${UI_VERSION} - ${t('noLogin').replace(/^v\d+\.\d+\s*-\s*/, '')}`;
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
@@ -331,7 +381,7 @@ const VERSION_POLL_MS = 45 * 1000;
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
 
-        const refreshBtn = $('refreshNewsBtn');
+        const refreshBtn = $('sidebarRefreshBtn');
         if (refreshBtn) {
             refreshBtn.setAttribute('title', t('refreshNews'));
             refreshBtn.setAttribute('aria-label', t('refreshNews'));
@@ -390,9 +440,45 @@ const VERSION_POLL_MS = 45 * 1000;
         'Business':       'linear-gradient(135deg, #141e30, #243b55)',
         'Tech & Science': 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
     };
-    const TOPIC_EMOJIS = {
-        'AI Models': '🤖', 'Tools': '🔧', 'Research': '🔬',
-        'Top Stories': '⚡', 'Business': '💼', 'Tech & Science': '🧬',
+    const TOPIC_PLACEHOLDER_IMAGES = {
+        'AI Models': [
+            'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1686191128892-3d19f2d7d53f?auto=format&fit=crop&w=1200&q=80',
+        ],
+        'Top Stories': [
+            'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=1200&q=80',
+        ],
+        'Tech & Science': [
+            'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1518152006812-edab29b069ac?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+        ],
+        'Business': [
+            'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
+        ],
+        'Tools': [
+            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80',
+        ],
+        'Research': [
+            'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80',
+        ],
+    };
+    const TOPIC_LOCAL_FALLBACK_IMAGES = {
+        'AI Models': '/static/topic-covers/ai-models.svg',
+        'Top Stories': '/static/topic-covers/top-stories.svg',
+        'Tech & Science': '/static/topic-covers/tech-science.svg',
+        'Business': '/static/topic-covers/business.svg',
+        'Tools': '/static/topic-covers/tools.svg',
+        'Research': '/static/topic-covers/research.svg',
     };
     const COUNTRY_FLAGS = {
         'US':'🇺🇸','GB':'🇬🇧','IN':'🇮🇳','DE':'🇩🇪','FR':'🇫🇷','CA':'🇨🇦',
@@ -401,9 +487,9 @@ const VERSION_POLL_MS = 45 * 1000;
     };
     const AVATAR_COLORS = ['#6366f1','#2dd4a0','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#ec4899','#14b8a6'];
     const FALLBACK_ARTICLES = [
-        { id:'fb-1', headline:'OpenAI Announces GPT-5 with Multimodal Reasoning', summary:'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters:'A major leap in AI capability, potentially transforming multiple industries.', topic:'AI Models', source_name:'TechCrunch', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
-        { id:'fb-2', headline:'EU Finalizes AI Act Implementation Timeline', summary:'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters:'Companies worldwide must adapt their AI products to meet these regulations.', topic:'Top Stories', source_name:'Reuters', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
-        { id:'fb-3', headline:'New Open-Source LLM Surpasses Commercial Models', summary:'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters:'Open-source AI is closing the gap, democratizing access to powerful tools.', topic:'Research', source_name:'ArXiv', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString() },
+        { id:'fb-1', headline:'OpenAI Announces GPT-5 with Multimodal Reasoning', summary:'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters:'A major leap in AI capability, potentially transforming multiple industries.', topic:'AI Models', source_name:'TechCrunch', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
+        { id:'fb-2', headline:'EU Finalizes AI Act Implementation Timeline', summary:'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters:'Companies worldwide must adapt their AI products to meet these regulations.', topic:'Top Stories', source_name:'Reuters', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
+        { id:'fb-3', headline:'New Open-Source LLM Surpasses Commercial Models', summary:'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters:'Open-source AI is closing the gap, democratizing access to powerful tools.', topic:'Research', source_name:'ArXiv', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
     ];
 
     function getFeedCacheKey(topicParam, country, language) {
@@ -459,6 +545,7 @@ const VERSION_POLL_MS = 45 * 1000;
 
     // ---- DOM ----
     const $ = id => document.getElementById(id);
+    const appShell = $('appShell');
     const swipeStack = $('swipeStack');
     const swipeContainer = $('swipeContainer');
     const scrollFeed = $('scrollFeed');
@@ -477,10 +564,13 @@ const VERSION_POLL_MS = 45 * 1000;
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
     const modeToggle = $('modeToggle');
-    const refreshNewsBtn = $('refreshNewsBtn');
+    const refreshNewsBtn = $('sidebarRefreshBtn');
     const langReloadBackdrop = $('langReloadBackdrop');
     const langReloadNowBtn = $('langReloadNowBtn');
     const langReloadLaterBtn = $('langReloadLaterBtn');
+    const whatsNewBackdrop = $('whatsNewBackdrop');
+    const whatsNewOkBtn = $('whatsNewOkBtn');
+    const whatsNewList = $('whatsNewList');
 
     // ====================== INIT ======================
     function init() {
@@ -523,6 +613,7 @@ const VERSION_POLL_MS = 45 * 1000;
                 closeSheet();
                 closeSidebar();
                 closeLanguageReloadModal();
+                closeWhatsNewModal();
             }
         });
         let sheetTouchStartY = 0;
@@ -543,8 +634,14 @@ const VERSION_POLL_MS = 45 * 1000;
             }
         });
 
+        whatsNewOkBtn?.addEventListener('click', closeWhatsNewModal);
+        whatsNewBackdrop?.addEventListener('click', (e) => {
+            if (e.target === whatsNewBackdrop) closeWhatsNewModal();
+        });
+
         // Init
         applyTranslations();
+        showWhatsNewIfNeeded();
         showStreak();
         updateSavedCount();
         restoreSort();
@@ -708,14 +805,12 @@ const VERSION_POLL_MS = 45 * 1000;
         const card = document.createElement('div');
         card.className = 'scroll-card';
         card.dataset.id = article.id;
-        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
-        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
-            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+            : buildTopicCoverImg(article);
 
         const isSaved = !!bookmarks[article.id];
         card.innerHTML = `
@@ -737,6 +832,25 @@ const VERSION_POLL_MS = 45 * 1000;
     function getFilteredArticles() {
         if (currentTopic === 'For You') return allArticles;
         return allArticles.filter(a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase());
+    }
+
+    function getTopicCoverUrl(topic, seed = '') {
+        const list = TOPIC_PLACEHOLDER_IMAGES[topic] || TOPIC_PLACEHOLDER_IMAGES['Top Stories'];
+        if (!Array.isArray(list) || list.length === 0) return TOPIC_PLACEHOLDER_IMAGES['Top Stories'][0];
+        const idx = hashCode(String(seed || topic || 'default')) % list.length;
+        return list[idx];
+    }
+
+    function getTopicFallbackCoverUrl(topic) {
+        return TOPIC_LOCAL_FALLBACK_IMAGES[topic] || TOPIC_LOCAL_FALLBACK_IMAGES['Top Stories'];
+    }
+
+    function buildTopicCoverImg(article) {
+        const topic = article.topic || 'Top Stories';
+        const seed = `${article.id || ''}|${article.headline || ''}|${article.source_name || ''}`;
+        const coverUrl = getTopicCoverUrl(topic, seed);
+        const fallbackUrl = getTopicFallbackCoverUrl(topic);
+        return `<img src="${esc(coverUrl)}" alt="${esc(topic)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
     }
 
     // ====================== COUNTRIES ======================
@@ -824,16 +938,41 @@ const VERSION_POLL_MS = 45 * 1000;
     function closeLanguageReloadModal() {
         if (!langReloadBackdrop) return;
         langReloadBackdrop.style.display = 'none';
-        if (!bottomSheet.classList.contains('show')) {
+        if (!bottomSheet.classList.contains('show') && whatsNewBackdrop?.style.display !== 'flex') {
+            document.body.style.overflow = '';
+        }
+    }
+
+    function showWhatsNewIfNeeded() {
+        if (!whatsNewBackdrop || !whatsNewList) return;
+        const seenKey = 'dailyai_seen_guide_v1';
+        if (localStorage.getItem(seenKey) === '1') return;
+
+        const highlights = APP_FUNCTIONALITY_GUIDE[currentLanguage] || APP_FUNCTIONALITY_GUIDE.en;
+        whatsNewList.innerHTML = highlights
+            .map((item, index) => `<li style="animation-delay:${index * 80}ms">${esc(item)}</li>`)
+            .join('');
+        whatsNewBackdrop.style.display = 'flex';
+        whatsNewBackdrop.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        localStorage.setItem(seenKey, '1');
+    }
+
+    function closeWhatsNewModal() {
+        if (!whatsNewBackdrop) return;
+        whatsNewBackdrop.classList.remove('show');
+        whatsNewBackdrop.style.display = 'none';
+        if (!bottomSheet.classList.contains('show') && langReloadBackdrop?.style.display !== 'flex') {
             document.body.style.overflow = '';
         }
     }
 
     function updateTopBarCountry() {
         const flag = COUNTRY_FLAGS[currentCountry] || '🏳️';
-        const opt = countrySelect.options[countrySelect.selectedIndex];
-        const name = opt ? opt.textContent.replace(/^.\s*/, '') : currentCountry;
-        topBarCountry.textContent = `${flag} ${name}`;
+        const displayName = translateCountryName(currentCountry, currentCountry);
+        topBarCountry.textContent = flag;
+        topBarCountry.setAttribute('title', displayName);
+        topBarCountry.setAttribute('aria-label', displayName);
     }
 
     // ====================== SUBSCRIBER COUNT ======================
@@ -912,14 +1051,12 @@ const VERSION_POLL_MS = 45 * 1000;
     }
 
     function createFeedCardHTML(article, i) {
-        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
-        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
-            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+            : buildTopicCoverImg(article);
         return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i*50}ms">
             ${imgHtml}
             <div class="card-body">
@@ -954,7 +1091,7 @@ const VERSION_POLL_MS = 45 * 1000;
     }
     function sortArticles() {
         if (currentSort === 'time') {
-            allArticles.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+            allArticles.sort((a, b) => new Date(b.published_at || b.updated_at || 0) - new Date(a.published_at || a.updated_at || 0));
         }
     }
 
@@ -1086,14 +1223,12 @@ const VERSION_POLL_MS = 45 * 1000;
         const card = document.createElement('div');
         card.className = 'swipe-card';
         card.dataset.id = article.id;
-        const gradient = TOPIC_GRADIENTS[article.topic] || TOPIC_GRADIENTS['Top Stories'];
-        const emoji = TOPIC_EMOJIS[article.topic] || '⚡';
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
-            : `<div class="card-image-placeholder" style="background:${gradient}">${emoji}</div>`;
+            : buildTopicCoverImg(article);
         card.innerHTML = `
             <div class="swipe-label swipe-label-save">${t('swipeLabelSave')}</div>
             <div class="swipe-label swipe-label-skip">${t('swipeLabelSkip')}</div>
@@ -1196,7 +1331,12 @@ const VERSION_POLL_MS = 45 * 1000;
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];
         sheetContent.innerHTML = `
-            <h2 class="sheet-headline">${esc(article.headline)}</h2>
+            <div class="sheet-headline-row">
+                <h2 class="sheet-headline">${esc(article.headline)}</h2>
+                <button class="sheet-link sheet-expand-btn sheet-expand-inline" id="sheetExpandBtn" aria-label="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}" title="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}">
+                    <span class="sheet-expand-icon" aria-hidden="true">${bottomSheet.classList.contains('expanded') ? '⤡' : '⤢'}</span>
+                </button>
+            </div>
             <p class="sheet-summary">${esc(article.summary)}</p>
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
@@ -1210,7 +1350,7 @@ const VERSION_POLL_MS = 45 * 1000;
                 <p class="sheet-brief" id="sheetBrief" style="display:none;"></p>
             </div>
             ${whyHtml}
-            <p class="sheet-meta">${esc(article.source_name)} • ${esc(getTimeAgo(article.published_at))} • ${esc(getExactTimestamp(article.published_at))}</p>
+            <p class="sheet-meta">${esc(article.source_name)} • ${esc(t('publishedAt'))}: ${esc(getShortDate(article.published_at || article.updated_at))} • ${esc(getExactTimestamp(article.updated_at || article.published_at, 'updatedAt'))}</p>
         `;
 
         const actionsHtml = `
@@ -1224,6 +1364,8 @@ const VERSION_POLL_MS = 45 * 1000;
         const existingActions = bottomSheet.querySelector('.sheet-actions');
         if (existingActions) existingActions.remove();
         bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
+        const expandBtn = $('sheetExpandBtn');
+        expandBtn?.addEventListener('click', () => toggleSheetExpanded(expandBtn));
         // Expose save function
         window._saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id);
@@ -1290,10 +1432,26 @@ const VERSION_POLL_MS = 45 * 1000;
     }
     function closeSheet() {
         sheetBackdrop.classList.remove('show');
+        sheetBackdrop.classList.remove('focused');
         bottomSheet.classList.remove('show');
+        bottomSheet.classList.remove('expanded');
+        appShell?.classList.remove('focus-mode');
         const existingActions = bottomSheet.querySelector('.sheet-actions');
         if (existingActions) existingActions.remove();
         document.body.style.overflow = '';
+    }
+
+    function toggleSheetExpanded(buttonEl) {
+        bottomSheet.classList.toggle('expanded');
+        const isExpanded = bottomSheet.classList.contains('expanded');
+        sheetBackdrop.classList.toggle('focused', isExpanded);
+        appShell?.classList.toggle('focus-mode', isExpanded);
+        if (buttonEl) {
+            buttonEl.setAttribute('aria-label', isExpanded ? t('collapseView') : t('expandView'));
+            buttonEl.setAttribute('title', isExpanded ? t('collapseView') : t('expandView'));
+            const icon = buttonEl.querySelector('.sheet-expand-icon');
+            if (icon) icon.textContent = isExpanded ? '⤡' : '⤢';
+        }
     }
 
     // ====================== STREAK ======================
@@ -1349,11 +1507,11 @@ const VERSION_POLL_MS = 45 * 1000;
             return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         } catch { return ''; }
     }
-    function getExactTimestamp(dateStr) {
-        if (!dateStr) return `${t('updatedAt')}: -`;
+    function getExactTimestamp(dateStr, labelKey = 'updatedAt') {
+        if (!dateStr) return `${t(labelKey)}: -`;
         try {
             const d = new Date(dateStr);
-            if (Number.isNaN(d.getTime())) return `${t('updatedAt')}: -`;
+            if (Number.isNaN(d.getTime())) return `${t(labelKey)}: -`;
             const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
             const formatted = d.toLocaleString(locale, {
                 year: 'numeric',
@@ -1362,15 +1520,26 @@ const VERSION_POLL_MS = 45 * 1000;
                 hour: '2-digit',
                 minute: '2-digit',
             });
-            return `${t('updatedAt')}: ${formatted}`;
+            return `${t(labelKey)}: ${formatted}`;
         } catch {
-            return `${t('updatedAt')}: -`;
+            return `${t(labelKey)}: -`;
         }
     }
     function getCardTimeMarkup(article) {
-        const relative = esc(getTimeAgo(article.published_at));
-        const exact = esc(getExactTimestamp(article.published_at));
+        const relative = esc(getTimeAgo(article.published_at || article.updated_at));
+        const exact = esc(getExactTimestamp(article.published_at || article.updated_at, 'publishedAt'));
         return `<span class="card-time-relative">${relative}</span><span class="card-time-exact">${exact}</span>`;
+    }
+    function getShortDate(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            const d = new Date(dateStr);
+            if (Number.isNaN(d.getTime())) return '-';
+            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+            return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+        } catch {
+            return '-';
+        }
     }
     function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }

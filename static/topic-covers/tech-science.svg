@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-label="Tech and Science">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#16213e"/>
+      <stop offset="100%" stop-color="#0f3460"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#g3)"/>
+  <g fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="3">
+    <path d="M230 260 L300 140 L370 260 Z"/>
+    <path d="M430 260 L500 140 L570 260 Z"/>
+    <line x1="300" y1="140" x2="500" y2="140"/>
+  </g>
+  <text x="40" y="350" fill="#ffffff" font-size="50" font-family="Inter, sans-serif" font-weight="700">TECH AND SCIENCE</text>
+</svg>

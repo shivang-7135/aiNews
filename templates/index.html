@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3.6">
+    <link rel="stylesheet" href="/static/styles.css?v=3.7">
 </head>
 <body>
     <div class="app-shell" id="appShell">
@@ -88,6 +88,11 @@
                 </div>
             </div>
 
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title" id="refreshSectionTitle">🔄 Refresh</h3>
+                <button class="sidebar-action-btn" id="sidebarRefreshBtn">Refresh News</button>
+            </div>
+
             <!-- Newsletter -->
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">📬 Daily Digest</h3>
@@ -105,7 +110,7 @@
             <div class="sidebar-footer">
                 <p>Swipe right to save · Left to skip</p>
                 <p class="sidebar-streak" id="sidebarStreak"></p>
-                <p style="margin-top:4px;opacity:0.5;">v3.0 — No login required</p>
+                <p style="margin-top:4px;opacity:0.5;" id="appVersionLabel">v3.7 — No login required</p>
             </div>
         </aside>
 
@@ -116,13 +121,10 @@
             </button>
             <div class="top-bar-center">
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
-                <span class="top-bar-country" id="topBarCountry">🌐 Global</span>
+                <span class="top-bar-country" id="topBarCountry">🌐</span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <button class="mode-toggle" id="modeToggle" title="Switch view mode">↕ Scroll</button>
-                <button class="top-bar-btn" aria-label="Refresh News" id="refreshNewsBtn" title="Refresh News">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"/></svg>
-                </button>
                 <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </button>
@@ -185,10 +187,21 @@
             </div>
         </div>
 
+        <div class="modal-backdrop" id="whatsNewBackdrop" style="display:none;">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle" aria-describedby="whatsNewBody">
+                <h3 class="modal-title" id="whatsNewTitle">What's New</h3>
+                <p class="modal-body" id="whatsNewBody">Your app just got better.</p>
+                <ul class="modal-list" id="whatsNewList"></ul>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-primary" id="whatsNewOkBtn">Got it</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== Streak Badge ===== -->
         <div class="streak-badge" id="streakBadge" style="display:none;"></div>
     </div>
 
-    <script src="/static/app.js?v=3.6"></script>
+    <script src="/static/app.js?v=4.2"></script>
 </body>
 </html>
