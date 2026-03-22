@@ -99,6 +99,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortedRelevance: '⚡ Sorted by relevance',
             switchedTo: 'Switched to {name}',
             languageToast: 'Language: {name}',
+            languageRefreshNotice: 'Language changed. Please refresh the page.',
             languageReloadTitle: 'Language Updated',
             languageReloadPrompt: 'Language changed. Reload now for the best experience?',
             languageReloadNow: 'Reload Now',
@@ -189,6 +190,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortedRelevance: '⚡ प्रासंगिकता के अनुसार क्रमबद्ध',
             switchedTo: '{name} पर स्विच किया गया',
             languageToast: 'भाषा: {name}',
+            languageRefreshNotice: 'भाषा बदल गई है। कृपया पेज रिफ्रेश करें।',
             languageReloadTitle: 'भाषा अपडेट हुई',
             languageReloadPrompt: 'भाषा बदल गई है। बेहतर अनुभव के लिए अभी रीलोड करें?',
             languageReloadNow: 'अभी रीलोड करें',
@@ -279,6 +281,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortedRelevance: '⚡ Nach Relevanz sortiert',
             switchedTo: 'Gewechselt zu {name}',
             languageToast: 'Sprache: {name}',
+            languageRefreshNotice: 'Sprache wurde geaendert. Bitte Seite neu laden.',
             languageReloadTitle: 'Sprache aktualisiert',
             languageReloadPrompt: 'Sprache wurde geaendert. Jetzt neu laden fuer das beste Erlebnis?',
             languageReloadNow: 'Jetzt neu laden',
@@ -919,6 +922,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         localStorage.setItem('dailyai_language', currentLanguage);
         applyTranslations();
 
+        closeLanguageReloadModal();
         loadCountries();
         loadLanguages();
         closeSidebar();
@@ -926,7 +930,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         fetchArticles(currentTopic);
         const name = languageSelect.options[languageSelect.selectedIndex]?.textContent || currentLanguage;
         showToast(t('languageToast', { name }));
-        openLanguageReloadModal();
+        setTimeout(() => showToast(t('languageRefreshNotice'), 4800), 350);
     }
 
     function openLanguageReloadModal() {
@@ -1484,11 +1488,11 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== TOAST ======================
     let toastTimeout = null;
-    function showToast(msg) {
+    function showToast(msg, duration = 2000) {
         clearTimeout(toastTimeout);
         toastEl.textContent = msg;
         toastEl.classList.add('show');
-        toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 2000);
+        toastTimeout = setTimeout(() => toastEl.classList.remove('show'), duration);
     }
 
     // ====================== UTILS ======================
