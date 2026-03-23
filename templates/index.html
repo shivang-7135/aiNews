@@ -12,9 +12,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3.8">
+    <link rel="stylesheet" href="/static/styles.css?v=3.9">
 </head>
 <body>
+    <div class="boot-loader visible" id="bootLoader" aria-live="polite" aria-busy="true">
+        <div class="boot-loader-spinner" aria-hidden="true"></div>
+        <p class="boot-loader-text" id="bootLoaderText">Loading latest stories...</p>
+    </div>
+
     <div class="app-shell" id="appShell">
 
         <!-- ===== Onboarding Overlay ===== -->
@@ -202,6 +207,6 @@
         <div class="streak-badge" id="streakBadge" style="display:none;"></div>
     </div>
 
-    <script src="/static/app.js?v=4.4"></script>
+    <script src="/static/app.js?v=4.5"></script>
 </body>
 </html>

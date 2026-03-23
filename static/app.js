@@ -73,6 +73,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshingNews: 'Refreshing news...',
             refreshDone: 'News refreshed',
             refreshFailed: 'Refresh failed',
+            loadingFeed: 'Loading latest stories...',
             topBarGlobal: '🌐 Global',
             viewDiscover: 'Discover',
             viewSaved: 'Saved',
@@ -164,6 +165,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshingNews: 'समाचार रिफ्रेश हो रहे हैं...',
             refreshDone: 'समाचार रिफ्रेश हो गए',
             refreshFailed: 'रिफ्रेश असफल',
+            loadingFeed: 'ताज़ा खबरें लोड हो रही हैं...',
             topBarGlobal: '🌐 ग्लोबल',
             viewDiscover: 'खोजें',
             viewSaved: 'सेव्ड',
@@ -255,6 +257,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshingNews: 'News werden aktualisiert...',
             refreshDone: 'News aktualisiert',
             refreshFailed: 'Aktualisierung fehlgeschlagen',
+            loadingFeed: 'Neueste Meldungen werden geladen...',
             topBarGlobal: '🌐 Global',
             viewDiscover: 'Entdecken',
             viewSaved: 'Gespeichert',
@@ -348,6 +351,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         setText('#whatsNewTitle', t('whatsNewTitle'));
         setText('#whatsNewBody', t('whatsNewBody'));
         setText('#whatsNewOkBtn', t('whatsNewAcknowledge'));
+        setText('#bootLoaderText', t('loadingFeed'));
 
         const navDiscover = $('navDiscover');
         if (navDiscover) navDiscover.innerHTML = `<span class="sidebar-icon">🏠</span> ${t('navDiscover')}`;
@@ -556,6 +560,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     // ---- DOM ----
     const $ = id => document.getElementById(id);
     const appShell = $('appShell');
+    const bootLoader = $('bootLoader');
     const swipeStack = $('swipeStack');
     const swipeContainer = $('swipeContainer');
     const scrollFeed = $('scrollFeed');
@@ -652,6 +657,8 @@ const APP_FUNCTIONALITY_GUIDE = {
         // Init
         const reloadedForBuildUpdate = await enforceBuildResetIfNeeded();
         if (reloadedForBuildUpdate) return;
+
+        setGlobalLoading(true);
 
         applyTranslations();
         showWhatsNewIfNeeded();
@@ -1183,6 +1190,7 @@ const APP_FUNCTIONALITY_GUIDE = {
                 swipeCardIndex = 0;
                 swipeEmpty.style.display = 'none';
                 renderFeed();
+                setGlobalLoading(false);
                 return;
             }
         }
@@ -1206,6 +1214,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         swipeCardIndex = 0;
         swipeEmpty.style.display = 'none';
         renderFeed();
+        setGlobalLoading(false);
     }
 
     async function refreshNewsNow() {
@@ -1360,6 +1369,7 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== SKELETON ======================
     function showSkeleton() {
+        setGlobalLoading(true);
         swipeStack.innerHTML = `
             <div class="skeleton-card">
                 <div class="skeleton-image"></div>
@@ -1369,6 +1379,13 @@ const APP_FUNCTIONALITY_GUIDE = {
                     <div class="skeleton-line w40"></div>
                 </div>
             </div>`;
+        scrollFeed.innerHTML = swipeStack.innerHTML;
+        feed.innerHTML = swipeStack.innerHTML;
+    }
+
+    function setGlobalLoading(isLoading) {
+        if (!bootLoader) return;
+        bootLoader.classList.toggle('visible', Boolean(isLoading));
     }
 
     // ====================== BOTTOM SHEET ======================
