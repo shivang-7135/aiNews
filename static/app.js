@@ -4,6 +4,8 @@ const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v2';
 const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
 const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_FEED_ITEMS = 15;
+const MAX_FEED_SUMMARY_WORDS = 50;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
@@ -76,6 +78,10 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshFailed: 'Refresh failed',
             loadingFeed: 'Loading latest stories...',
             topBarGlobal: '🌐 Global',
+            settingsNav: 'Settings',
+            appearanceTitle: '🌓 Appearance',
+            themeSwitchToLight: 'Switch to Light Theme',
+            themeSwitchToDark: 'Switch to Dark Theme',
             viewDiscover: 'Discover',
             viewSaved: 'Saved',
             forYou: 'For You',
@@ -116,7 +122,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             impactWatchlist: 'Watchlist',
             confidenceHint: 'Confidence estimates how reliable this story is based on source quality and corroboration.',
             impactHint: 'Impact estimates how soon this story could affect most people or teams.',
-            decisionExplainer: 'Confidence = trust level. Impact = urgency level.',
+            decisionExplainer: 'How to read this: Confidence reflects source reliability; Impact reflects practical urgency.',
             doNext: 'Do this next',
             actionFounder: 'Map business impact for your team and shortlist one pilot this week.',
             actionDeveloper: 'Review technical implications and test one implementation path today.',
@@ -191,6 +197,10 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshFailed: 'रिफ्रेश असफल',
             loadingFeed: 'ताज़ा खबरें लोड हो रही हैं...',
             topBarGlobal: '🌐 ग्लोबल',
+            settingsNav: 'सेटिंग्स',
+            appearanceTitle: '🌓 थीम',
+            themeSwitchToLight: 'लाइट थीम पर जाएं',
+            themeSwitchToDark: 'डार्क थीम पर जाएं',
             viewDiscover: 'खोजें',
             viewSaved: 'सेव्ड',
             forYou: 'आपके लिए',
@@ -231,7 +241,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             impactWatchlist: 'नज़र रखें',
             confidenceHint: 'विश्वसनीयता बताती है कि स्रोत और पुष्टि के आधार पर खबर कितनी भरोसेमंद है।',
             impactHint: 'प्रभाव बताता है कि यह खबर कितनी जल्दी ज़्यादातर लोगों या टीमों को प्रभावित कर सकती है।',
-            decisionExplainer: 'विश्वसनीयता = भरोसे का स्तर। प्रभाव = तात्कालिकता का स्तर।',
+            decisionExplainer: 'इसे ऐसे समझें: विश्वसनीयता स्रोत की भरोसेमंदी बताती है; प्रभाव वास्तविक तात्कालिकता दिखाता है।',
             doNext: 'अगला कदम',
             actionFounder: 'टीम के लिए बिज़नेस प्रभाव मैप करें और इस सप्ताह एक पायलट तय करें।',
             actionDeveloper: 'तकनीकी असर देखें और आज एक इम्प्लीमेंटेशन पथ टेस्ट करें।',
@@ -306,6 +316,10 @@ const APP_FUNCTIONALITY_GUIDE = {
             refreshFailed: 'Aktualisierung fehlgeschlagen',
             loadingFeed: 'Neueste Meldungen werden geladen...',
             topBarGlobal: '🌐 Global',
+            settingsNav: 'Einstellungen',
+            appearanceTitle: '🌓 Design',
+            themeSwitchToLight: 'Zum hellen Design wechseln',
+            themeSwitchToDark: 'Zum dunklen Design wechseln',
             viewDiscover: 'Entdecken',
             viewSaved: 'Gespeichert',
             forYou: 'Fuer dich',
@@ -346,7 +360,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             impactWatchlist: 'Beobachten',
             confidenceHint: 'Sicherheit schaetzt ein, wie verlaesslich die Story laut Quelle und Bestaetigungen ist.',
             impactHint: 'Wirkung schaetzt ein, wie schnell die Story die meisten Menschen oder Teams betreffen koennte.',
-            decisionExplainer: 'Sicherheit = Vertrauensniveau. Wirkung = Dringlichkeitsniveau.',
+            decisionExplainer: 'So liest du es: Sicherheit zeigt die Quellenzuverlaessigkeit; Wirkung zeigt die praktische Dringlichkeit.',
             doNext: 'Naechster Schritt',
             actionFounder: 'Business-Auswirkung fuer dein Team einordnen und diese Woche einen Pilot waehlen.',
             actionDeveloper: 'Technische Folgen pruefen und heute einen Umsetzungsweg testen.',
@@ -422,16 +436,13 @@ const APP_FUNCTIONALITY_GUIDE = {
         setText('#whatsNewOkBtn', t('whatsNewAcknowledge'));
         setText('#bootLoaderText', t('loadingFeed'));
 
-        const navDiscover = $('navDiscover');
-        if (navDiscover) navDiscover.innerHTML = `<span class="sidebar-icon">🏠</span> ${t('navDiscover')}`;
-        const navSaved = $('navSaved');
-        if (navSaved) navSaved.innerHTML = `<span class="sidebar-icon">🔖</span> ${t('navSaved')}<span class="sidebar-badge" id="savedCount">${Object.keys(bookmarks).length}</span>`;
-
-        const sidebarTitles = document.querySelectorAll('.sidebar-section-title');
-        if (sidebarTitles[0]) sidebarTitles[0].textContent = t('lensTitle');
-        if (sidebarTitles[1]) sidebarTitles[1].textContent = t('sortBy');
-        if (sidebarTitles[2]) sidebarTitles[2].textContent = t('refreshSectionTitle');
-        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('digestTitle');
+        setText('#languageSectionTitle', t('languageTitle'));
+        setText('#regionSectionTitle', t('regionTitle'));
+        setText('#roleSectionTitle', t('lensTitle'));
+        setText('#appearanceSectionTitle', t('appearanceTitle'));
+        setText('#sortSectionTitle', t('sortBy'));
+        setText('#refreshSectionTitle', t('refreshSectionTitle'));
+        setText('#digestSectionTitle', t('digestTitle'));
         localizeRoleOptions();
 
         setText('.sidebar-desc', t('digestDesc'));
@@ -451,8 +462,18 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
-        const menuBtn = $('menuBtn');
-        if (menuBtn) menuBtn.setAttribute('aria-label', t('navDiscover'));
+        const topLensBtn = $('topLensBtn');
+        if (topLensBtn) topLensBtn.setAttribute('aria-label', t('lensTitle'));
+        const bottomSettingsBtn = $('bottomSettingsBtn');
+        if (bottomSettingsBtn) bottomSettingsBtn.setAttribute('aria-label', t('settingsNav'));
+        setText('#bottomSettingsLabel', t('settingsNav'));
+        setText('#bottomDiscoverLabel', t('viewDiscover'));
+        setText('#bottomSavedLabel', t('viewSaved'));
+        if (themeToggleBtn) {
+            themeToggleBtn.textContent = currentTheme === 'light'
+                ? t('themeSwitchToDark')
+                : t('themeSwitchToLight');
+        }
 
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
@@ -644,6 +665,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     let swipeCardIndex = 0;
     let isDragging = false, startX = 0, startY = 0, deltaX = 0;
     let versionPollTimer = null;
+    let currentTheme = localStorage.getItem('dailyai_theme') || 'dark';
 
     // ---- DOM ----
     const $ = id => document.getElementById(id);
@@ -654,6 +676,8 @@ const APP_FUNCTIONALITY_GUIDE = {
     const scrollFeed = $('scrollFeed');
     const swipeEmpty = $('swipeEmpty');
     const feed = $('feed');
+    const bottomSettingsBtn = $('bottomSettingsBtn');
+    const bottomDiscoverBtn = $('bottomDiscoverBtn');
     const filterTabs = $('filterTabs');
     const sidebar = $('sidebar');
     const sidebarBackdrop = $('sidebarBackdrop');
@@ -663,11 +687,12 @@ const APP_FUNCTIONALITY_GUIDE = {
     const toastEl = $('toast');
     const streakBadge = $('streakBadge');
     const viewTitle = $('viewTitle');
-    const topBarCountry = $('topBarCountry');
+    const topLensBtn = $('topLensBtn');
     const topBarLens = $('topBarLens');
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
     const roleSelect = $('roleSelect');
+    const themeToggleBtn = $('themeToggleBtn');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('sidebarRefreshBtn');
     const langReloadBackdrop = $('langReloadBackdrop');
@@ -686,15 +711,22 @@ const APP_FUNCTIONALITY_GUIDE = {
             localStorage.setItem('dailyai_role_initialized', '1');
         }
 
+        if (!['dark', 'light'].includes(currentTheme)) {
+            currentTheme = 'dark';
+        }
+        applyTheme(currentTheme);
+
         // Sidebar
-        $('menuBtn').addEventListener('click', openSidebar);
+        topLensBtn?.addEventListener('click', openSidebar);
+        bottomSettingsBtn?.addEventListener('click', openSidebar);
         $('sidebarClose').addEventListener('click', closeSidebar);
         sidebarBackdrop.addEventListener('click', closeSidebar);
 
         // Sidebar nav
-        $('navDiscover').addEventListener('click', () => switchView('discover'));
-        $('navSaved').addEventListener('click', () => switchView('saved'));
-        $('savedBtn').addEventListener('click', () => switchView(currentView === 'saved' ? 'discover' : 'saved'));
+        $('navDiscover')?.addEventListener('click', () => switchView('discover'));
+        $('navSaved')?.addEventListener('click', () => switchView('saved'));
+        bottomDiscoverBtn?.addEventListener('click', () => switchView('discover'));
+        $('savedBtn')?.addEventListener('click', () => switchView('saved'));
 
         // Sort
         $('sortGroup').addEventListener('click', onSortClick);
@@ -707,6 +739,9 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         // Role lens
         roleSelect?.addEventListener('change', onRoleChange);
+
+        // Theme
+        themeToggleBtn?.addEventListener('click', onThemeToggle);
 
         // Newsletter
         $('subscribeForm').addEventListener('submit', onSubscribe);
@@ -949,13 +984,34 @@ const APP_FUNCTIONALITY_GUIDE = {
         });
     }
 
+    function applyTheme(theme) {
+        currentTheme = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('dailyai_theme', currentTheme);
+        if (themeToggleBtn) {
+            themeToggleBtn.textContent = currentTheme === 'light'
+                ? t('themeSwitchToDark')
+                : t('themeSwitchToLight');
+        }
+    }
+
+    function onThemeToggle() {
+        applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+    }
+
+    function limitWords(text, maxWords = MAX_FEED_SUMMARY_WORDS) {
+        const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+        if (words.length <= maxWords) return String(text || '');
+        return `${words.slice(0, maxWords).join(' ')}...`;
+    }
+
     function createScrollCard(article) {
         const card = document.createElement('div');
         card.className = 'scroll-card';
         card.dataset.id = article.id;
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const decisionHtml = buildDecisionMarkup(article);
+        const shortSummary = limitWords(article.summary, MAX_FEED_SUMMARY_WORDS);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -966,8 +1022,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
-                <p class="card-summary">${esc(article.summary)}</p>
-                ${decisionHtml}
+                <p class="card-summary">${esc(shortSummary)}</p>
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -980,8 +1035,10 @@ const APP_FUNCTIONALITY_GUIDE = {
     }
 
     function getFilteredArticles() {
-        if (currentTopic === 'For You') return allArticles;
-        return allArticles.filter(a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase());
+        const filtered = currentTopic === 'For You'
+            ? allArticles
+            : allArticles.filter(a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase());
+        return filtered.slice(0, MAX_FEED_ITEMS);
     }
 
     function getTopicCoverUrl(topic, seed = '') {
@@ -1278,9 +1335,12 @@ const APP_FUNCTIONALITY_GUIDE = {
         const flag = COUNTRY_FLAGS[currentCountry] || '🏳️';
         const displayName = translateCountryName(currentCountry, currentCountry);
         const compactCode = currentCountry === 'GLOBAL' ? 'GLB' : String(currentCountry).toUpperCase();
-        topBarCountry.textContent = `${flag} ${compactCode}`;
-        topBarCountry.setAttribute('title', displayName);
-        topBarCountry.setAttribute('aria-label', displayName);
+        const countryBadge = document.getElementById('topBarCountry');
+        if (countryBadge) {
+            countryBadge.textContent = `${flag} ${compactCode}`;
+            countryBadge.setAttribute('title', displayName);
+            countryBadge.setAttribute('aria-label', displayName);
+        }
         if (topBarLens) {
             topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
         }
@@ -1304,10 +1364,12 @@ const APP_FUNCTIONALITY_GUIDE = {
     function openSidebar() {
         sidebar.classList.add('show');
         sidebarBackdrop.classList.add('show');
+        bottomSettingsBtn?.classList.add('active');
     }
     function closeSidebar() {
         sidebar.classList.remove('show');
         sidebarBackdrop.classList.remove('show');
+        bottomSettingsBtn?.classList.remove('active');
     }
 
     // ====================== VIEW SWITCH ======================
@@ -1315,22 +1377,22 @@ const APP_FUNCTIONALITY_GUIDE = {
         currentView = view;
         closeSidebar();
         document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        bottomDiscoverBtn?.classList.toggle('active', view === 'discover');
+        $('savedBtn')?.classList.toggle('active', view === 'saved');
         if (view === 'discover') {
-            $('navDiscover').classList.add('active');
+            $('navDiscover')?.classList.add('active');
             viewTitle.textContent = t('viewDiscover');
             filterTabs.style.display = '';
             feed.style.display = 'none';
-            $('savedBtn').classList.remove('has-saved');
             if (modeToggle) modeToggle.style.display = 'none';
             renderFeed();
         } else {
-            $('navSaved').classList.add('active');
+            $('navSaved')?.classList.add('active');
             viewTitle.textContent = t('viewSaved');
             filterTabs.style.display = 'none';
             swipeContainer.style.display = 'none';
             scrollFeed.style.display = 'none';
             feed.style.display = '';
-            $('savedBtn').classList.add('has-saved');
             if (modeToggle) modeToggle.style.display = 'none';
             renderSavedList();
         }
@@ -1364,7 +1426,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     function createFeedCardHTML(article, i) {
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const decisionHtml = buildDecisionMarkup(article);
+        const shortSummary = limitWords(article.summary, MAX_FEED_SUMMARY_WORDS);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -1373,8 +1435,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
-                <p class="card-summary">${esc(article.summary)}</p>
-                ${decisionHtml}
+                <p class="card-summary">${esc(shortSummary)}</p>
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1627,8 +1688,10 @@ const APP_FUNCTIONALITY_GUIDE = {
     }
     function updateSavedCount() {
         const count = Object.keys(bookmarks).length;
-        $('savedCount').textContent = count;
-        if (count > 0) $('savedBtn').classList.add('has-saved');
+        const savedCountEl = $('savedCount');
+        if (savedCountEl) savedCountEl.textContent = count;
+        const savedBtn = $('savedBtn');
+        if (savedBtn) savedBtn.classList.toggle('has-saved', count > 0);
     }
 
     // ====================== SKELETON ======================
@@ -1668,7 +1731,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             ${decisionHtml}
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
-                    <p class="sheet-brief" style="margin-bottom:4px;">${esc(t('loadingBrief'))}</p>
+                    <p class="sheet-brief" style="margin-bottom:6px;">${esc(t('loadingBrief'))}</p>
+                    <div class="line w60"></div>
                     <div class="line w95"></div>
                     <div class="line w88"></div>
                     <div class="line w90"></div>
@@ -1684,7 +1748,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         const actionsHtml = `
             <div class="sheet-actions">
                 <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
-                <button class="sheet-link" id="sheetSaveBtn" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;">${isSaved ? t('savedAction') : t('saveAction')}</button>
+                <button class="sheet-link sheet-link-secondary" id="sheetSaveBtn">${isSaved ? t('savedAction') : t('saveAction')}</button>
                 <p class="save-feedback" id="sheetSaveFeedback" style="display:none;">${t('addedSaved')}</p>
             </div>
         `;

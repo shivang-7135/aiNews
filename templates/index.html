@@ -55,15 +55,21 @@
                 </div>
                 <button class="sidebar-close" id="sidebarClose">✕</button>
             </div>
-            <nav class="sidebar-nav">
-                <button class="sidebar-item active" data-view="discover" id="navDiscover">
-                    <span class="sidebar-icon">🏠</span> Discover
-                </button>
-                <button class="sidebar-item" data-view="saved" id="navSaved">
-                    <span class="sidebar-icon">🔖</span> Saved Articles
-                    <span class="sidebar-badge" id="savedCount">0</span>
-                </button>
-            </nav>
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title" id="languageSectionTitle">🌐 Language</h3>
+                <select class="sidebar-country-select" id="languageSelect">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title" id="regionSectionTitle">🌍 Region</h3>
+                <select class="sidebar-country-select" id="countrySelect">
+                    <option value="GLOBAL">🌐 Global / Worldwide</option>
+                </select>
+            </div>
 
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title" id="roleSectionTitle">🎯 Lens</h3>
@@ -76,9 +82,14 @@
                 </select>
             </div>
 
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title" id="appearanceSectionTitle">🌓 Appearance</h3>
+                <button class="sidebar-action-btn" id="themeToggleBtn" type="button">Switch to Light Theme</button>
+            </div>
+
             <!-- Sort -->
             <div class="sidebar-section">
-                <h3 class="sidebar-section-title">Sort by</h3>
+                <h3 class="sidebar-section-title" id="sortSectionTitle">Sort by</h3>
                 <div class="sort-group" id="sortGroup">
                     <button class="sort-option active" data-sort="relevance">⚡ Relevance</button>
                     <button class="sort-option" data-sort="time">🕐 Latest</button>
@@ -92,7 +103,7 @@
 
             <!-- Newsletter -->
             <div class="sidebar-section">
-                <h3 class="sidebar-section-title">📬 Daily Digest</h3>
+                <h3 class="sidebar-section-title" id="digestSectionTitle">📬 Daily Digest</h3>
                 <p class="sidebar-desc">Daily digest is coming soon.</p>
                 <div class="sidebar-sub-count" id="subCountWrap" style="display:none;">
                     <span id="subCountVal">0</span> readers subscribed
@@ -113,29 +124,13 @@
 
         <!-- ===== Top Bar ===== -->
         <header class="top-bar" id="topBar">
-            <button class="top-bar-btn" aria-label="Menu" id="menuBtn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <button class="top-bar-lens-btn" aria-label="Lens" id="topLensBtn">
+                <span class="top-bar-lens" id="topBarLens">Lens: General</span>
             </button>
             <div class="top-bar-center">
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
-                <div class="top-bar-meta-row">
-                    <span class="top-bar-lens" id="topBarLens">Lens: General</span>
-                    <span class="top-bar-country" id="topBarCountry">🌐 GLB</span>
-                </div>
             </div>
-            <div class="top-bar-controls">
-                <select class="top-bar-select" id="languageSelect" aria-label="Language">
-                    <option value="en">EN</option>
-                    <option value="hi">HI</option>
-                    <option value="de">DE</option>
-                </select>
-                <select class="top-bar-select top-bar-select-country" id="countrySelect" aria-label="Country">
-                    <option value="GLOBAL">🌐 GLB</option>
-                </select>
-                <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                </button>
-            </div>
+            <div class="top-bar-spacer" aria-hidden="true"></div>
         </header>
 
         <!-- ===== Filter Tabs ===== -->
@@ -171,6 +166,22 @@
 
         <!-- ===== List Feed (Saved) ===== -->
         <main class="feed" id="feed" style="display:none;"></main>
+
+        <!-- ===== Bottom Nav ===== -->
+        <nav class="bottom-nav" id="bottomNav" aria-label="Primary">
+            <button class="bottom-nav-item" id="bottomSettingsBtn" type="button">
+                <span class="bottom-nav-icon">⚙️</span>
+                <span id="bottomSettingsLabel">Settings</span>
+            </button>
+            <button class="bottom-nav-item active" id="bottomDiscoverBtn" type="button">
+                <span class="bottom-nav-icon">🏠</span>
+                <span id="bottomDiscoverLabel">Discover</span>
+            </button>
+            <button class="bottom-nav-item" id="savedBtn" type="button">
+                <span class="bottom-nav-icon">🔖</span>
+                <span id="bottomSavedLabel">Saved</span>
+            </button>
+        </nav>
 
         <!-- ===== Bottom Sheet ===== -->
         <div class="sheet-backdrop" id="sheetBackdrop"></div>
