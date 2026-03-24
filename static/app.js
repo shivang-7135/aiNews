@@ -47,8 +47,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             onboardingFeatureRead: 'Tap a card to read a detailed brief.',
             onboardingFeatureCache: 'Stories are cached locally for faster loading and fewer API calls.',
             onboardingCacheNote: 'Use Refresh News from the menu whenever you want fresh data.',
-            onboardingStart: 'Start with Swipe 👆',
-            onboardingScroll: 'Start with Scroll ↕',
+            onboardingStart: 'Start with Scroll ↕',
+            onboardingScroll: 'Start with Swipe 👆',
             navDiscover: 'Discover',
             navSaved: 'Saved Articles',
             languageTitle: '🌐 Language',
@@ -57,7 +57,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortRelevance: '⚡ Relevance',
             sortLatest: '🕐 Latest',
             digestTitle: '📬 Daily Digest',
-            digestDesc: 'Get the top AI stories in your inbox every morning.',
+            digestDesc: 'Daily digest is coming soon.',
             readersSubscribed: 'readers subscribed',
             emailPlaceholder: 'you@email.com',
             subscribe: 'Subscribe',
@@ -139,8 +139,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             onboardingFeatureRead: 'विस्तृत विवरण पढ़ने के लिए किसी कार्ड पर टैप करें।',
             onboardingFeatureCache: 'स्टोरीज़ लोकल कैश में सेव होती हैं, इसलिए लोडिंग तेज और API कॉल कम होती हैं।',
             onboardingCacheNote: 'नई खबरों के लिए मेन्यू में Refresh News का उपयोग करें।',
-            onboardingStart: 'स्वाइप से शुरू करें 👆',
-            onboardingScroll: 'स्क्रॉल से शुरू करें ↕',
+            onboardingStart: 'स्क्रॉल से शुरू करें ↕',
+            onboardingScroll: 'स्वाइप से शुरू करें 👆',
             navDiscover: 'खोजें',
             navSaved: 'सेव्ड लेख',
             languageTitle: '🌐 भाषा',
@@ -149,7 +149,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortRelevance: '⚡ प्रासंगिकता',
             sortLatest: '🕐 नवीनतम',
             digestTitle: '📬 दैनिक डाइजेस्ट',
-            digestDesc: 'हर सुबह अपने इनबॉक्स में AI की टॉप खबरें पाएं।',
+            digestDesc: 'डेली डाइजेस्ट जल्द आ रहा है।',
             readersSubscribed: 'पाठक सदस्य हैं',
             emailPlaceholder: 'you@email.com',
             subscribe: 'सदस्य बनें',
@@ -231,8 +231,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             onboardingFeatureRead: 'Auf eine Karte tippen, um einen detaillierten Brief zu lesen.',
             onboardingFeatureCache: 'Stories werden lokal zwischengespeichert fuer schnelleres Laden und weniger API-Aufrufe.',
             onboardingCacheNote: 'Mit "News aktualisieren" im Menue holst du frische Daten.',
-            onboardingStart: 'Mit Wischen starten 👆',
-            onboardingScroll: 'Mit Scrollen starten ↕',
+            onboardingStart: 'Mit Scrollen starten ↕',
+            onboardingScroll: 'Mit Wischen starten 👆',
             navDiscover: 'Entdecken',
             navSaved: 'Gespeicherte Artikel',
             languageTitle: '🌐 Sprache',
@@ -241,7 +241,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             sortRelevance: '⚡ Relevanz',
             sortLatest: '🕐 Neueste',
             digestTitle: '📬 Taeglicher Digest',
-            digestDesc: 'Erhalte jeden Morgen die wichtigsten KI-Storys per E-Mail.',
+            digestDesc: 'Der taegliche Digest kommt bald.',
             readersSubscribed: 'Leser abonniert',
             emailPlaceholder: 'you@email.com',
             subscribe: 'Abonnieren',
@@ -551,7 +551,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     let currentLanguage = localStorage.getItem('dailyai_language') || 'en';
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let currentView = 'discover';
-    let feedMode = localStorage.getItem('dailyai_mode') || 'swipe'; // 'swipe' or 'scroll'
+    let feedMode = localStorage.getItem('dailyai_mode') || 'scroll'; // 'swipe' or 'scroll'
     let bookmarks = JSON.parse(localStorage.getItem('dailyai_bookmarks') || '{}');
     let swipeCardIndex = 0;
     let isDragging = false, startX = 0, startY = 0, deltaX = 0;
@@ -781,10 +781,10 @@ const APP_FUNCTIONALITY_GUIDE = {
         overlay.style.display = 'flex';
 
         $('onboardStart').addEventListener('click', () => {
-            dismissOnboarding(overlay, 'swipe');
+            dismissOnboarding(overlay, 'scroll');
         });
         $('onboardScroll').addEventListener('click', () => {
-            dismissOnboarding(overlay, 'scroll');
+            dismissOnboarding(overlay, 'swipe');
         });
 
         // Also dismiss on background tap
@@ -965,9 +965,17 @@ const APP_FUNCTIONALITY_GUIDE = {
         showToast(t('switchedTo', { name }));
     }
 
-    function onLanguageChange() {
+    async function onLanguageChange() {
         currentLanguage = languageSelect.value || 'en';
         localStorage.setItem('dailyai_language', currentLanguage);
+
+        // Apply key title labels immediately for instant visual feedback.
+        document.documentElement.lang = t('htmlLang');
+        document.title = t('pageTitle');
+        if (viewTitle) {
+            viewTitle.textContent = currentView === 'saved' ? t('viewSaved') : t('viewDiscover');
+        }
+
         applyTranslations();
 
         closeLanguageReloadModal();
@@ -975,7 +983,17 @@ const APP_FUNCTIONALITY_GUIDE = {
         loadLanguages();
         closeSidebar();
         showSkeleton();
-        fetchArticles(currentTopic);
+
+        // Regenerate country feed in selected language so card headlines also switch.
+        try {
+            await fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
+                method: 'POST',
+            });
+        } catch {
+            // Ignore refresh failures and fallback to normal article fetch.
+        }
+
+        await fetchArticles(currentTopic, { forceRefresh: true });
         const name = languageSelect.options[languageSelect.selectedIndex]?.textContent || currentLanguage;
         showToast(t('languageToast', { name }));
         setTimeout(() => showToast(t('languageRefreshNotice'), 4800), 350);
