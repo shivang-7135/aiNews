@@ -297,18 +297,42 @@ body {
 .scroll-feed {
     height: calc(100vh - 150px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     height: calc(100dvh - 150px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    overflow-y: auto; scroll-snap-type: y proximity;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-padding-top: 0;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; padding: 0 8px 74px;
+    scrollbar-width: none;
+    padding: 0 10px 74px;
 }
 .scroll-feed::-webkit-scrollbar { display: none; }
 .scroll-card {
     scroll-snap-align: start;
-    min-height: clamp(300px, 48vh, 430px);
+    scroll-snap-stop: always;
+    position: relative;
+    height: calc(100vh - 168px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 168px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    min-height: 430px;
     background: var(--card); border-radius: 16px;
     overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    margin-bottom: 8px; display: flex; flex-direction: column;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.scroll-card::after {
+    content: '';
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: -8px;
+    height: 14px;
+    border-radius: 0 0 14px 14px;
+    background: var(--card);
+    opacity: 0.32;
+    filter: brightness(0.85);
+    z-index: -1;
 }
 .scroll-card .card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; }
 .scroll-card .card-summary { -webkit-line-clamp: 4; margin-bottom: 10px; }
