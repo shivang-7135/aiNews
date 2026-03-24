@@ -143,7 +143,9 @@ const APP_FUNCTIONALITY_GUIDE = {
             readOriginal: 'Read original →',
             saveAction: '🔖 Save',
             savedAction: '✓ Saved',
+            unsaveAction: '🗑 Unsave',
             addedSaved: '✓ Added to saved articles',
+            removedSaved: 'Removed from saved',
             expandView: 'Expand View',
             collapseView: 'Compact View',
             loadingBrief: 'Generating detailed brief...',
@@ -262,7 +264,9 @@ const APP_FUNCTIONALITY_GUIDE = {
             readOriginal: 'मूल लेख पढ़ें →',
             saveAction: '🔖 सेव करें',
             savedAction: '✓ सेव्ड',
+            unsaveAction: '🗑 हटाएं',
             addedSaved: '✓ सेव्ड लेखों में जोड़ा गया',
+            removedSaved: 'सेव्ड से हटाया गया',
             expandView: 'व्यू बढ़ाएं',
             collapseView: 'कॉम्पैक्ट व्यू',
             loadingBrief: 'विस्तृत विवरण तैयार किया जा रहा है...',
@@ -381,7 +385,9 @@ const APP_FUNCTIONALITY_GUIDE = {
             readOriginal: 'Original lesen →',
             saveAction: '🔖 Speichern',
             savedAction: '✓ Gespeichert',
+            unsaveAction: '🗑 Entfernen',
             addedSaved: '✓ Zu gespeicherten Artikeln hinzugefuegt',
+            removedSaved: 'Aus Gespeichert entfernt',
             expandView: 'Ansicht vergroessern',
             collapseView: 'Kompakte Ansicht',
             loadingBrief: 'Ausfuehrlicher Brief wird erstellt...',
@@ -512,7 +518,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         switchView(currentView);
         restoreSort();
         restoreFeedMode();
-        showStreak();
     }
 
     function getBuildFooterText() {
@@ -685,7 +690,6 @@ const APP_FUNCTIONALITY_GUIDE = {
     const bottomSheet = $('bottomSheet');
     const sheetContent = $('sheetContent');
     const toastEl = $('toast');
-    const streakBadge = $('streakBadge');
     const viewTitle = $('viewTitle');
     const topLensBtn = $('topLensBtn');
     const topBarLens = $('topBarLens');
@@ -797,7 +801,6 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         applyTranslations();
         showWhatsNewIfNeeded();
-        showStreak();
         updateSavedCount();
         restoreSort();
         restoreFeedMode();
@@ -1415,6 +1418,14 @@ const APP_FUNCTIONALITY_GUIDE = {
             return;
         }
         feed.innerHTML = combined.map((a, i) => createFeedCardHTML(a, i)).join('');
+        feed.querySelectorAll('.saved-unsave-btn').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const cardEl = btn.closest('.feed-card');
+                await unsaveArticle(id, { sourceEl: btn, cardEl, rerenderSaved: true });
+            });
+        });
         feed.querySelectorAll('.feed-card').forEach(card => {
             card.addEventListener('click', () => {
                 const article = combined.find(a => a.id === card.dataset.id);
@@ -1439,7 +1450,7 @@ const APP_FUNCTIONALITY_GUIDE = {
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
-                    <span class="card-time">${getCardTimeMarkup(article)}</span>
+                    <button class="saved-unsave-btn" data-id="${esc(article.id)}">${esc(t('unsaveAction'))}</button>
                 </div>
             </div>
         </div>`;
@@ -1694,6 +1705,62 @@ const APP_FUNCTIONALITY_GUIDE = {
         if (savedBtn) savedBtn.classList.toggle('has-saved', count > 0);
     }
 
+    function saveArticle(article) {
+        if (!article?.id) return;
+        bookmarks[article.id] = article;
+        localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
+        updateSavedCount();
+    }
+
+    function showDustbinThrow(sourceEl) {
+        if (!sourceEl) return Promise.resolve();
+        return new Promise((resolve) => {
+            const sourceRect = sourceEl.getBoundingClientRect();
+            const dustbin = document.createElement('div');
+            dustbin.className = 'dustbin-indicator';
+            dustbin.textContent = '🗑️';
+
+            const token = document.createElement('div');
+            token.className = 'unsave-fly-token';
+            token.textContent = '🔖';
+            token.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
+            token.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+
+            document.body.appendChild(dustbin);
+            document.body.appendChild(token);
+
+            requestAnimationFrame(() => {
+                token.classList.add('animate');
+                dustbin.classList.add('show');
+            });
+
+            setTimeout(() => {
+                token.remove();
+                dustbin.remove();
+                resolve();
+            }, 520);
+        });
+    }
+
+    async function unsaveArticle(articleId, options = {}) {
+        if (!articleId || !bookmarks[articleId]) return;
+        const { sourceEl = null, cardEl = null, rerenderSaved = true } = options;
+
+        if (cardEl) {
+            cardEl.classList.add('feed-card-unsaving');
+        }
+        await showDustbinThrow(sourceEl || cardEl);
+
+        delete bookmarks[articleId];
+        localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
+        updateSavedCount();
+        showToast(t('removedSaved'));
+
+        if (rerenderSaved && currentView === 'saved') {
+            renderSavedList();
+        }
+    }
+
     // ====================== SKELETON ======================
     function showSkeleton() {
         setGlobalLoading(true);
@@ -1748,7 +1815,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         const actionsHtml = `
             <div class="sheet-actions">
                 <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
-                <button class="sheet-link sheet-link-secondary" id="sheetSaveBtn">${isSaved ? t('savedAction') : t('saveAction')}</button>
+                <button class="sheet-link sheet-link-secondary" id="sheetSaveBtn">${isSaved ? t('unsaveAction') : t('saveAction')}</button>
                 <p class="save-feedback" id="sheetSaveFeedback" style="display:none;">${t('addedSaved')}</p>
             </div>
         `;
@@ -1759,20 +1826,21 @@ const APP_FUNCTIONALITY_GUIDE = {
         const expandBtn = $('sheetExpandBtn');
         expandBtn?.addEventListener('click', () => toggleSheetExpanded(expandBtn));
         const saveFromSheet = (id) => {
-            const a = allArticles.find(x => x.id === id);
-            if (a) {
-                bookmarks[a.id] = a;
-                localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
-                updateSavedCount();
-            }
+            const a = allArticles.find(x => x.id === id) || article;
+            if (a) saveArticle(a);
         };
         const saveBtn = $('sheetSaveBtn');
         const saveFeedback = $('sheetSaveFeedback');
-        saveBtn?.addEventListener('click', () => {
+        saveBtn?.addEventListener('click', async () => {
+            const currentlySaved = !!bookmarks[article.id];
             if (saveFeedback) saveFeedback.style.display = 'block';
-            if (!isSaved) {
+            if (currentlySaved) {
+                await unsaveArticle(article.id, { sourceEl: saveBtn, rerenderSaved: currentView === 'saved' });
+                saveBtn.textContent = t('saveAction');
+            } else {
                 saveFromSheet(article.id);
-                saveBtn.textContent = t('savedAction');
+                saveBtn.textContent = t('unsaveAction');
+                showToast(t('saveToast'));
             }
         });
 
@@ -1793,7 +1861,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         if (cachedBrief) {
             if (loadingEl) loadingEl.style.display = 'none';
             briefEl.style.display = 'block';
-            briefEl.textContent = cachedBrief;
+            briefEl.innerHTML = formatBriefContent(cachedBrief);
             if (briefWrap) briefWrap.scrollTop = 0;
             return;
         }
@@ -1816,7 +1884,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             if (resp.ok && data.brief) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 briefEl.style.display = 'block';
-                briefEl.textContent = data.brief;
+                briefEl.innerHTML = formatBriefContent(data.brief);
                 writeCacheEntry(briefCacheKey, data.brief);
                 if (briefWrap) briefWrap.scrollTop = 0;
             } else {
@@ -1851,34 +1919,6 @@ const APP_FUNCTIONALITY_GUIDE = {
             buttonEl.setAttribute('title', isExpanded ? t('collapseView') : t('expandView'));
             const icon = buttonEl.querySelector('.sheet-expand-icon');
             if (icon) icon.textContent = isExpanded ? '⤡' : '⤢';
-        }
-    }
-
-    // ====================== STREAK ======================
-    function showStreak() {
-        const today = new Date().toISOString().slice(0, 10);
-        const lastDay = localStorage.getItem('dailyai_streak_day');
-        let streak = parseInt(localStorage.getItem('dailyai_streak_count') || '0', 10);
-        if (lastDay !== today) {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            streak = (lastDay === yesterday) ? streak + 1 : 1;
-            localStorage.setItem('dailyai_streak_day', today);
-            localStorage.setItem('dailyai_streak_count', String(streak));
-        }
-        // Show in sidebar
-        $('sidebarStreak').textContent = t('streakLine', { count: streak });
-        // Show floating badge — auto-dismiss after 4 seconds
-        if (!sessionStorage.getItem('dailyai_streak_dismissed') && streak >= 1) {
-            streakBadge.textContent = t('streakBadge', { count: streak });
-            streakBadge.style.display = 'block';
-            // Fade in after animation delay
-            setTimeout(() => streakBadge.classList.add('visible'), 600);
-            // Auto fade out after 4 seconds
-            setTimeout(() => {
-                streakBadge.classList.add('fade-out');
-                sessionStorage.setItem('dailyai_streak_dismissed', '1');
-                setTimeout(() => { streakBadge.style.display = 'none'; }, 1000);
-            }, 4000);
         }
     }
 
@@ -1940,6 +1980,14 @@ const APP_FUNCTIONALITY_GUIDE = {
         } catch {
             return '-';
         }
+    }
+    function formatBriefContent(text) {
+        const escaped = esc(text || '');
+        const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        return withBold
+            .split(/\n{2,}/)
+            .map((block) => `<p>${block.replace(/\n/g, '<br>')}</p>`)
+            .join('');
     }
     function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
