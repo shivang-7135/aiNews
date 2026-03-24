@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DailyAI — AI Decisions in 60 Seconds</title>
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="/static/manifest.json?v={{ app_version }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3.9">
+    <link rel="stylesheet" href="/static/styles.css?v={{ app_version }}">
 </head>
 <body>
     <div class="boot-loader visible" id="bootLoader" aria-live="polite" aria-busy="true">
@@ -217,6 +217,6 @@
 
     </div>
 
-    <script src="/static/app.js?v=4.5"></script>
+    <script src="/static/app.js?v={{ app_version }}"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@ const MAX_FEED_SUMMARY_WORDS = 50;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
+const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 const APP_FUNCTIONALITY_GUIDE = {
     en: [
         'Scroll your feed fast and save only what is actually useful.',
@@ -866,12 +867,22 @@ const APP_FUNCTIONALITY_GUIDE = {
     async function enforceBuildResetIfNeeded() {
         try {
             const previousBuild = String(localStorage.getItem(BUILD_MARKER_KEY) || '').trim();
-            if (previousBuild && previousBuild !== RELEASE_VERSION) {
+            const cacheSchema = String(localStorage.getItem(CACHE_SCHEMA_KEY) || '').trim();
+            const needsSchemaReset = cacheSchema !== CACHE_SCHEMA_KEY;
+            const needsBuildReset = !previousBuild || previousBuild !== RELEASE_VERSION;
+
+            if (needsSchemaReset || needsBuildReset) {
                 await clearClientCaches({ includeServiceWorkers: true });
+                localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_SCHEMA_KEY);
                 localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
-                location.reload();
-                return true;
+
+                // Reload only when coming from a previous known build to guarantee fresh script state.
+                if (previousBuild && previousBuild !== RELEASE_VERSION) {
+                    location.reload();
+                    return true;
+                }
             }
+            localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_SCHEMA_KEY);
             localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
         } catch {
             // Ignore localStorage failures and continue.
