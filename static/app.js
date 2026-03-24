@@ -1,4 +1,4 @@
-// DailyAI v3.0 — Swipe + Scroll mode, Onboarding, Auto-dismiss streak
+// DailyAI v3.0 — Scroll-first feed, onboarding, auto-dismiss streak
 const API_URL = '/api/articles';
 const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v2';
 const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
@@ -9,22 +9,22 @@ const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
 const APP_FUNCTIONALITY_GUIDE = {
     en: [
-        'Swipe right to save and left to skip stories you do not need.',
-        'Open Menu to change language, country, sort order, and refresh news.',
+        'Scroll your feed fast and save only what is actually useful.',
+        'Use the top bar to switch language and country in one tap.',
         'Tap any card to open detailed reading view with source link.',
         'Use Expand View inside article panel for more comfortable reading.',
         'Your feed is cached, so repeat opens are faster and lighter on data.',
     ],
     hi: [
-        'पसंदीदा खबरें सेव करने के लिए दाएं स्वाइप करें और छोड़ने के लिए बाएं स्वाइप करें।',
-        'Menu से भाषा, देश, सॉर्ट और Refresh News कंट्रोल करें।',
+        'फीड को जल्दी स्क्रॉल करें और सिर्फ काम की खबरें सेव करें।',
+        'ऊपर वाले बार से भाषा और देश एक टैप में बदलें।',
         'किसी भी कार्ड पर टैप करके विस्तृत पढ़ने वाला व्यू और source लिंक खोलें।',
         'अच्छी पढ़ाई के लिए आर्टिकल पैनल में Expand View का उपयोग करें।',
         'फीड कैश में सेव रहती है, इसलिए अगली बार ऐप तेज खुलेगा।',
     ],
     de: [
-        'Nach rechts wischen speichert Stories, nach links werden sie uebersprungen.',
-        'Im Menu kannst du Sprache, Land, Sortierung und News aktualisieren steuern.',
+        'Scrolle schnell durch den Feed und speichere nur Relevantes.',
+        'Sprache und Land stellst du direkt oben in der Leiste um.',
         'Tippe auf eine Karte fuer die Detailansicht mit Originalquelle.',
         'Nutze Expand View im Artikelbereich fuer angenehmes Lesen.',
         'Der Feed wird lokal zwischengespeichert und laedt beim naechsten Mal schneller.',
@@ -37,22 +37,23 @@ const APP_FUNCTIONALITY_GUIDE = {
     const I18N = {
         en: {
             htmlLang: 'en',
-            pageTitle: 'DailyAI - Discover AI News',
-            pageDescription: 'DailyAI - AI news, curated daily. No login required.',
+            pageTitle: 'DailyAI - AI Decisions in 60 Seconds',
+            pageDescription: 'DailyAI turns AI headlines into clear decisions, impact, and next actions.',
             onboardingTitle: 'Welcome to DailyAI',
-            onboardingDesc: 'Discover what you can do in one place.',
-            onboardingFeatureSwipe: 'Swipe right to save and left to skip.',
-            onboardingFeatureLanguage: 'Change language from the sidebar.',
-            onboardingFeatureCountry: 'Change country to localize your feed.',
-            onboardingFeatureRead: 'Tap a card to read a detailed brief.',
+            onboardingDesc: 'From AI headlines to action in under 60 seconds.',
+            onboardingFeatureSwipe: 'Scroll fast, save what matters, ignore the noise.',
+            onboardingFeatureLanguage: 'Use top bar to switch language instantly.',
+            onboardingFeatureCountry: 'Use top bar country to localize your feed.',
+            onboardingFeatureRead: 'Tap a card to see confidence, impact, and a role-based next step.',
             onboardingFeatureCache: 'Stories are cached locally for faster loading and fewer API calls.',
-            onboardingCacheNote: 'Use Refresh News from the menu whenever you want fresh data.',
+            onboardingCacheNote: 'Start in General mode, then switch Decision Lens anytime from the menu.',
             onboardingStart: 'Start with Scroll ↕',
-            onboardingScroll: 'Start with Swipe 👆',
+            onboardingScroll: 'Start Exploring',
             navDiscover: 'Discover',
             navSaved: 'Saved Articles',
             languageTitle: '🌐 Language',
             regionTitle: '🌍 Region',
+            lensTitle: '🎯 Decision Lens',
             sortBy: 'Sort by',
             sortRelevance: '⚡ Relevance',
             sortLatest: '🕐 Latest',
@@ -63,7 +64,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             subscribe: 'Subscribe',
             subscribing: 'Subscribing...',
             done: '✓ Done!',
-            sidebarHint: 'Swipe right to save - Left to skip',
+            sidebarHint: 'Stay in the loop, not in a doomscroll spiral.',
             noLogin: 'v3.0 - No login required',
             modeScroll: '↕ Scroll',
             modeSwipe: '👆 Swipe',
@@ -92,13 +93,35 @@ const APP_FUNCTIONALITY_GUIDE = {
             noStories: 'No stories yet',
             noStoriesSub: 'Pull down to refresh.',
             noSavedTitle: 'No saved articles yet',
-            noSavedSub: 'Swipe right on cards to save them here.',
+            noSavedSub: 'Tap Save on any card to keep it here.',
             savedAppear: 'Saved articles appear after loading the feed.',
             swipeLabelSave: 'SAVE',
             swipeLabelSkip: 'SKIP',
             sortedLatest: '🕐 Sorted by latest',
             sortedRelevance: '⚡ Sorted by relevance',
             switchedTo: 'Switched to {name}',
+            roleToast: 'Lens: {name}',
+            lensActive: 'Lens: {name}',
+            roleGeneral: 'General',
+            roleFounder: 'Founder',
+            roleDeveloper: 'Developer',
+            roleStudent: 'Student',
+            roleMarketer: 'Marketer',
+            confidence: 'Confidence',
+            confidenceHigh: 'High',
+            confidenceMedium: 'Medium',
+            confidenceLow: 'Low',
+            impact: 'Impact',
+            impactImmediate: 'Immediate',
+            impactWatchlist: 'Watchlist',
+            confidenceHint: 'Confidence estimates how reliable this story is based on source quality and corroboration.',
+            impactHint: 'Impact estimates how soon this story could affect most people or teams.',
+            decisionExplainer: 'Confidence = trust level. Impact = urgency level.',
+            doNext: 'Do this next',
+            actionFounder: 'Map business impact for your team and shortlist one pilot this week.',
+            actionDeveloper: 'Review technical implications and test one implementation path today.',
+            actionStudent: 'Note one key concept and save this story for your learning revision.',
+            actionMarketer: 'Extract one user-facing angle and draft a short communication test.',
             languageToast: 'Language: {name}',
             languageRefreshNotice: 'Language changed. Please refresh the page.',
             languageReloadTitle: 'Language Updated',
@@ -121,30 +144,31 @@ const APP_FUNCTIONALITY_GUIDE = {
             briefUnavailable: 'Detailed brief is not available yet. Please try again.',
             publishedAt: 'Published',
             updatedAt: 'Updated',
-            whatsNewTitle: 'How to Use DailyAI',
-            whatsNewBody: 'Quick guide to use the app better:',
+            whatsNewTitle: 'How DailyAI Helps You Decide',
+            whatsNewBody: 'Every story now gives confidence, impact, and what to do next:',
             whatsNewAcknowledge: 'Start Exploring',
             streakLine: '🔥 Day {count} reading streak',
             streakBadge: '🔥 Day {count} reading DailyAI',
         },
         hi: {
             htmlLang: 'hi',
-            pageTitle: 'DailyAI - AI समाचार खोजें',
-            pageDescription: 'DailyAI - रोज़ाना चुनी हुई AI खबरें। लॉगिन की जरूरत नहीं।',
+            pageTitle: 'DailyAI - 60 सेकंड में AI निर्णय',
+            pageDescription: 'DailyAI AI हेडलाइन्स को स्पष्ट निर्णय, प्रभाव और अगले कदम में बदलता है।',
             onboardingTitle: 'DailyAI में आपका स्वागत है',
-            onboardingDesc: 'एक ही जगह पर सभी फीचर्स समझें।',
-            onboardingFeatureSwipe: 'सेव करने के लिए दाईं और स्किप के लिए बाईं ओर स्वाइप करें।',
-            onboardingFeatureLanguage: 'साइडबार से भाषा बदलें।',
-            onboardingFeatureCountry: 'अपनी फीड को स्थानीय बनाने के लिए देश बदलें।',
-            onboardingFeatureRead: 'विस्तृत विवरण पढ़ने के लिए किसी कार्ड पर टैप करें।',
+            onboardingDesc: 'AI हेडलाइन्स से एक्शन तक, 60 सेकंड के अंदर।',
+            onboardingFeatureSwipe: 'तेज़ी से स्क्रॉल करें, काम की चीज़ सेव करें, बाकी शोर छोड़ दें।',
+            onboardingFeatureLanguage: 'टॉप बार से भाषा तुरंत बदलें।',
+            onboardingFeatureCountry: 'फीड को स्थानीय बनाने के लिए टॉप बार से देश बदलें।',
+            onboardingFeatureRead: 'कार्ड पर टैप करके विश्वसनीयता, प्रभाव और भूमिका-आधारित अगला कदम देखें।',
             onboardingFeatureCache: 'स्टोरीज़ लोकल कैश में सेव होती हैं, इसलिए लोडिंग तेज और API कॉल कम होती हैं।',
-            onboardingCacheNote: 'नई खबरों के लिए मेन्यू में Refresh News का उपयोग करें।',
+            onboardingCacheNote: 'शुरुआत General मोड में करें, फिर मेन्यू से कभी भी Decision Lens बदलें।',
             onboardingStart: 'स्क्रॉल से शुरू करें ↕',
-            onboardingScroll: 'स्वाइप से शुरू करें 👆',
+            onboardingScroll: 'एक्सप्लोर शुरू करें',
             navDiscover: 'खोजें',
             navSaved: 'सेव्ड लेख',
             languageTitle: '🌐 भाषा',
             regionTitle: '🌍 क्षेत्र',
+            lensTitle: '🎯 निर्णय लेंस',
             sortBy: 'क्रमबद्ध करें',
             sortRelevance: '⚡ प्रासंगिकता',
             sortLatest: '🕐 नवीनतम',
@@ -155,7 +179,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             subscribe: 'सदस्य बनें',
             subscribing: 'सदस्यता ली जा रही है...',
             done: '✓ हो गया!',
-            sidebarHint: 'सेव करने के लिए दाएं स्वाइप करें - स्किप के लिए बाएं',
+            sidebarHint: 'अपडेट रहो, doomscroll spiral में मत फंसो।',
             noLogin: 'v3.0 - लॉगिन आवश्यक नहीं',
             modeScroll: '↕ स्क्रॉल',
             modeSwipe: '👆 स्वाइप',
@@ -184,13 +208,35 @@ const APP_FUNCTIONALITY_GUIDE = {
             noStories: 'अभी कोई स्टोरी नहीं',
             noStoriesSub: 'रिफ्रेश करने के लिए नीचे खींचें।',
             noSavedTitle: 'अभी कोई सेव्ड लेख नहीं',
-            noSavedSub: 'लेख सेव करने के लिए कार्ड पर दाईं ओर स्वाइप करें।',
+            noSavedSub: 'लेख सेव करने के लिए कार्ड पर Save दबाएं।',
             savedAppear: 'फीड लोड होने के बाद सेव्ड लेख यहां दिखेंगे।',
             swipeLabelSave: 'सेव',
             swipeLabelSkip: 'स्किप',
             sortedLatest: '🕐 नवीनतम के अनुसार क्रमबद्ध',
             sortedRelevance: '⚡ प्रासंगिकता के अनुसार क्रमबद्ध',
             switchedTo: '{name} पर स्विच किया गया',
+            roleToast: 'लेंस: {name}',
+            lensActive: 'लेंस: {name}',
+            roleGeneral: 'जनरल',
+            roleFounder: 'फाउंडर',
+            roleDeveloper: 'डेवलपर',
+            roleStudent: 'स्टूडेंट',
+            roleMarketer: 'मार्केटर',
+            confidence: 'विश्वसनीयता',
+            confidenceHigh: 'उच्च',
+            confidenceMedium: 'मध्यम',
+            confidenceLow: 'कम',
+            impact: 'प्रभाव',
+            impactImmediate: 'तुरंत',
+            impactWatchlist: 'नज़र रखें',
+            confidenceHint: 'विश्वसनीयता बताती है कि स्रोत और पुष्टि के आधार पर खबर कितनी भरोसेमंद है।',
+            impactHint: 'प्रभाव बताता है कि यह खबर कितनी जल्दी ज़्यादातर लोगों या टीमों को प्रभावित कर सकती है।',
+            decisionExplainer: 'विश्वसनीयता = भरोसे का स्तर। प्रभाव = तात्कालिकता का स्तर।',
+            doNext: 'अगला कदम',
+            actionFounder: 'टीम के लिए बिज़नेस प्रभाव मैप करें और इस सप्ताह एक पायलट तय करें।',
+            actionDeveloper: 'तकनीकी असर देखें और आज एक इम्प्लीमेंटेशन पथ टेस्ट करें।',
+            actionStudent: 'एक मुख्य सीख नोट करें और इस स्टोरी को रिविज़न के लिए सेव करें।',
+            actionMarketer: 'एक यूज़र-फेसिंग एंगल निकालें और छोटा कम्युनिकेशन टेस्ट बनाएं।',
             languageToast: 'भाषा: {name}',
             languageRefreshNotice: 'भाषा बदल गई है। कृपया पेज रिफ्रेश करें।',
             languageReloadTitle: 'भाषा अपडेट हुई',
@@ -213,30 +259,31 @@ const APP_FUNCTIONALITY_GUIDE = {
             briefUnavailable: 'विस्तृत विवरण अभी उपलब्ध नहीं है। कृपया फिर कोशिश करें।',
             publishedAt: 'प्रकाशित',
             updatedAt: 'अपडेट किया गया',
-            whatsNewTitle: 'DailyAI कैसे उपयोग करें',
-            whatsNewBody: 'ऐप को बेहतर तरीके से उपयोग करने के लिए त्वरित गाइड:',
+            whatsNewTitle: 'DailyAI आपके निर्णय कैसे बेहतर करता है',
+            whatsNewBody: 'अब हर स्टोरी में विश्वसनीयता, प्रभाव और अगला कदम मिलता है:',
             whatsNewAcknowledge: 'शुरू करें',
             streakLine: '🔥 दिन {count} पढ़ने की स्ट्रीक',
             streakBadge: '🔥 दिन {count} DailyAI पढ़ना',
         },
         de: {
             htmlLang: 'de',
-            pageTitle: 'DailyAI - KI-News entdecken',
-            pageDescription: 'DailyAI - taeglich kuratierte KI-News. Kein Login erforderlich.',
+            pageTitle: 'DailyAI - KI-Entscheidungen in 60 Sekunden',
+            pageDescription: 'DailyAI macht aus KI-Schlagzeilen klare Entscheidungen, Wirkung und naechste Schritte.',
             onboardingTitle: 'Willkommen bei DailyAI',
-            onboardingDesc: 'Alle Funktionen auf einen Blick.',
-            onboardingFeatureSwipe: 'Nach rechts wischen zum Speichern, nach links zum Ueberspringen.',
-            onboardingFeatureLanguage: 'Sprache in der Seitenleiste wechseln.',
-            onboardingFeatureCountry: 'Land wechseln, um den Feed zu lokalisieren.',
-            onboardingFeatureRead: 'Auf eine Karte tippen, um einen detaillierten Brief zu lesen.',
+            onboardingDesc: 'Von KI-Headlines zu konkreten Aktionen in unter 60 Sekunden.',
+            onboardingFeatureSwipe: 'Schnell scrollen, Relevantes speichern, den Rest ignorieren.',
+            onboardingFeatureLanguage: 'Sprache direkt oben in der Leiste wechseln.',
+            onboardingFeatureCountry: 'Land oben umstellen, um den Feed zu lokalisieren.',
+            onboardingFeatureRead: 'Auf eine Karte tippen, um Sicherheit, Wirkung und den naechsten Schritt zu sehen.',
             onboardingFeatureCache: 'Stories werden lokal zwischengespeichert fuer schnelleres Laden und weniger API-Aufrufe.',
-            onboardingCacheNote: 'Mit "News aktualisieren" im Menue holst du frische Daten.',
+            onboardingCacheNote: 'Starte im allgemeinen Modus und wechsle den Entscheidungsfokus spaeter im Menue.',
             onboardingStart: 'Mit Scrollen starten ↕',
-            onboardingScroll: 'Mit Wischen starten 👆',
+            onboardingScroll: 'Jetzt entdecken',
             navDiscover: 'Entdecken',
             navSaved: 'Gespeicherte Artikel',
             languageTitle: '🌐 Sprache',
             regionTitle: '🌍 Region',
+            lensTitle: '🎯 Entscheidungsfokus',
             sortBy: 'Sortieren nach',
             sortRelevance: '⚡ Relevanz',
             sortLatest: '🕐 Neueste',
@@ -247,7 +294,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             subscribe: 'Abonnieren',
             subscribing: 'Wird abonniert...',
             done: '✓ Fertig!',
-            sidebarHint: 'Nach rechts zum Speichern - nach links zum Ueberspringen',
+            sidebarHint: 'Bleib up to date, nicht im Doomscroll-Strudel.',
             noLogin: 'v3.0 - Kein Login erforderlich',
             modeScroll: '↕ Scrollen',
             modeSwipe: '👆 Wischen',
@@ -276,13 +323,35 @@ const APP_FUNCTIONALITY_GUIDE = {
             noStories: 'Noch keine Storys',
             noStoriesSub: 'Zum Aktualisieren nach unten ziehen.',
             noSavedTitle: 'Noch keine gespeicherten Artikel',
-            noSavedSub: 'Wische nach rechts auf Karten, um sie hier zu speichern.',
+            noSavedSub: 'Tippe auf Speichern bei einer Karte, um sie hier abzulegen.',
             savedAppear: 'Gespeicherte Artikel erscheinen nach dem Laden des Feeds.',
             swipeLabelSave: 'SPEICHERN',
             swipeLabelSkip: 'SKIP',
             sortedLatest: '🕐 Nach Neueste sortiert',
             sortedRelevance: '⚡ Nach Relevanz sortiert',
             switchedTo: 'Gewechselt zu {name}',
+            roleToast: 'Fokus: {name}',
+            lensActive: 'Fokus: {name}',
+            roleGeneral: 'Allgemein',
+            roleFounder: 'Gruender',
+            roleDeveloper: 'Entwickler',
+            roleStudent: 'Student',
+            roleMarketer: 'Marketing',
+            confidence: 'Sicherheit',
+            confidenceHigh: 'Hoch',
+            confidenceMedium: 'Mittel',
+            confidenceLow: 'Niedrig',
+            impact: 'Wirkung',
+            impactImmediate: 'Sofort',
+            impactWatchlist: 'Beobachten',
+            confidenceHint: 'Sicherheit schaetzt ein, wie verlaesslich die Story laut Quelle und Bestaetigungen ist.',
+            impactHint: 'Wirkung schaetzt ein, wie schnell die Story die meisten Menschen oder Teams betreffen koennte.',
+            decisionExplainer: 'Sicherheit = Vertrauensniveau. Wirkung = Dringlichkeitsniveau.',
+            doNext: 'Naechster Schritt',
+            actionFounder: 'Business-Auswirkung fuer dein Team einordnen und diese Woche einen Pilot waehlen.',
+            actionDeveloper: 'Technische Folgen pruefen und heute einen Umsetzungsweg testen.',
+            actionStudent: 'Einen Kernpunkt notieren und Story fuer die Lern-Wiederholung speichern.',
+            actionMarketer: 'Einen nutzerorientierten Winkel ableiten und einen kurzen Messaging-Test planen.',
             languageToast: 'Sprache: {name}',
             languageRefreshNotice: 'Sprache wurde geaendert. Bitte Seite neu laden.',
             languageReloadTitle: 'Sprache aktualisiert',
@@ -305,8 +374,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             briefUnavailable: 'Ausfuehrlicher Brief ist noch nicht verfuegbar. Bitte erneut versuchen.',
             publishedAt: 'Veroeffentlicht',
             updatedAt: 'Aktualisiert',
-            whatsNewTitle: 'So nutzt du DailyAI',
-            whatsNewBody: 'Kurzanleitung fuer die beste Nutzung:',
+            whatsNewTitle: 'So hilft DailyAI bei Entscheidungen',
+            whatsNewBody: 'Jede Story zeigt jetzt Sicherheit, Wirkung und den naechsten Schritt:',
             whatsNewAcknowledge: 'Los gehts',
             streakLine: '🔥 Tag {count} Lesestreak',
             streakBadge: '🔥 Tag {count} DailyAI gelesen',
@@ -359,11 +428,11 @@ const APP_FUNCTIONALITY_GUIDE = {
         if (navSaved) navSaved.innerHTML = `<span class="sidebar-icon">🔖</span> ${t('navSaved')}<span class="sidebar-badge" id="savedCount">${Object.keys(bookmarks).length}</span>`;
 
         const sidebarTitles = document.querySelectorAll('.sidebar-section-title');
-        if (sidebarTitles[0]) sidebarTitles[0].textContent = t('languageTitle');
-        if (sidebarTitles[1]) sidebarTitles[1].textContent = t('regionTitle');
-        if (sidebarTitles[2]) sidebarTitles[2].textContent = t('sortBy');
-        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('refreshSectionTitle');
-        if (sidebarTitles[4]) sidebarTitles[4].textContent = t('digestTitle');
+        if (sidebarTitles[0]) sidebarTitles[0].textContent = t('lensTitle');
+        if (sidebarTitles[1]) sidebarTitles[1].textContent = t('sortBy');
+        if (sidebarTitles[2]) sidebarTitles[2].textContent = t('refreshSectionTitle');
+        if (sidebarTitles[3]) sidebarTitles[3].textContent = t('digestTitle');
+        localizeRoleOptions();
 
         setText('.sidebar-desc', t('digestDesc'));
         setText('#sidebarRefreshBtn', t('refreshNews'));
@@ -387,6 +456,10 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
+
+        if (topBarLens) {
+            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
+        }
 
         const refreshBtn = $('sidebarRefreshBtn');
         if (refreshBtn) {
@@ -563,6 +636,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     let currentTopic = 'For You';
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
     let currentLanguage = localStorage.getItem('dailyai_language') || 'en';
+    let currentRole = localStorage.getItem('dailyai_role') || 'general';
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let currentView = 'discover';
     let feedMode = localStorage.getItem('dailyai_mode') || 'scroll'; // 'swipe' or 'scroll'
@@ -590,8 +664,10 @@ const APP_FUNCTIONALITY_GUIDE = {
     const streakBadge = $('streakBadge');
     const viewTitle = $('viewTitle');
     const topBarCountry = $('topBarCountry');
+    const topBarLens = $('topBarLens');
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
+    const roleSelect = $('roleSelect');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('sidebarRefreshBtn');
     const langReloadBackdrop = $('langReloadBackdrop');
@@ -603,6 +679,13 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== INIT ======================
     async function init() {
+        // One-time migration: move legacy default users to General lens.
+        if (!localStorage.getItem('dailyai_role_initialized')) {
+            currentRole = 'general';
+            localStorage.setItem('dailyai_role', currentRole);
+            localStorage.setItem('dailyai_role_initialized', '1');
+        }
+
         // Sidebar
         $('menuBtn').addEventListener('click', openSidebar);
         $('sidebarClose').addEventListener('click', closeSidebar);
@@ -622,14 +705,17 @@ const APP_FUNCTIONALITY_GUIDE = {
         // Language
         languageSelect.addEventListener('change', onLanguageChange);
 
+        // Role lens
+        roleSelect?.addEventListener('change', onRoleChange);
+
         // Newsletter
         $('subscribeForm').addEventListener('submit', onSubscribe);
 
         // Filter tabs
         filterTabs.addEventListener('click', onTabClick);
 
-        // Mode toggle
-        modeToggle.addEventListener('click', toggleFeedMode);
+        // Mode toggle (legacy; hidden in current UX)
+        modeToggle?.addEventListener('click', toggleFeedMode);
 
         // Reload
         $('reloadBtn').addEventListener('click', refreshNewsNow);
@@ -681,6 +767,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         restoreSort();
         restoreFeedMode();
         loadLanguages();
+        loadRoleLens();
         loadCountries();
         fetchSubscriberCount();
         setupServiceWorker();
@@ -797,8 +884,8 @@ const APP_FUNCTIONALITY_GUIDE = {
         $('onboardStart').addEventListener('click', () => {
             dismissOnboarding(overlay, 'scroll');
         });
-        $('onboardScroll').addEventListener('click', () => {
-            dismissOnboarding(overlay, 'swipe');
+        $('onboardScroll')?.addEventListener('click', () => {
+            dismissOnboarding(overlay, 'scroll');
         });
 
         // Also dismiss on background tap
@@ -830,6 +917,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     }
 
     function restoreFeedMode() {
+        if (!modeToggle) return;
         if (feedMode === 'scroll') {
             modeToggle.textContent = t('modeSwipe');
             modeToggle.classList.add('active');
@@ -841,15 +929,10 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     function renderFeed() {
         if (currentView !== 'discover') return;
-        if (feedMode === 'scroll') {
-            swipeContainer.style.display = 'none';
-            scrollFeed.style.display = '';
-            renderScrollFeed();
-        } else {
-            scrollFeed.style.display = 'none';
-            swipeContainer.style.display = '';
-            renderSwipeStack();
-        }
+        feedMode = 'scroll';
+        swipeContainer.style.display = 'none';
+        scrollFeed.style.display = '';
+        renderScrollFeed();
     }
 
     // ====================== SCROLL FEED (InShorts) ======================
@@ -872,6 +955,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         card.dataset.id = article.id;
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
+        const decisionHtml = buildDecisionMarkup(article);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -883,6 +967,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 <p class="card-summary">${esc(article.summary)}</p>
+                ${decisionHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -918,6 +1003,91 @@ const APP_FUNCTIONALITY_GUIDE = {
         return `<img src="${esc(coverUrl)}" alt="${esc(topic)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
     }
 
+    function getConfidenceKey(article) {
+        if (article?.confidence) return String(article.confidence).toLowerCase();
+        const importance = Number(article?.importance || 0);
+        if (importance >= 8) return 'high';
+        if (importance >= 6) return 'medium';
+        return 'low';
+    }
+
+    function getImpactKey(article) {
+        if (article?.impact) return String(article.impact).toLowerCase();
+        const importance = Number(article?.importance || 0);
+        const category = String(article?.category || '').toLowerCase();
+        if (importance >= 7 || ['regulation', 'product', 'funding'].includes(category)) return 'immediate';
+        return 'watchlist';
+    }
+
+    function getStoryAngle(article) {
+        const topic = String(article?.topic || '').toLowerCase();
+        const category = String(article?.category || '').toLowerCase();
+        const text = `${article?.headline || ''} ${article?.summary || ''}`.toLowerCase();
+
+        if (topic.includes('research') || category === 'research' || /paper|benchmark|study|model eval/.test(text)) return 'research';
+        if (topic.includes('business') || category === 'funding' || /funding|investment|raise|valuation|acqui/.test(text)) return 'funding';
+        if (category === 'regulation' || /regulation|compliance|law|policy|act|governance/.test(text)) return 'regulation';
+        if (topic.includes('tools') || topic.includes('models') || category === 'product' || /launch|release|api|feature|assistant/.test(text)) return 'product';
+        return 'industry';
+    }
+
+    function getActionForRole(article) {
+        if ((currentRole || '').toLowerCase() === 'general') return '';
+        const angle = getStoryAngle(article);
+        const source = article?.source_name ? String(article.source_name) : 'the source';
+        const topic = article?.topic ? String(article.topic) : 'AI';
+        const impactKey = getImpactKey(article);
+
+        const actions = {
+            founder: {
+                regulation: `Assess compliance risk from ${source} and assign one owner for immediate policy review.`,
+                funding: `Check competitor/funding signal from ${source} and adjust your 30-day product priority list.`,
+                research: `Review this ${topic} insight and decide one feature bet worth validating this sprint.`,
+                product: `Map this ${topic} launch to your roadmap and decide ship, partner, or wait by Friday.`,
+                industry: `Brief your team on this ${topic} shift and align one business metric to monitor weekly.`,
+            },
+            developer: {
+                regulation: `Review technical compliance requirements and list one code or data-control change to implement.`,
+                funding: `Track vendor stability signal from ${source} before committing deeper integration effort.`,
+                research: `Reproduce one key claim in a small test and note latency, quality, and cost impact.`,
+                product: `Prototype one ${topic} capability from this update and compare with your current stack.`,
+                industry: `Document architecture impact and create a short implementation spike ticket today.`,
+            },
+            student: {
+                regulation: `Summarize the rule change in 3 lines and save one practical example for revision.`,
+                funding: `Track why this funding move matters and note one trend for your portfolio/interview prep.`,
+                research: `Extract one core concept from this ${topic} story and explain it in your own words.`,
+                product: `Compare this launch with one existing tool and note strengths, limits, and use cases.`,
+                industry: `Write a quick takeaway on market direction and add one follow-up source to read next.`,
+            },
+            marketer: {
+                regulation: `Translate this policy update into one customer-safe message and one risk disclaimer.`,
+                funding: `Craft one positioning angle from this funding signal and test it in your next campaign.`,
+                research: `Turn this ${topic} insight into one educational content hook for your audience.`,
+                product: `Create one use-case narrative for this ${topic} update and test headline + CTA variants.`,
+                industry: `Map this shift to audience pain points and draft one timely distribution post.`,
+            },
+        };
+
+        const roleActions = actions[currentRole] || actions.founder;
+        const base = roleActions[angle] || roleActions.industry;
+        return impactKey === 'immediate' ? `${base} Do it today.` : `${base} Put this on your watchlist this week.`;
+    }
+
+    function buildDecisionMarkup(article, variant = 'card') {
+        const confidenceKey = getConfidenceKey(article);
+        const impactKey = getImpactKey(article);
+        const confidenceText = `${t('confidence')}: ${t(`confidence${confidenceKey.charAt(0).toUpperCase()}${confidenceKey.slice(1)}`)}`;
+        const impactText = `${t('impact')}: ${t(`impact${impactKey.charAt(0).toUpperCase()}${impactKey.slice(1)}`)}`;
+        const chipBlock = `<div class="${variant === 'sheet' ? 'sheet-decision' : 'card-decision'}"><span class="decision-chip conf-${esc(confidenceKey)}" title="${esc(t('confidenceHint'))}">${esc(confidenceText)}</span><span class="decision-chip impact-${esc(impactKey)}" title="${esc(t('impactHint'))}">${esc(impactText)}</span></div>`;
+        const explainer = variant === 'sheet' ? `<p class="decision-explainer">${esc(t('decisionExplainer'))}</p>` : '';
+        const action = getActionForRole(article);
+        const actionBlock = action
+            ? `<div class="${variant === 'sheet' ? 'sheet-next-action' : 'card-next-action'}"><strong>${esc(t('doNext'))}:</strong> ${esc(action)}</div>`
+            : '';
+        return `${chipBlock}${explainer}${actionBlock}`;
+    }
+
     // ====================== COUNTRIES ======================
     async function loadCountries() {
         try {
@@ -929,7 +1099,8 @@ const APP_FUNCTIONALITY_GUIDE = {
                 const flag = COUNTRY_FLAGS[code] || '🏳️';
                 const opt = document.createElement('option');
                 opt.value = code;
-                opt.textContent = `${flag} ${translateCountryName(code, name)}`;
+                opt.textContent = `${flag} ${String(code).toUpperCase()}`;
+                opt.title = translateCountryName(code, name);
                 if (code === currentCountry) opt.selected = true;
                 countrySelect.appendChild(opt);
             }
@@ -939,6 +1110,7 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     async function loadLanguages() {
         const fallback = { en: 'English', hi: 'Hindi', de: 'German' };
+        const compactLabels = { en: 'EN', hi: 'HI', de: 'DE' };
         try {
             const resp = await fetch('/api/languages');
             const data = await resp.json();
@@ -947,12 +1119,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             for (const [code, name] of Object.entries(languages)) {
                 const opt = document.createElement('option');
                 opt.value = code;
-                const localizedLabel = {
-                    en: { en: 'English', hi: 'Hindi', de: 'German' },
-                    hi: { en: 'अंग्रेजी', hi: 'हिंदी', de: 'जर्मन' },
-                    de: { en: 'Englisch', hi: 'Hindi', de: 'Deutsch' },
-                };
-                opt.textContent = (localizedLabel[currentLanguage] && localizedLabel[currentLanguage][code]) || name;
+                opt.textContent = compactLabels[code] || String(code).toUpperCase();
+                opt.title = name;
                 if (code === currentLanguage) opt.selected = true;
                 languageSelect.appendChild(opt);
             }
@@ -961,11 +1129,60 @@ const APP_FUNCTIONALITY_GUIDE = {
             for (const [code, name] of Object.entries(fallback)) {
                 const opt = document.createElement('option');
                 opt.value = code;
-                opt.textContent = name;
+                opt.textContent = compactLabels[code] || String(code).toUpperCase();
+                opt.title = name;
                 if (code === currentLanguage) opt.selected = true;
                 languageSelect.appendChild(opt);
             }
         }
+    }
+
+    function localizeRoleOptions() {
+        if (!roleSelect) return;
+        const labels = {
+            general: t('roleGeneral'),
+            founder: t('roleFounder'),
+            developer: t('roleDeveloper'),
+            student: t('roleStudent'),
+            marketer: t('roleMarketer'),
+        };
+        Array.from(roleSelect.options).forEach((opt) => {
+            const key = (opt.value || '').toLowerCase();
+            if (labels[key]) opt.textContent = labels[key];
+        });
+    }
+
+    function getRoleDisplayName(role) {
+        const labels = {
+            general: t('roleGeneral'),
+            founder: t('roleFounder'),
+            developer: t('roleDeveloper'),
+            student: t('roleStudent'),
+            marketer: t('roleMarketer'),
+        };
+        return labels[(role || '').toLowerCase()] || t('roleGeneral');
+    }
+
+    function loadRoleLens() {
+        if (!roleSelect) return;
+        if (!['general', 'founder', 'developer', 'student', 'marketer'].includes(String(currentRole).toLowerCase())) {
+            currentRole = 'general';
+            localStorage.setItem('dailyai_role', currentRole);
+        }
+        roleSelect.value = currentRole;
+        localizeRoleOptions();
+    }
+
+    function onRoleChange() {
+        currentRole = roleSelect?.value || 'general';
+        localStorage.setItem('dailyai_role', currentRole);
+        closeSidebar();
+        if (topBarLens) {
+            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
+        }
+        renderFeed();
+        if (currentView === 'saved') renderSavedList();
+        showToast(t('roleToast', { name: getRoleDisplayName(currentRole) }));
     }
 
     function onCountryChange() {
@@ -975,7 +1192,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         closeSidebar();
         showSkeleton();
         fetchArticles(currentTopic);
-        const name = countrySelect.options[countrySelect.selectedIndex]?.textContent || currentCountry;
+        const name = translateCountryName(currentCountry, currentCountry);
         showToast(t('switchedTo', { name }));
     }
 
@@ -1009,7 +1226,12 @@ const APP_FUNCTIONALITY_GUIDE = {
         }
 
         await fetchArticles(currentTopic, { forceRefresh: true });
-        const name = languageSelect.options[languageSelect.selectedIndex]?.textContent || currentLanguage;
+        const localizedLabel = {
+            en: { en: 'English', hi: 'Hindi', de: 'German' },
+            hi: { en: 'अंग्रेजी', hi: 'हिंदी', de: 'जर्मन' },
+            de: { en: 'Englisch', hi: 'Hindi', de: 'Deutsch' },
+        };
+        const name = (localizedLabel[currentLanguage] && localizedLabel[currentLanguage][currentLanguage]) || currentLanguage;
         showToast(t('languageToast', { name }));
         setTimeout(() => showToast(t('languageRefreshNotice'), 4800), 350);
     }
@@ -1055,9 +1277,13 @@ const APP_FUNCTIONALITY_GUIDE = {
     function updateTopBarCountry() {
         const flag = COUNTRY_FLAGS[currentCountry] || '🏳️';
         const displayName = translateCountryName(currentCountry, currentCountry);
-        topBarCountry.textContent = flag;
+        const compactCode = currentCountry === 'GLOBAL' ? 'GLB' : String(currentCountry).toUpperCase();
+        topBarCountry.textContent = `${flag} ${compactCode}`;
         topBarCountry.setAttribute('title', displayName);
         topBarCountry.setAttribute('aria-label', displayName);
+        if (topBarLens) {
+            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
+        }
     }
 
     // ====================== SUBSCRIBER COUNT ======================
@@ -1095,7 +1321,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             filterTabs.style.display = '';
             feed.style.display = 'none';
             $('savedBtn').classList.remove('has-saved');
-            modeToggle.style.display = '';
+            if (modeToggle) modeToggle.style.display = 'none';
             renderFeed();
         } else {
             $('navSaved').classList.add('active');
@@ -1105,7 +1331,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             scrollFeed.style.display = 'none';
             feed.style.display = '';
             $('savedBtn').classList.add('has-saved');
-            modeToggle.style.display = 'none';
+            if (modeToggle) modeToggle.style.display = 'none';
             renderSavedList();
         }
     }
@@ -1138,6 +1364,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     function createFeedCardHTML(article, i) {
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
+        const decisionHtml = buildDecisionMarkup(article);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -1147,6 +1374,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 <p class="card-summary">${esc(article.summary)}</p>
+                ${decisionHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1313,6 +1541,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         card.dataset.id = article.id;
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
+        const decisionHtml = buildDecisionMarkup(article);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -1324,6 +1553,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 <p class="card-summary">${esc(article.summary)}</p>
+                ${decisionHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1424,6 +1654,7 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
+        const decisionHtml = buildDecisionMarkup(article, 'sheet');
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];
         sheetContent.innerHTML = `
@@ -1434,6 +1665,7 @@ const APP_FUNCTIONALITY_GUIDE = {
                 </button>
             </div>
             <p class="sheet-summary">${esc(article.summary)}</p>
+            ${decisionHtml}
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
                     <p class="sheet-brief" style="margin-bottom:4px;">${esc(t('loadingBrief'))}</p>
