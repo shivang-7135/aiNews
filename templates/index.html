@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="description" content="DailyAI — AI news, curated daily. No login required.">
+    <meta name="description" content="DailyAI turns AI headlines into decisions, impact, and next actions.">
     <meta name="theme-color" content="#111113">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>DailyAI — Discover AI News</title>
+    <title>DailyAI — AI Decisions in 60 Seconds</title>
     <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,18 +27,17 @@
             <div class="onboard-panel">
                 <div class="onboard-hand">🧭</div>
                 <h2 class="onboard-title">Welcome to DailyAI</h2>
-                <p class="onboard-desc">Get personalized AI news in seconds.</p>
+                <p class="onboard-desc">From AI headlines to action in under 60 seconds.</p>
                 <ul class="onboard-feature-list">
-                    <li><span class="onboard-feature-icon">👆</span><span id="onboardFeatureSwipe">Swipe right to save and left to skip.</span></li>
-                    <li><span class="onboard-feature-icon">🌐</span><span id="onboardFeatureLanguage">Change language from the sidebar.</span></li>
-                    <li><span class="onboard-feature-icon">🌍</span><span id="onboardFeatureCountry">Change country to localize your feed.</span></li>
-                    <li><span class="onboard-feature-icon">📰</span><span id="onboardFeatureRead">Tap a card to read detailed brief.</span></li>
+                    <li><span class="onboard-feature-icon">↕</span><span id="onboardFeatureSwipe">Scroll fast, save what matters, ignore the noise.</span></li>
+                    <li><span class="onboard-feature-icon">🌐</span><span id="onboardFeatureLanguage">Use top bar to switch language instantly.</span></li>
+                    <li><span class="onboard-feature-icon">🌍</span><span id="onboardFeatureCountry">Use top bar country to localize your feed.</span></li>
+                    <li><span class="onboard-feature-icon">📰</span><span id="onboardFeatureRead">Tap a card to see confidence, impact, and what to do next.</span></li>
                     <li><span class="onboard-feature-icon">⚡</span><span id="onboardFeatureCache">Your feed is cached for faster loading and fewer API calls.</span></li>
                 </ul>
-                <p class="onboard-cache-note" id="onboardCacheNote">You can refresh anytime from the top bar.</p>
+                <p class="onboard-cache-note" id="onboardCacheNote">Use Decision Lens in menu: Founder, Developer, Student, or Marketer.</p>
                 <div class="onboard-actions">
-                    <button class="onboard-btn onboard-btn-primary" id="onboardStart">Start with Swipe 👆</button>
-                    <button class="onboard-btn onboard-btn-secondary" id="onboardScroll">Start with Scroll ↕</button>
+                    <button class="onboard-btn onboard-btn-primary" id="onboardStart">Start with Scroll ↕</button>
                 </div>
             </div>
         </div>
@@ -51,7 +50,7 @@
                     <img src="/static/logo.png" alt="DailyAI" class="sidebar-logo-img">
                     <div>
                         <span class="sidebar-logo-text">DailyAI</span>
-                        <span class="sidebar-logo-sub">AI News • Curated Daily</span>
+                        <span class="sidebar-logo-sub">AI Decisions • 60-Second Clarity</span>
                     </div>
                 </div>
                 <button class="sidebar-close" id="sidebarClose">✕</button>
@@ -66,21 +65,14 @@
                 </button>
             </nav>
 
-            <!-- Country Selector -->
             <div class="sidebar-section">
-                <h3 class="sidebar-section-title">🌐 Language</h3>
-                <select class="sidebar-country-select" id="languageSelect">
-                    <option value="en">English</option>
-                    <option value="hi">हिंदी</option>
-                    <option value="de">Deutsch</option>
-                </select>
-            </div>
-
-            <!-- Country Selector -->
-            <div class="sidebar-section">
-                <h3 class="sidebar-section-title">🌍 Region</h3>
-                <select class="sidebar-country-select" id="countrySelect">
-                    <option value="GLOBAL">🌐 Global / Worldwide</option>
+                <h3 class="sidebar-section-title" id="roleSectionTitle">🎯 Lens</h3>
+                <select class="sidebar-country-select" id="roleSelect">
+                    <option value="general">General</option>
+                    <option value="founder">Founder</option>
+                    <option value="developer">Developer</option>
+                    <option value="student">Student</option>
+                    <option value="marketer">Marketer</option>
                 </select>
             </div>
 
@@ -113,7 +105,7 @@
             </div>
 
             <div class="sidebar-footer">
-                <p>Swipe right to save · Left to skip</p>
+                <p>Stay in the loop, not in a doomscroll spiral.</p>
                 <p class="sidebar-streak" id="sidebarStreak"></p>
                 <p style="margin-top:4px;opacity:0.5;" id="appVersionLabel">Build {{ app_version }} - No login required</p>
             </div>
@@ -126,10 +118,20 @@
             </button>
             <div class="top-bar-center">
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
-                <span class="top-bar-country" id="topBarCountry">🌐</span>
+                <div class="top-bar-meta-row">
+                    <span class="top-bar-lens" id="topBarLens">Lens: General</span>
+                    <span class="top-bar-country" id="topBarCountry">🌐 GLB</span>
+                </div>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-                <button class="mode-toggle" id="modeToggle" title="Switch view mode">↕ Scroll</button>
+            <div class="top-bar-controls">
+                <select class="top-bar-select" id="languageSelect" aria-label="Language">
+                    <option value="en">EN</option>
+                    <option value="hi">HI</option>
+                    <option value="de">DE</option>
+                </select>
+                <select class="top-bar-select top-bar-select-country" id="countrySelect" aria-label="Country">
+                    <option value="GLOBAL">🌐 GLB</option>
+                </select>
                 <button class="top-bar-btn" aria-label="Saved" id="savedBtn">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </button>

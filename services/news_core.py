@@ -116,12 +116,21 @@ async def get_articles_payload(topic: str, country: str, language: str) -> dict:
         if topic not in ("all", "For You") and ui_topic != topic:
             continue
 
+        importance = int(t.get("importance", 5) or 5)
+        category = str(t.get("category", "general") or "general").lower()
+        confidence_key = "high" if importance >= 8 else "medium" if importance >= 6 else "low"
+        impact_key = "immediate" if importance >= 7 or category in {"regulation", "product", "funding"} else "watchlist"
+
         articles.append(
             {
                 "id": f"{country}-{language}-{i}",
                 "headline": t.get("title", ""),
                 "summary": (t.get("summary", "") or "")[:1400],
                 "why_it_matters": (t.get("why_it_matters", "") or "")[:130],
+                "importance": max(1, min(importance, 10)),
+                "category": category,
+                "confidence": confidence_key,
+                "impact": impact_key,
                 "topic": ui_topic,
                 "source_name": t.get("source", "Unknown"),
                 "source_avatar_url": None,
