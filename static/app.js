@@ -533,6 +533,20 @@ const APP_FUNCTIONALITY_GUIDE = {
             // Cache writes can fail on storage limits; app should continue without breaking.
         }
     }
+    function getCookieValue(name) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+    function getApiPostHeaders() {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        const csrfToken = getCookieValue('dailyai_csrf');
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+        return headers;
+    }
     function hydrateTopicCachesFromAll(articles) {
         const topics = new Set((articles || []).map(a => (a.topic || '').trim()).filter(Boolean));
         topics.forEach((topicName) => {
@@ -988,6 +1002,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         try {
             await fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
                 method: 'POST',
+                headers: getApiPostHeaders(),
             });
         } catch {
             // Ignore refresh failures and fallback to normal article fetch.
@@ -1174,7 +1189,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         btn.disabled = true; btn.textContent = t('subscribing');
         try {
             const resp = await fetch('/api/subscribe', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: getApiPostHeaders(),
                 body: JSON.stringify({ email, topics: [], country: currentCountry, language: currentLanguage }),
             });
             const data = await resp.json();
@@ -1247,6 +1262,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         try {
             const resp = await fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
                 method: 'POST',
+                headers: getApiPostHeaders(),
             });
             if (!resp.ok) throw new Error('refresh_failed');
             await fetchArticles(currentTopic, { forceRefresh: true });
@@ -1436,8 +1452,8 @@ const APP_FUNCTIONALITY_GUIDE = {
         const actionsHtml = `
             <div class="sheet-actions">
                 <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
-                <button class="sheet-link" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;" onclick="this.closest('.sheet-actions').querySelector('.save-feedback').style.display='block';${isSaved ? '' : `window._saveFromSheet('${esc(article.id)}')`}">${isSaved ? t('savedAction') : t('saveAction')}</button>
-                <p class="save-feedback" style="display:none;">${t('addedSaved')}</p>
+                <button class="sheet-link" id="sheetSaveBtn" style="border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;">${isSaved ? t('savedAction') : t('saveAction')}</button>
+                <p class="save-feedback" id="sheetSaveFeedback" style="display:none;">${t('addedSaved')}</p>
             </div>
         `;
 
@@ -1446,8 +1462,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
         const expandBtn = $('sheetExpandBtn');
         expandBtn?.addEventListener('click', () => toggleSheetExpanded(expandBtn));
-        // Expose save function
-        window._saveFromSheet = (id) => {
+        const saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id);
             if (a) {
                 bookmarks[a.id] = a;
@@ -1455,6 +1470,15 @@ const APP_FUNCTIONALITY_GUIDE = {
                 updateSavedCount();
             }
         };
+        const saveBtn = $('sheetSaveBtn');
+        const saveFeedback = $('sheetSaveFeedback');
+        saveBtn?.addEventListener('click', () => {
+            if (saveFeedback) saveFeedback.style.display = 'block';
+            if (!isSaved) {
+                saveFromSheet(article.id);
+                saveBtn.textContent = t('savedAction');
+            }
+        });
 
         loadDetailedBrief(article);
         sheetBackdrop.classList.add('show');
@@ -1481,7 +1505,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         try {
             const resp = await fetch('/api/articles/brief', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getApiPostHeaders(),
                 body: JSON.stringify({
                     title: article.headline || '',
                     source: article.source_name || '',
