@@ -74,8 +74,9 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     response = templates.TemplateResponse(
-        "index.html",
-        {
+        request=request,
+        name="index.html",
+        context={
             "request": request,
             "countries": COUNTRIES,
             "topics": TOPICS,
