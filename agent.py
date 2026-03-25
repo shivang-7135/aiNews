@@ -286,8 +286,55 @@ async def _try_gemini(
     return ""
 
 
+async def _try_bytez(messages: list[dict]) -> str:
+    """Try Bytez API (openai/o3-pro model) as primary provider."""
+    bytez_key = os.getenv("BYTEZ_API_KEY", "")
+    if not bytez_key:
+        return ""
+    if "bytez" in DISABLED_PROVIDERS:
+        return ""
+
+    try:
+        from bytez import Bytez
+        sdk = Bytez(bytez_key)
+        model = sdk.model("openai/o3-pro")
+        
+        # Convert messages to a single string prompt since Bytez expects text
+        prompt_parts = []
+        for m in messages:
+            role = m.get("role", "").upper()
+            content = m.get("content", "")
+            prompt_parts.append(f"{role}:\n{content}")
+        prompt = "\n\n".join(prompt_parts)
+
+        # model.run is synchronous, run in executor to avoid blocking event loop
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(None, model.run, prompt)
+        
+        if hasattr(results, 'error') and getattr(results, 'error', None):
+            logger.warning(f"[LLM] Bytez error: {results.error}")
+            
+        if hasattr(results, 'output') and results.output:
+            logger.info("[LLM] ✅ Got response from Bytez (o3-pro)")
+            out = results.output
+            if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict) and "generated_text" in out[0]:
+                return out[0]["generated_text"]
+            return str(out)
+    except Exception as e:
+        logger.warning(f"[LLM] Bytez o3-pro failed: {e}")
+        # DISABLED_PROVIDERS.add("bytez") # Don't permanently disable in case of temp errors
+    return ""
+
+
+
 async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Try local Ollama first, then Gemini, then HuggingFace, then Groq."""
+    """Try Bytez first, then local Ollama, then Gemini, then HuggingFace, then Groq."""
+
+    # Try Bytez API (Primary LLM)
+    result = await _try_bytez(messages)
+    if result:
+        return result
+    logger.warning("[LLM] Bytez failed/not configured, trying local Ollama...")
 
     # Try local open-source models first (Ollama, optional)
     ollama_url, ollama_models = _get_ollama_config()
