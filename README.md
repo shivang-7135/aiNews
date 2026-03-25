@@ -1,158 +1,172 @@
-# DailyAI — AI News Aggregator 🤖📰
+# DailyAI - AI News Aggregator
 
-A mobile-friendly, agentic AI news application that fetches, filters, and summarizes breaking AI news from around the world — updated every hour.
+DailyAI is a mobile-first AI news app that turns raw headlines into quick decisions.
+It supports language and region personalization, role-based reading lens, local caching,
+and a PWA install flow.
 
-## ✨ Features
+## What Is Updated In This Workflow
 
-- **🌍 Country-based news** — Select your region to get localized AI news
-- **🌐 3-language support** — Read summaries in English, Hindi, or German
-- **🤖 Agentic AI pipeline** — Uses HuggingFace LLM to filter, rank, and summarize news
-- **🎯 Higher-quality ranking** — Source trust + recency + topic diversity for better top stories
-- **⏰ Hourly updates** — Automatic background refresh every hour
-- **📱 PWA / Mobile-ready** — Install on Android as an app via "Add to Home Screen"
-- **🎨 Premium dark UI** — Glassmorphism, animations, responsive design
-- **📡 24 rolling tiles** — Max 24 news stories, oldest auto-replaced
-- **🔄 Smart fallback** — Works even without LLM (basic mode)
+- Discover-first UX with vertical card feed
+- Top-level settings for language, region, lens, sort, appearance, and refresh
+- Saved view with save and unsave controls
+- Build-aware cache reset during deployment updates
+- Service worker versioning and stale cache cleanup
 
-## 🚀 Quick Start
+## Core User Flow
 
-### 1. Clone & Setup
+1. Open app and land in Discover feed.
+2. Choose language, region, and lens from Settings.
+3. Scroll one card at a time and open sheet for details.
+4. Save useful items and review them in Saved tab.
+5. Refresh feed manually or let backend hourly refresh keep data warm.
+
+## Local Setup
+
+### 1. Install Dependencies
+
 ```bash
 cd DailyAInews
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Dev Quality Setup (Recommended)
-```bash
-pip install -r requirements-dev.txt
-pre-commit install
-```
+### 2. Configure Environment
 
-Run quality checks locally:
-```bash
-# Format + lint + types + security
-black --check .
-ruff check .
-isort --check-only .
-mypy .
-bandit -q -r . -c bandit.yaml
-```
-
-Auto-fix style/lint issues:
-```bash
-ruff check . --fix
-ruff format .
-```
-
-### 2. Configure API Token (Optional but recommended)
 ```bash
 cp .env.example .env
-# Edit .env and add your HuggingFace token
-# Get one free at: https://huggingface.co/settings/tokens
 ```
 
-> **Note:** The app works without a token (uses RSS fallback), but the LLM
-> filtering/summarization needs a HuggingFace token for best results.
+Set values you need:
 
-### 3. Run Locally
+```dotenv
+HF_API_TOKEN=hf_xxx
+PORT=8000
+
+# Optional LLM fallback
+GROQ_API_KEY=gsk_xxx
+
+# Optional email digest delivery
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL="DailyAI <news@your-verified-domain.com>"
+RESEND_REPLY_TO="support@your-verified-domain.com"
+
+# Optional model provider keys if used by your services
+GOOGLE_AI_KEY=...
+```
+
+Important:
+
+- Do not commit real keys to git.
+- Rotate any key that was ever pushed publicly.
+
+### 3. Run App
+
 ```bash
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Email Setup (Resend)
-If emails are not being delivered to other subscribers, configure these environment variables:
+Open http://localhost:8000
+
+## Deployment Workflow
+
+### Recommended: Render
+
+1. Push latest code to your repo.
+2. Create or update Render Web Service.
+3. Set build command:
 
 ```bash
-RESEND_API_KEY=re_xxx
-RESEND_FROM_EMAIL="DailyAI <news@your-verified-domain.com>"
-RESEND_REPLY_TO="support@your-verified-domain.com"  # optional
+pip install -r requirements.txt
 ```
 
-Important: `onboarding@resend.dev` is meant for testing and may not deliver to arbitrary recipients. For production delivery, verify your domain in Resend and use that sender in `RESEND_FROM_EMAIL`.
+4. Set start command:
 
-Open **http://localhost:8000** on your phone or browser.
+```bash
+uvicorn app:app --host 0.0.0.0 --port $PORT
+```
 
-### 4. Install on Android
-1. Open the URL in Chrome on your phone
-2. Tap the **⋮** menu → **"Add to Home Screen"**
-3. The app will behave like a native app!
+5. Add environment variables in Render dashboard.
 
-## ☁️ Deploy to Cloud (Free)
+### Optional: Railway
 
-### Option A: Render.com (Recommended)
-1. Push code to GitHub
-2. Go to [render.com](https://render.com) → New **Web Service**
-3. Connect repo, set:
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn app:app --host 0.0.0.0 --port $PORT`
-   - **Environment Variable:** `HF_API_TOKEN=hf_your_token`
-4. Deploy! Free tier keeps app running ✅
+1. Connect repo.
+2. Add required environment variables.
+3. Deploy.
 
-### Option B: Railway.app
-1. Push to GitHub  
-2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub**
-3. Add env var `HF_API_TOKEN`
-4. Auto-deploys!
+### Optional: Docker
 
-### Option C: Docker
 ```bash
 docker build -t dailyai .
-docker run -p 8000:8000 -e HF_API_TOKEN=hf_xxx dailyai
+docker run -p 8000:8000 --env-file .env dailyai
 ```
 
-## 🏗️ Architecture
+## Cache and Update Strategy
 
-```
-┌──────────────────────────────────────────────┐
-│              DailyAI App                      │
-│                                              │
-│  ┌─────────┐    ┌──────────┐    ┌─────────┐ │
-│  │ FastAPI  │◄──►│  Agent   │◄──►│  LLM    │ │
-│  │ Server   │    │ Pipeline │    │ (HF API)│ │
-│  └────┬─────┘    └────┬─────┘    └─────────┘ │
-│       │               │                      │
-│  ┌────▼─────┐    ┌────▼─────┐               │
-│  │ Templates│    │ RSS Feed │               │
-│  │ (Jinja2) │    │ (Google) │               │
-│  └──────────┘    └──────────┘               │
-│                                              │
-│  ┌─────────────────────────────┐            │
-│  │ APScheduler (hourly refresh)│            │
-│  └─────────────────────────────┘            │
-└──────────────────────────────────────────────┘
-```
+The app now includes a build-safe cache rollout to avoid old frontend bundles
+causing stuck loading states after deployment.
 
-## 📁 Project Structure
+- HTML sets versioned URLs for styles, script, and manifest via app version.
+- App compares deployed build marker and performs first-load cache reset.
+- Client clears local feed caches, Cache Storage entries, and old service workers.
+- Service worker uses versioned cache names and removes old caches on activate.
 
-```
+If a user still sees stale UI after deploy, hard refresh once.
+
+## API Endpoints
+
+- GET /api/articles
+- POST /api/articles/brief
+- POST /api/refresh/{country_code}
+- GET /api/version
+- POST /api/subscribe
+- GET /api/subscribers/count
+
+## Project Structure
+
+```text
 DailyAInews/
-├── app.py              # FastAPI server + scheduler
-├── agent.py            # Agentic news pipeline (LLM + RSS tools)
-├── requirements.txt    # Python dependencies
-├── Dockerfile          # Container deployment
-├── .env.example        # Environment config template
-├── templates/
-│   └── index.html      # Jinja2 HTML template
-└── static/
-    ├── styles.css      # Premium dark mode CSS
-    ├── app.js          # Frontend logic
-    ├── manifest.json   # PWA manifest
-    └── sw.js           # Service worker
+|- app.py
+|- services/
+|  |- config.py
+|  |- news_core.py
+|  |- security.py
+|  |- store.py
+|- templates/
+|  |- index.html
+|- static/
+|  |- app.js
+|  |- styles.css
+|  |- sw.js
+|  |- manifest.json
+|- digest.py
+|- requirements.txt
+|- Dockerfile
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Backend | Python 3.11 + FastAPI |
-| LLM | HuggingFace Inference API (Qwen/Mixtral/Llama) |
-| News Source | Google News RSS (no API key) |
-| Frontend | Vanilla HTML/CSS/JS + PWA |
-| Scheduler | APScheduler |
-| Deployment | Docker / Render / Railway |
+- Backend: FastAPI, APScheduler
+- Frontend: Vanilla JS, HTML, CSS, PWA
+- News source: RSS aggregation and AI ranking pipeline
+- Deployment: Render, Railway, Docker
 
-## 📝 License
+## Troubleshooting
 
-MIT — use however you like!
+### App stuck on Loading latest stories
+
+1. Confirm deployment completed and new version is live.
+2. Open /api/version and verify version changed.
+3. Reload once to allow cache reset and service worker refresh.
+4. Verify environment keys are present in deployment platform.
+5. Check backend logs for fetch or model provider failures.
+
+### Subscriber emails not delivered
+
+1. Verify Resend domain is validated.
+2. Ensure RESEND_FROM_EMAIL uses verified domain.
+3. Confirm API key is active and not restricted.
+
+## License
+
+MIT

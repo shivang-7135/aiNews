@@ -9,6 +9,7 @@ const MAX_FEED_SUMMARY_WORDS = 50;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
+const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 const APP_FUNCTIONALITY_GUIDE = {
     en: [
         'Scroll your feed fast and save only what is actually useful.',
@@ -464,7 +465,8 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const footerLines = document.querySelectorAll('.sidebar-footer p');
         if (footerLines[0]) footerLines[0].textContent = t('sidebarHint');
-        if (footerLines[2]) footerLines[2].textContent = getBuildFooterText();
+        const versionLabel = $('appVersionLabel');
+        if (versionLabel) versionLabel.textContent = getBuildFooterText();
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
@@ -475,11 +477,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         setText('#bottomSettingsLabel', t('settingsNav'));
         setText('#bottomDiscoverLabel', t('viewDiscover'));
         setText('#bottomSavedLabel', t('viewSaved'));
-        if (themeToggleBtn) {
-            themeToggleBtn.textContent = currentTheme === 'light'
-                ? t('themeSwitchToDark')
-                : t('themeSwitchToLight');
-        }
+        // Theme toggle pill is in the top bar now, no sidebar button to update
 
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
@@ -696,7 +694,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
     const roleSelect = $('roleSelect');
-    const themeToggleBtn = $('themeToggleBtn');
+    const themeTogglePill = $('themeTogglePill');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('sidebarRefreshBtn');
     const langReloadBackdrop = $('langReloadBackdrop');
@@ -745,7 +743,11 @@ const APP_FUNCTIONALITY_GUIDE = {
         roleSelect?.addEventListener('change', onRoleChange);
 
         // Theme
-        themeToggleBtn?.addEventListener('click', onThemeToggle);
+        themeTogglePill?.addEventListener('click', onThemeToggle);
+        // Also support keyboard for accessibility
+        themeTogglePill?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onThemeToggle(); }
+        });
 
         // Newsletter
         $('subscribeForm').addEventListener('submit', onSubscribe);
@@ -866,12 +868,22 @@ const APP_FUNCTIONALITY_GUIDE = {
     async function enforceBuildResetIfNeeded() {
         try {
             const previousBuild = String(localStorage.getItem(BUILD_MARKER_KEY) || '').trim();
-            if (previousBuild && previousBuild !== RELEASE_VERSION) {
+            const cacheSchema = String(localStorage.getItem(CACHE_SCHEMA_KEY) || '').trim();
+            const needsSchemaReset = cacheSchema !== CACHE_SCHEMA_KEY;
+            const needsBuildReset = !previousBuild || previousBuild !== RELEASE_VERSION;
+
+            if (needsSchemaReset || needsBuildReset) {
                 await clearClientCaches({ includeServiceWorkers: true });
+                localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_SCHEMA_KEY);
                 localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
-                location.reload();
-                return true;
+
+                // Reload only when coming from a previous known build to guarantee fresh script state.
+                if (previousBuild && previousBuild !== RELEASE_VERSION) {
+                    location.reload();
+                    return true;
+                }
             }
+            localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_SCHEMA_KEY);
             localStorage.setItem(BUILD_MARKER_KEY, RELEASE_VERSION);
         } catch {
             // Ignore localStorage failures and continue.
@@ -985,6 +997,44 @@ const APP_FUNCTIONALITY_GUIDE = {
             const card = createScrollCard(article);
             scrollFeed.appendChild(card);
         });
+
+        // Page counter
+        const counter = $('scrollPageCounter');
+        const currentPageEl = $('scrollCurrentPage');
+        const totalPagesEl = $('scrollTotalPages');
+        if (counter && currentPageEl && totalPagesEl) {
+            totalPagesEl.textContent = articles.length;
+            currentPageEl.textContent = '1';
+            counter.style.display = '';
+            counter.classList.add('visible');
+
+            // Update page on scroll
+            scrollFeed.onscroll = () => {
+                const cards = scrollFeed.querySelectorAll('.scroll-card');
+                if (!cards.length) return;
+                const scrollTop = scrollFeed.scrollTop;
+                const cardH = cards[0].offsetHeight + 12; // margin
+                const idx = Math.round(scrollTop / cardH);
+                currentPageEl.textContent = Math.min(idx + 1, articles.length);
+            };
+        }
+    }
+
+    function applyTheme(theme) {
+        currentTheme = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('dailyai_theme', currentTheme);
+        // Pill toggle updates itself via CSS :root[data-theme] selectors
+    }
+
+    function onThemeToggle() {
+        applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+    }
+
+    function limitWords(text, maxWords = MAX_FEED_SUMMARY_WORDS) {
+        const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+        if (words.length <= maxWords) return String(text || '');
+        return `${words.slice(0, maxWords).join(' ')}...`;
     }
 
     function applyTheme(theme) {
@@ -1395,6 +1445,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             filterTabs.style.display = 'none';
             swipeContainer.style.display = 'none';
             scrollFeed.style.display = 'none';
+            const counter = $('scrollPageCounter');
+            if (counter) { counter.style.display = 'none'; counter.classList.remove('visible'); }
             feed.style.display = '';
             if (modeToggle) modeToggle.style.display = 'none';
             renderSavedList();
@@ -1790,9 +1842,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         sheetContent.innerHTML = `
             <div class="sheet-headline-row">
                 <h2 class="sheet-headline">${esc(article.headline)}</h2>
-                <button class="sheet-link sheet-expand-btn sheet-expand-inline" id="sheetExpandBtn" aria-label="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}" title="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}">
-                    <span class="sheet-expand-icon" aria-hidden="true">${bottomSheet.classList.contains('expanded') ? '⤡' : '⤢'}</span>
-                </button>
             </div>
             <p class="sheet-summary">${esc(article.summary)}</p>
             ${decisionHtml}
@@ -1823,8 +1872,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         const existingActions = bottomSheet.querySelector('.sheet-actions');
         if (existingActions) existingActions.remove();
         bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
-        const expandBtn = $('sheetExpandBtn');
-        expandBtn?.addEventListener('click', () => toggleSheetExpanded(expandBtn));
+
         const saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id) || article;
             if (a) saveArticle(a);
@@ -1833,13 +1881,20 @@ const APP_FUNCTIONALITY_GUIDE = {
         const saveFeedback = $('sheetSaveFeedback');
         saveBtn?.addEventListener('click', async () => {
             const currentlySaved = !!bookmarks[article.id];
-            if (saveFeedback) saveFeedback.style.display = 'block';
             if (currentlySaved) {
                 await unsaveArticle(article.id, { sourceEl: saveBtn, rerenderSaved: currentView === 'saved' });
                 saveBtn.textContent = t('saveAction');
+                if (saveFeedback) {
+                    saveFeedback.textContent = t('removedSaved') || 'Removed from saved';
+                    saveFeedback.style.display = 'block';
+                }
             } else {
                 saveFromSheet(article.id);
                 saveBtn.textContent = t('unsaveAction');
+                if (saveFeedback) {
+                    saveFeedback.textContent = t('addedSaved');
+                    saveFeedback.style.display = 'block';
+                }
                 showToast(t('saveToast'));
             }
         });
