@@ -66,7 +66,7 @@ UI_TOPIC_MAP = {
     "general": "Top Stories",
 }
 
-MAX_TILES = 24
+MAX_TILES = 100
 
 SECURITY_CSP = (
     "default-src 'self'; "

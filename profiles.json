@@ -1,0 +1,86 @@
+{
+  "Swift-Horizon-51": {
+    "sync_code": "Swift-Horizon-51",
+    "preferred_topics": [
+      "llms",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "category_name": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T16:16:10.454040+00:00",
+    "last_active": "2026-03-25T16:16:49.874643+00:00"
+  },
+  "Iron-Otter-11": {
+    "sync_code": "Iron-Otter-11",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups",
+      "research"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "category_name": 2
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T17:14:50.456937+00:00",
+    "last_active": "2026-03-25T17:16:06.272332+00:00"
+  },
+  "Calm-Shield-36": {
+    "sync_code": "Calm-Shield-36",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups",
+      "research"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "category_name": 1,
+      "general": 2
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T17:21:43.317441+00:00",
+    "last_active": "2026-03-25T17:22:34.737495+00:00"
+  },
+  "Fuzzy-Prism-41": {
+    "sync_code": "Fuzzy-Prism-41",
+    "preferred_topics": [
+      "llms",
+      "research",
+      "funding",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {},
+    "bookmarks": [],
+    "created_at": "2026-03-25T18:18:41.214470+00:00",
+    "last_active": "2026-03-25T18:18:41.214470+00:00"
+  },
+  "Vivid-Phoenix-32": {
+    "sync_code": "Vivid-Phoenix-32",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups",
+      "research"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "category_name": 1,
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T18:31:40.582846+00:00",
+    "last_active": "2026-03-25T18:32:08.472593+00:00"
+  }
+}

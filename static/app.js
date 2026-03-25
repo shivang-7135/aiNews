@@ -4,35 +4,13 @@ const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v2';
 const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
 const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const MAX_FEED_ITEMS = 15;
+const MAX_FEED_ITEMS = 30;
 const MAX_FEED_SUMMARY_WORDS = 50;
 const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev';
 const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
 const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
-const APP_FUNCTIONALITY_GUIDE = {
-    en: [
-        'Scroll your feed fast and save only what is actually useful.',
-        'Use the top bar to switch language and country in one tap.',
-        'Tap any card to open detailed reading view with source link.',
-        'Use Expand View inside article panel for more comfortable reading.',
-        'Your feed is cached, so repeat opens are faster and lighter on data.',
-    ],
-    hi: [
-        'फीड को जल्दी स्क्रॉल करें और सिर्फ काम की खबरें सेव करें।',
-        'ऊपर वाले बार से भाषा और देश एक टैप में बदलें।',
-        'किसी भी कार्ड पर टैप करके विस्तृत पढ़ने वाला व्यू और source लिंक खोलें।',
-        'अच्छी पढ़ाई के लिए आर्टिकल पैनल में Expand View का उपयोग करें।',
-        'फीड कैश में सेव रहती है, इसलिए अगली बार ऐप तेज खुलेगा।',
-    ],
-    de: [
-        'Scrolle schnell durch den Feed und speichere nur Relevantes.',
-        'Sprache und Land stellst du direkt oben in der Leiste um.',
-        'Tippe auf eine Karte fuer die Detailansicht mit Originalquelle.',
-        'Nutze Expand View im Artikelbereich fuer angenehmes Lesen.',
-        'Der Feed wird lokal zwischengespeichert und laedt beim naechsten Mal schneller.',
-    ],
-};
+
 
 (function () {
     'use strict';
@@ -450,7 +428,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         setText('#sortSectionTitle', t('sortBy'));
         setText('#refreshSectionTitle', t('refreshSectionTitle'));
         setText('#digestSectionTitle', t('digestTitle'));
-        localizeRoleOptions();
 
         setText('.sidebar-desc', t('digestDesc'));
         setText('#sidebarRefreshBtn', t('refreshNews'));
@@ -470,21 +447,15 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
-        const topLensBtn = $('topLensBtn');
-        if (topLensBtn) topLensBtn.setAttribute('aria-label', t('lensTitle'));
-        const bottomSettingsBtn = $('bottomSettingsBtn');
-        if (bottomSettingsBtn) bottomSettingsBtn.setAttribute('aria-label', t('settingsNav'));
+        const bottomSettingsBtn_el = $('bottomSettingsBtn');
+        if (bottomSettingsBtn_el) bottomSettingsBtn_el.setAttribute('aria-label', t('settingsNav'));
         setText('#bottomSettingsLabel', t('settingsNav'));
         setText('#bottomDiscoverLabel', t('viewDiscover'));
         setText('#bottomSavedLabel', t('viewSaved'));
-        // Theme toggle pill is in the top bar now, no sidebar button to update
 
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
 
-        if (topBarLens) {
-            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
-        }
 
         const refreshBtn = $('sidebarRefreshBtn');
         if (refreshBtn) {
@@ -660,7 +631,6 @@ const APP_FUNCTIONALITY_GUIDE = {
     let currentTopic = 'For You';
     let currentCountry = localStorage.getItem('dailyai_country') || 'GLOBAL';
     let currentLanguage = localStorage.getItem('dailyai_language') || 'en';
-    let currentRole = localStorage.getItem('dailyai_role') || 'general';
     let currentSort = localStorage.getItem('dailyai_sort') || 'relevance';
     let currentView = 'discover';
     let feedMode = localStorage.getItem('dailyai_mode') || 'scroll'; // 'swipe' or 'scroll'
@@ -691,11 +661,8 @@ const APP_FUNCTIONALITY_GUIDE = {
     const sheetContent = $('sheetContent');
     const toastEl = $('toast');
     const viewTitle = $('viewTitle');
-    const topLensBtn = $('topLensBtn');
-    const topBarLens = $('topBarLens');
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
-    const roleSelect = $('roleSelect');
     const themeTogglePill = $('themeTogglePill');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('sidebarRefreshBtn');
@@ -708,20 +675,12 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== INIT ======================
     async function init() {
-        // One-time migration: move legacy default users to General lens.
-        if (!localStorage.getItem('dailyai_role_initialized')) {
-            currentRole = 'general';
-            localStorage.setItem('dailyai_role', currentRole);
-            localStorage.setItem('dailyai_role_initialized', '1');
-        }
-
         if (!['dark', 'light'].includes(currentTheme)) {
             currentTheme = 'dark';
         }
         applyTheme(currentTheme);
 
         // Sidebar
-        topLensBtn?.addEventListener('click', openSidebar);
         bottomSettingsBtn?.addEventListener('click', openSidebar);
         $('sidebarClose').addEventListener('click', closeSidebar);
         sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -741,8 +700,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         // Language
         languageSelect.addEventListener('change', onLanguageChange);
 
-        // Role lens
-        roleSelect?.addEventListener('change', onRoleChange);
 
         // Theme
         themeTogglePill?.addEventListener('click', onThemeToggle);
@@ -809,7 +766,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         restoreSort();
         restoreFeedMode();
         loadLanguages();
-        loadRoleLens();
         loadCountries();
         fetchSubscriberCount();
         setupServiceWorker();
@@ -938,15 +894,32 @@ const APP_FUNCTIONALITY_GUIDE = {
     function showOnboarding() {
         const overlay = $('onboardingOverlay');
         overlay.style.display = 'flex';
+        let currentStep = 0;
+        const steps = overlay.querySelectorAll('.onboard-step');
+        const dots = overlay.querySelectorAll('.onboard-dot');
+        const nextBtn = $('onboardNext');
 
-        $('onboardStart').addEventListener('click', () => {
-            dismissOnboarding(overlay, 'scroll');
-        });
-        $('onboardScroll')?.addEventListener('click', () => {
-            dismissOnboarding(overlay, 'scroll');
+        function goToStep(idx) {
+            steps.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            steps[idx]?.classList.add('active');
+            dots[idx]?.classList.add('active');
+            currentStep = idx;
+            if (idx === steps.length - 1) {
+                nextBtn.textContent = 'Get Started';
+            } else {
+                nextBtn.textContent = 'Next';
+            }
+        }
+
+        nextBtn?.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) {
+                goToStep(currentStep + 1);
+            } else {
+                dismissOnboarding(overlay, 'scroll');
+            }
         });
 
-        // Also dismiss on background tap
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) dismissOnboarding(overlay, feedMode);
         });
@@ -1000,7 +973,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             try {
                 const resp = await fetch('/api/profile/new', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getApiPostHeaders(),
                     body: JSON.stringify({
                         preferred_topics: Array.from(selected),
                         country: currentCountry,
@@ -1091,6 +1064,12 @@ const APP_FUNCTIONALITY_GUIDE = {
         });
 
         $('sidebarSyncCopy')?.addEventListener('click', () => copySyncCode());
+
+        // Change Topics — re-open the topic picker
+        $('changeTopicsBtn')?.addEventListener('click', () => {
+            closeSidebar();
+            showTopicOnboarding();
+        });
     }
 
     // ====================== SIGNAL TRACKING ======================
@@ -1098,7 +1077,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         if (!syncCode || !topic) return;
         fetch(`/api/profile/${encodeURIComponent(syncCode)}/signal`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getApiPostHeaders(),
             body: JSON.stringify({ article_id: articleId, action, topic }),
         }).catch(() => { /* fire-and-forget */ });
     }
@@ -1258,91 +1237,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         return `<img src="${esc(coverUrl)}" alt="${esc(topic)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
     }
 
-    function getConfidenceKey(article) {
-        if (article?.confidence) return String(article.confidence).toLowerCase();
-        const importance = Number(article?.importance || 0);
-        if (importance >= 8) return 'high';
-        if (importance >= 6) return 'medium';
-        return 'low';
-    }
-
-    function getImpactKey(article) {
-        if (article?.impact) return String(article.impact).toLowerCase();
-        const importance = Number(article?.importance || 0);
-        const category = String(article?.category || '').toLowerCase();
-        if (importance >= 7 || ['regulation', 'product', 'funding'].includes(category)) return 'immediate';
-        return 'watchlist';
-    }
-
-    function getStoryAngle(article) {
-        const topic = String(article?.topic || '').toLowerCase();
-        const category = String(article?.category || '').toLowerCase();
-        const text = `${article?.headline || ''} ${article?.summary || ''}`.toLowerCase();
-
-        if (topic.includes('research') || category === 'research' || /paper|benchmark|study|model eval/.test(text)) return 'research';
-        if (topic.includes('business') || category === 'funding' || /funding|investment|raise|valuation|acqui/.test(text)) return 'funding';
-        if (category === 'regulation' || /regulation|compliance|law|policy|act|governance/.test(text)) return 'regulation';
-        if (topic.includes('tools') || topic.includes('models') || category === 'product' || /launch|release|api|feature|assistant/.test(text)) return 'product';
-        return 'industry';
-    }
-
-    function getActionForRole(article) {
-        if ((currentRole || '').toLowerCase() === 'general') return '';
-        const angle = getStoryAngle(article);
-        const source = article?.source_name ? String(article.source_name) : 'the source';
-        const topic = article?.topic ? String(article.topic) : 'AI';
-        const impactKey = getImpactKey(article);
-
-        const actions = {
-            founder: {
-                regulation: `Assess compliance risk from ${source} and assign one owner for immediate policy review.`,
-                funding: `Check competitor/funding signal from ${source} and adjust your 30-day product priority list.`,
-                research: `Review this ${topic} insight and decide one feature bet worth validating this sprint.`,
-                product: `Map this ${topic} launch to your roadmap and decide ship, partner, or wait by Friday.`,
-                industry: `Brief your team on this ${topic} shift and align one business metric to monitor weekly.`,
-            },
-            developer: {
-                regulation: `Review technical compliance requirements and list one code or data-control change to implement.`,
-                funding: `Track vendor stability signal from ${source} before committing deeper integration effort.`,
-                research: `Reproduce one key claim in a small test and note latency, quality, and cost impact.`,
-                product: `Prototype one ${topic} capability from this update and compare with your current stack.`,
-                industry: `Document architecture impact and create a short implementation spike ticket today.`,
-            },
-            student: {
-                regulation: `Summarize the rule change in 3 lines and save one practical example for revision.`,
-                funding: `Track why this funding move matters and note one trend for your portfolio/interview prep.`,
-                research: `Extract one core concept from this ${topic} story and explain it in your own words.`,
-                product: `Compare this launch with one existing tool and note strengths, limits, and use cases.`,
-                industry: `Write a quick takeaway on market direction and add one follow-up source to read next.`,
-            },
-            marketer: {
-                regulation: `Translate this policy update into one customer-safe message and one risk disclaimer.`,
-                funding: `Craft one positioning angle from this funding signal and test it in your next campaign.`,
-                research: `Turn this ${topic} insight into one educational content hook for your audience.`,
-                product: `Create one use-case narrative for this ${topic} update and test headline + CTA variants.`,
-                industry: `Map this shift to audience pain points and draft one timely distribution post.`,
-            },
-        };
-
-        const roleActions = actions[currentRole] || actions.founder;
-        const base = roleActions[angle] || roleActions.industry;
-        return impactKey === 'immediate' ? `${base} Do it today.` : `${base} Put this on your watchlist this week.`;
-    }
-
-    function buildDecisionMarkup(article, variant = 'card') {
-        const confidenceKey = getConfidenceKey(article);
-        const impactKey = getImpactKey(article);
-        const confidenceText = `${t('confidence')}: ${t(`confidence${confidenceKey.charAt(0).toUpperCase()}${confidenceKey.slice(1)}`)}`;
-        const impactText = `${t('impact')}: ${t(`impact${impactKey.charAt(0).toUpperCase()}${impactKey.slice(1)}`)}`;
-        const chipBlock = `<div class="${variant === 'sheet' ? 'sheet-decision' : 'card-decision'}"><span class="decision-chip conf-${esc(confidenceKey)}" title="${esc(t('confidenceHint'))}">${esc(confidenceText)}</span><span class="decision-chip impact-${esc(impactKey)}" title="${esc(t('impactHint'))}">${esc(impactText)}</span></div>`;
-        const explainer = variant === 'sheet' ? `<p class="decision-explainer">${esc(t('decisionExplainer'))}</p>` : '';
-        const action = getActionForRole(article);
-        const actionBlock = action
-            ? `<div class="${variant === 'sheet' ? 'sheet-next-action' : 'card-next-action'}"><strong>${esc(t('doNext'))}:</strong> ${esc(action)}</div>`
-            : '';
-        return `${chipBlock}${explainer}${actionBlock}`;
-    }
-
     // ====================== COUNTRIES ======================
     async function loadCountries() {
         try {
@@ -1392,53 +1286,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         }
     }
 
-    function localizeRoleOptions() {
-        if (!roleSelect) return;
-        const labels = {
-            general: t('roleGeneral'),
-            founder: t('roleFounder'),
-            developer: t('roleDeveloper'),
-            student: t('roleStudent'),
-            marketer: t('roleMarketer'),
-        };
-        Array.from(roleSelect.options).forEach((opt) => {
-            const key = (opt.value || '').toLowerCase();
-            if (labels[key]) opt.textContent = labels[key];
-        });
-    }
 
-    function getRoleDisplayName(role) {
-        const labels = {
-            general: t('roleGeneral'),
-            founder: t('roleFounder'),
-            developer: t('roleDeveloper'),
-            student: t('roleStudent'),
-            marketer: t('roleMarketer'),
-        };
-        return labels[(role || '').toLowerCase()] || t('roleGeneral');
-    }
-
-    function loadRoleLens() {
-        if (!roleSelect) return;
-        if (!['general', 'founder', 'developer', 'student', 'marketer'].includes(String(currentRole).toLowerCase())) {
-            currentRole = 'general';
-            localStorage.setItem('dailyai_role', currentRole);
-        }
-        roleSelect.value = currentRole;
-        localizeRoleOptions();
-    }
-
-    function onRoleChange() {
-        currentRole = roleSelect?.value || 'general';
-        localStorage.setItem('dailyai_role', currentRole);
-        closeSidebar();
-        if (topBarLens) {
-            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
-        }
-        renderFeed();
-        if (currentView === 'saved') renderSavedList();
-        showToast(t('roleToast', { name: getRoleDisplayName(currentRole) }));
-    }
 
     function onCountryChange() {
         currentCountry = countrySelect.value;
@@ -1506,18 +1354,8 @@ const APP_FUNCTIONALITY_GUIDE = {
     }
 
     function showWhatsNewIfNeeded() {
-        if (!whatsNewBackdrop || !whatsNewList) return;
-        const seenKey = 'dailyai_seen_guide_v1';
-        if (localStorage.getItem(seenKey) === '1') return;
-
-        const highlights = APP_FUNCTIONALITY_GUIDE[currentLanguage] || APP_FUNCTIONALITY_GUIDE.en;
-        whatsNewList.innerHTML = highlights
-            .map((item, index) => `<li style="animation-delay:${index * 80}ms">${esc(item)}</li>`)
-            .join('');
-        whatsNewBackdrop.style.display = 'flex';
-        whatsNewBackdrop.classList.add('show');
-        document.body.style.overflow = 'hidden';
-        localStorage.setItem(seenKey, '1');
+        // Superseded by animated onboarding guide — no-op
+        return;
     }
 
     function closeWhatsNewModal() {
@@ -1539,9 +1377,7 @@ const APP_FUNCTIONALITY_GUIDE = {
             countryBadge.setAttribute('title', displayName);
             countryBadge.setAttribute('aria-label', displayName);
         }
-        if (topBarLens) {
-            topBarLens.textContent = t('lensActive', { name: getRoleDisplayName(currentRole) });
-        }
+
     }
 
     // ====================== SUBSCRIBER COUNT ======================
@@ -1809,7 +1645,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         card.dataset.id = article.id;
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const decisionHtml = buildDecisionMarkup(article);
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -1821,7 +1656,6 @@ const APP_FUNCTIONALITY_GUIDE = {
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 <p class="card-summary">${esc(article.summary)}</p>
-                ${decisionHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1982,7 +1816,6 @@ const APP_FUNCTIONALITY_GUIDE = {
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
         recordSignal(article.id || '', 'tap', article.category || '');
-        const decisionHtml = buildDecisionMarkup(article, 'sheet');
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];
         sheetContent.innerHTML = `
@@ -1990,7 +1823,6 @@ const APP_FUNCTIONALITY_GUIDE = {
                 <h2 class="sheet-headline">${esc(article.headline)}</h2>
             </div>
             <p class="sheet-summary">${esc(article.summary)}</p>
-            ${decisionHtml}
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
                     <p class="sheet-brief" style="margin-bottom:6px;">${esc(t('loadingBrief'))}</p>
@@ -2192,6 +2024,37 @@ const APP_FUNCTIONALITY_GUIDE = {
     }
     function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+    // ====================== SESSION ANALYTICS ======================
+    const _sessionStats = { taps: 0, saves: 0, reads: 0, skips: 0, briefs_opened: 0, time_spent_seconds: 0, session_count: 1 };
+    const _sessionStart = Date.now();
+
+    function trackAction(action) {
+        if (action === 'tap') _sessionStats.taps++;
+        else if (action === 'save') _sessionStats.saves++;
+        else if (action === 'read' || action === 'brief') { _sessionStats.reads++; _sessionStats.briefs_opened++; }
+        else if (action === 'skip') _sessionStats.skips++;
+    }
+
+    function flushAnalytics() {
+        if (!syncCode) return;
+        _sessionStats.time_spent_seconds = Math.round((Date.now() - _sessionStart) / 1000);
+        const payload = JSON.stringify(_sessionStats);
+        // Prefer sendBeacon for page unload, fetch otherwise
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(`/api/profile/${encodeURIComponent(syncCode)}/analytics`, new Blob([payload], { type: 'application/json' }));
+        } else {
+            fetch(`/api/profile/${encodeURIComponent(syncCode)}/analytics`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true
+            }).catch(() => {});
+        }
+    }
+
+    // Flush analytics every 2 minutes
+    setInterval(() => { if (syncCode) flushAnalytics(); }, 2 * 60 * 1000);
+    // Flush on page unload
+    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAnalytics(); });
+    window.addEventListener('pagehide', flushAnalytics);
 
     document.addEventListener('DOMContentLoaded', init);
 })();

@@ -20,11 +20,11 @@ from fastapi.templating import Jinja2Templates
 from services.config import APP_VERSION, COUNTRIES, DEPLOYED_AT, SUPPORTED_LANGUAGES, TOPICS
 from services.config import normalize_language, store_key
 from services.models import (
-    ArticleBriefRequest, CreateProfileRequest, RecordSignalRequest,
-    SubscribeRequest, UpdateProfileRequest,
+    ArticleBriefRequest, CreateProfileRequest, RecordAnalyticsRequest,
+    RecordSignalRequest, SubscribeRequest, UpdateProfileRequest,
 )
 from services.news_core import agent, get_articles_payload, get_news_payload, refresh_all, refresh_news
-from services.profiles import create_profile, get_profile, record_signal, update_preferences
+from services.profiles import create_profile, get_profile, record_analytics, record_signal, update_preferences
 from services.security import ensure_csrf_cookie, register_security_middleware
 from services.store import NEWS_STORE, get_daily_thought, load_subscribers, save_subscribers
 
@@ -264,6 +264,17 @@ async def profile_signal(sync_code: str, req: RecordSignalRequest):
     if not profile:
         return JSONResponse({"error": "Profile not found or invalid signal"}, status_code=400)
     return {"status": "recorded"}
+
+
+@app.post("/api/profile/{sync_code}/analytics")
+async def profile_analytics(sync_code: str, req: RecordAnalyticsRequest):
+    result = record_analytics(
+        sync_code=sync_code,
+        stats=req.model_dump(),
+    )
+    if not result:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+    return {"status": "recorded", "analytics": result}
 
 
 @app.get("/api/digest/preview", response_class=HTMLResponse)

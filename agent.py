@@ -318,7 +318,13 @@ async def _try_bytez(messages: list[dict]) -> str:
             logger.info("[LLM] ✅ Got response from Bytez (Mistral-7B)")
             out = results.output
             if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict) and "generated_text" in out[0]:
-                return out[0]["generated_text"]
+                text = out[0]["generated_text"]
+                # Bytez Mistral echoes prompt — strip everything before actual response
+                for marker in ["Write the detailed brief now.", "Output valid JSON only.",
+                               "Return the JSON array now.", "ASSISTANT:", "assistant:"]:
+                    if marker in text:
+                        text = text.split(marker, 1)[-1].strip()
+                return text
             return str(out)
     except Exception as e:
         logger.warning(f"[LLM] Bytez o3-pro failed: {e}")
@@ -445,10 +451,26 @@ class NewsAgent:
         logger.info("[Agent] Step 2: Sending to LLM for filtering and summarization")
         tiles = await self._llm_filter_and_summarize(raw_articles, country_name, language_code)
 
-        # ---- Step 3: Fallback — if LLM fails, do basic processing ----
-        if not tiles:
-            logger.warning("[Agent] LLM filtering failed — using fallback processing")
-            tiles = self._fallback_process(raw_articles, language_code)
+        # ---- Step 3: Pad with fallback when LLM returns too few tiles ----
+        MIN_FEED_SIZE = 15
+        if len(tiles) < MIN_FEED_SIZE:
+            logger.warning(
+                f"[Agent] LLM returned only {len(tiles)} tiles — padding with fallback (need {MIN_FEED_SIZE})"
+            )
+            # Build set of titles we already have
+            existing_titles = {
+                re.sub(r"\W+", " ", str(t.get("title", "")).lower()).strip()
+                for t in tiles
+            }
+            fallback_tiles = self._fallback_process(raw_articles, language_code)
+            for ft in fallback_tiles:
+                norm = re.sub(r"\W+", " ", str(ft.get("title", "")).lower()).strip()
+                if norm not in existing_titles:
+                    tiles.append(ft)
+                    existing_titles.add(norm)
+                if len(tiles) >= MAX_TILES_PER_FETCH:
+                    break
+            logger.info(f"[Agent] After padding: {len(tiles)} tiles total")
 
         tiles = self._quality_rerank(tiles)
         tiles = self._enforce_topic_diversity(tiles)
@@ -669,12 +691,35 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                 logger.warning("[Agent] Parsed JSON is not a list")
                 return []
 
+            # Template/placeholder values the LLM may echo from the prompt example
+            TEMPLATE_VALUES = {
+                "short headline", "source name", "url", "iso date",
+                "category_name", "topic_tag", "1-2 sentence summary",
+                "one punchy sentence",
+            }
+
+            def _is_template(tile: dict) -> bool:
+                """Return True if a tile contains placeholder text from the prompt."""
+                for field in ("title", "source", "link", "published"):
+                    val = str(tile.get(field, "")).strip().lower()
+                    if val in TEMPLATE_VALUES:
+                        return True
+                title_lower = str(tile.get("title", "")).strip().lower()
+                if title_lower.startswith("short headline") or title_lower == "":
+                    return True
+                return False
+
             # Validate and clean each tile
             clean_tiles = []
             seen_titles: set[str] = set()
             for t in tiles:
                 if isinstance(t, dict) and "title" in t:
                     try:
+                        # Skip template/example tiles
+                        if _is_template(t):
+                            logger.info(f"[Agent] Filtered out template tile: {t.get('title', '')[:60]}")
+                            continue
+
                         normalized_title = re.sub(
                             r"\W+", " ", str(t.get("title", "")).lower()
                         ).strip()
@@ -811,21 +856,20 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
         topic: str,
         language_code: str = "en",
     ) -> str:
-        """Generate a richer topic brief (~300 words) for one article on demand."""
+        """Generate a concise 3-5 bullet point brief for one article."""
         language_code = (language_code or "en").lower()
         output_language = SUPPORTED_OUTPUT_LANGUAGES.get(language_code, "English")
 
         system_prompt = f"""You are an expert AI news analyst.
-Write a detailed but readable topic brief in {output_language}.
+Write a concise summary in {output_language}.
 
 RULES:
-1. Target length: 260 to 340 words.
-2. Stay factual and grounded in the provided information.
-3. Avoid hype and speculation.
-4. Include clear context, what happened, and practical implications for professionals.
-5. Keep paragraphing natural for mobile reading.
-6. Do not output markdown headings or bullet points.
-7. Output plain text only.
+1. Output EXACTLY 3 to 5 bullet points.
+2. Each bullet starts with • and is 1-2 sentences max.
+3. Cover: what happened, who is involved, why it matters, and what to watch next.
+4. Stay factual — no hype or speculation.
+5. Keep it short so readers want to click the original link for more.
+6. Output plain text bullet points only. No headings, no markdown.
 """
 
         user_prompt = f"""Article data:
@@ -843,13 +887,12 @@ Write the detailed brief now."""
             {"role": "user", "content": user_prompt},
         ]
 
-        response = await call_llm(messages, self.hf_token, max_tokens=1200)
+        response = await call_llm(messages, self.hf_token, max_tokens=800)
         cleaned = (response or "").strip()
         if not cleaned:
             return summary or why_it_matters or "No additional details available yet."
 
-        # Hard cap to keep payload safe for mobile clients.
-        return cleaned[:2600]
+        return cleaned[:1200]
 
 
 MAX_TILES_PER_FETCH = 20  # per refresh cycle

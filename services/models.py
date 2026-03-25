@@ -68,3 +68,13 @@ class RecordSignalRequest(BaseModel):
     article_id: str = Field(min_length=1, max_length=100)
     action: str = Field(min_length=1, max_length=20)  # "tap", "save", "skip", "unsave"
     topic: str = Field(default="", max_length=40)
+
+
+class RecordAnalyticsRequest(BaseModel):
+    taps: int = Field(default=0, ge=0)
+    saves: int = Field(default=0, ge=0)
+    reads: int = Field(default=0, ge=0)
+    skips: int = Field(default=0, ge=0)
+    briefs_opened: int = Field(default=0, ge=0)
+    time_spent_seconds: int = Field(default=0, ge=0)
+    session_count: int = Field(default=1, ge=0)

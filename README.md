@@ -1,24 +1,27 @@
 # DailyAI - AI News Aggregator
 
-DailyAI is a mobile-first AI news app that turns raw headlines into quick decisions.
-It supports language and region personalization, role-based reading lens, local caching,
-and a PWA install flow.
+DailyAI is a mobile-first AI news app that curates and summarizes AI headlines into
+concise, actionable bullet points. It supports language & region personalization,
+anonymous profile sync, local caching, and a PWA install flow.
 
-## What Is Updated In This Workflow
+## Key Features
 
-- Discover-first UX with vertical card feed
-- Top-level settings for language, region, lens, sort, appearance, and refresh
-- Saved view with save and unsave controls
-- Build-aware cache reset during deployment updates
-- Service worker versioning and stale cache cleanup
+- **Scroll-first feed** — 15-30 curated AI headlines per session
+- **3-5 bullet point summaries** — tap any card to get key takeaways
+- **Anonymous recommendations** — Sync Code (e.g. `Swift-Horizon-51`) personalizes your feed without login
+- **Topic onboarding** — pick your interests, change them anytime from sidebar
+- **Multi-language** — English, Hindi, German
+- **Multi-region** — Global + 20+ country feeds
+- **Offline-friendly** — articles cached to JSON on disk + localStorage in browser
+- **PWA** — installable, service worker caching, version-safe cache resets
 
 ## Core User Flow
 
-1. Open app and land in Discover feed.
-2. Choose language, region, and lens from Settings.
-3. Scroll one card at a time and open sheet for details.
-4. Save useful items and review them in Saved tab.
-5. Refresh feed manually or let backend hourly refresh keep data warm.
+1. Open app → animated 3-step guide (Scroll / Tap / Save)
+2. Pick topics → get a Sync Code for anonymous cross-device sync
+3. Scroll feed → articles ranked by your preferences + importance
+4. Tap a card → see 3-5 bullet points + link to original article
+5. Save useful items → review in Saved tab
 
 ## Local Setup
 
@@ -42,16 +45,13 @@ Set values you need:
 ```dotenv
 HF_API_TOKEN=hf_xxx
 PORT=8000
+BYTEZ_API_KEY=...
 
-# Optional LLM fallback
+# Optional
 GROQ_API_KEY=gsk_xxx
-
-# Optional email digest delivery
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="DailyAI <news@your-verified-domain.com>"
 RESEND_REPLY_TO="support@your-verified-domain.com"
-
-# Optional model provider keys if used by your services
 GOOGLE_AI_KEY=...
 ```
 
@@ -101,59 +101,60 @@ docker build -t dailyai .
 docker run -p 8000:8000 --env-file .env dailyai
 ```
 
-## Cache and Update Strategy
-
-The app now includes a build-safe cache rollout to avoid old frontend bundles
-causing stuck loading states after deployment.
-
-- HTML sets versioned URLs for styles, script, and manifest via app version.
-- App compares deployed build marker and performs first-load cache reset.
-- Client clears local feed caches, Cache Storage entries, and old service workers.
-- Service worker uses versioned cache names and removes old caches on activate.
-
-If a user still sees stale UI after deploy, hard refresh once.
-
 ## API Endpoints
 
-- GET /api/articles
-- POST /api/articles/brief
-- POST /api/refresh/{country_code}
-- GET /api/version
-- POST /api/subscribe
-- GET /api/subscribers/count
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/articles` | Fetch curated feed (supports `sync_code` for personalization) |
+| POST | `/api/articles/brief` | Generate 3-5 bullet point summary for an article |
+| POST | `/api/refresh/{country_code}` | Force refresh news for a country |
+| GET | `/api/version` | Current app version (for cache invalidation) |
+| POST | `/api/subscribe` | Subscribe to email digest |
+| GET | `/api/subscribers/count` | Subscriber count |
+| POST | `/api/profile/new` | Create anonymous profile with topic preferences |
+| GET | `/api/profile/{sync_code}` | Get profile by sync code |
+| PUT | `/api/profile/{sync_code}` | Update profile preferences |
+| POST | `/api/profile/{sync_code}/signal` | Record implicit signal (tap/save/skip) |
+| GET | `/api/countries` | Available country codes |
+| GET | `/api/languages` | Available languages |
 
 ## Project Structure
 
 ```text
 DailyAInews/
-|- app.py
-|- services/
-|  |- config.py
-|  |- news_core.py
-|  |- security.py
-|  |- store.py
-|- templates/
-|  |- index.html
-|- static/
-|  |- app.js
-|  |- styles.css
-|  |- sw.js
-|  |- manifest.json
-|- digest.py
-|- requirements.txt
-|- Dockerfile
+├── app.py                    # FastAPI routes
+├── agent.py                  # LLM-powered news curation + brief generation
+├── services/
+│   ├── config.py             # Topics, countries, MAX_TILES
+│   ├── news_core.py          # Feed fetching, JSON persistence, personalization
+│   ├── profiles.py           # Anonymous profiles, sync codes, signal tracking
+│   ├── security.py           # CSRF, CSP, rate limiting
+│   └── store.py              # In-memory news store
+├── templates/
+│   └── index.html            # Main SPA template
+├── static/
+│   ├── app.js                # Frontend logic
+│   ├── styles.css            # Design system
+│   ├── sw.js                 # Service worker
+│   └── manifest.json         # PWA manifest
+├── articles_cache.json       # Persisted article cache (auto-generated)
+├── profiles.json             # User profiles (auto-generated)
+├── digest.py                 # Email digest sender
+├── requirements.txt
+└── Dockerfile
 ```
 
 ## Tech Stack
 
-- Backend: FastAPI, APScheduler
+- Backend: FastAPI, APScheduler, Pydantic
 - Frontend: Vanilla JS, HTML, CSS, PWA
-- News source: RSS aggregation and AI ranking pipeline
+- LLM: Bytez (Mistral-7B), with Ollama/Gemini/Groq/HuggingFace fallbacks
+- News source: RSS aggregation + AI ranking pipeline
 - Deployment: Render, Railway, Docker
 
 ## Troubleshooting
 
-### App stuck on Loading latest stories
+### App stuck on "Loading latest stories"
 
 1. Confirm deployment completed and new version is live.
 2. Open /api/version and verify version changed.

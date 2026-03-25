@@ -186,3 +186,49 @@ def get_topic_scores(sync_code: str) -> dict[str, float]:
 
     # Sort descending
     return dict(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+
+
+def record_analytics(sync_code: str, stats: dict) -> dict | None:
+    """Merge session-level analytics into the profile.
+
+    Expected stats keys:
+        taps, saves, reads, skips, briefs_opened, time_spent_seconds, session_count
+    Each value is an increment from the current session.
+    """
+    profiles = _load_profiles()
+    profile = profiles.get(sync_code)
+    if not profile:
+        return None
+
+    analytics = profile.get("analytics", {
+        "total_taps": 0,
+        "total_saves": 0,
+        "total_reads": 0,
+        "total_skips": 0,
+        "total_briefs_opened": 0,
+        "total_time_spent_seconds": 0,
+        "session_count": 0,
+    })
+
+    FIELD_MAP = {
+        "taps": "total_taps",
+        "saves": "total_saves",
+        "reads": "total_reads",
+        "skips": "total_skips",
+        "briefs_opened": "total_briefs_opened",
+        "time_spent_seconds": "total_time_spent_seconds",
+        "session_count": "session_count",
+    }
+    for src_key, dest_key in FIELD_MAP.items():
+        val = stats.get(src_key, 0)
+        try:
+            analytics[dest_key] = analytics.get(dest_key, 0) + int(val)
+        except (TypeError, ValueError):
+            pass
+
+    profile["analytics"] = analytics
+    profile["last_active"] = datetime.now(UTC).isoformat()
+    profiles[sync_code] = profile
+    _save_profiles(profiles)
+    logger.info(f"Analytics updated for {sync_code}: {analytics}")
+    return analytics

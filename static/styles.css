@@ -1018,7 +1018,7 @@ body {
 .feed::-webkit-scrollbar { display: none; }
 .feed { scrollbar-width: none; }
 
-/* ========== ONBOARDING OVERLAY ========== */
+/* ========== ONBOARDING OVERLAY (Animated Guide) ========== */
 .onboarding-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.85);
@@ -1031,17 +1031,6 @@ body {
 .onboarding-overlay.hide {
     opacity: 0; transition: opacity 0.4s ease; pointer-events: none;
 }
-.onboard-hand {
-    font-size: 42px;
-    margin-bottom: 6px;
-    animation: swipeHand 2s ease-in-out infinite;
-}
-@keyframes swipeHand {
-    0%, 100% { transform: translateX(0) rotate(0); }
-    25% { transform: translateX(-40px) rotate(-10deg); }
-    50% { transform: translateX(0) rotate(0); }
-    75% { transform: translateX(40px) rotate(10deg); }
-}
 .onboard-panel {
     width: min(100%, 360px);
     background: linear-gradient(180deg, rgba(26,26,30,0.96), rgba(20,20,24,0.98));
@@ -1050,35 +1039,44 @@ body {
     padding: 18px 16px 16px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.45);
 }
-.onboard-title { font-size: 22px; font-weight: 800; color: #fff; }
+.onboard-steps { position: relative; min-height: 260px; }
+.onboard-step {
+    display: none; flex-direction: column; align-items: center;
+    animation: fadeIn 0.4s ease;
+}
+.onboard-step.active { display: flex; }
+.onboard-title { font-size: 22px; font-weight: 800; color: #fff; margin-top: 12px; }
 .onboard-desc { font-size: 14px; color: var(--text2); line-height: 1.5; margin-top: 6px; }
-.onboard-feature-list {
-    margin: 14px 0 8px;
-    padding: 0;
-    list-style: none;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.onboard-anim { height: 140px; display: flex; align-items: center; justify-content: center; position: relative; }
+.onboard-phone {
+    display: flex; flex-direction: column; gap: 6px;
+    animation: onbScrollCards 2.5s ease-in-out infinite;
 }
-.onboard-feature-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text2);
-    line-height: 1.45;
+.onboard-card-mock {
+    width: 160px; height: 32px; border-radius: 10px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.06);
 }
-.onboard-feature-icon {
-    width: 20px;
-    flex: 0 0 20px;
-    text-align: center;
+.onboard-gesture-hand {
+    position: absolute; bottom: 8px; right: 50px; font-size: 28px;
+    animation: onbHandSwipe 2.5s ease-in-out infinite;
 }
-.onboard-cache-note {
-    margin: 4px 0 12px;
-    font-size: 12px;
-    color: var(--accent);
+@keyframes onbScrollCards { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+@keyframes onbHandSwipe { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-22px); opacity: 0.6; } }
+.onboard-card-tap { width: 180px; height: 80px; border-radius: 14px; background: rgba(255,255,255,0.08); }
+.onboard-tap-ring {
+    position: absolute; width: 40px; height: 40px;
+    border: 2px solid var(--accent); border-radius: 50%;
+    animation: onbTapPulse 1.8s ease-in-out infinite;
 }
+@keyframes onbTapPulse { 0%, 100% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; } 70% { transform: scale(1.6); opacity: 0; } }
+.onboard-bookmark-icon { font-size: 56px; animation: onbBookmarkBounce 1.5s ease-in-out infinite; }
+@keyframes onbBookmarkBounce { 0%, 100% { transform: scale(1) translateY(0); } 30% { transform: scale(1.2) translateY(-10px); } 50% { transform: scale(1) translateY(0); } }
+.onboard-dots { display: flex; justify-content: center; gap: 8px; margin: 16px 0 12px; }
+.onboard-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); transition: all 0.3s;
+}
+.onboard-dot.active { background: var(--accent); width: 20px; border-radius: 4px; }
 .onboard-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .onboard-btn {
     padding: 14px; border-radius: 14px; border: none;
