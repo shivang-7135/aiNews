@@ -42,6 +42,36 @@
             </div>
         </div>
 
+        <!-- ===== Topic Onboarding Modal ===== -->
+        <div class="topic-onboard-backdrop" id="topicOnboardBackdrop" style="display:none;">
+            <div class="topic-onboard-card">
+                <h2 class="topic-onboard-title">What matters to you?</h2>
+                <p class="topic-onboard-sub">Pick at least 2 topics to personalize your feed</p>
+                <div class="topic-pill-grid" id="topicPillGrid">
+                    <button class="topic-pill" data-topic="llms">🤖 LLMs</button>
+                    <button class="topic-pill" data-topic="big_tech">🏢 Big Tech</button>
+                    <button class="topic-pill" data-topic="startups">🚀 Startups</button>
+                    <button class="topic-pill" data-topic="research">🧪 Research</button>
+                    <button class="topic-pill" data-topic="funding">💰 Funding</button>
+                    <button class="topic-pill" data-topic="regulation">⚖️ Regulation</button>
+                    <button class="topic-pill" data-topic="open_source">🔓 Open Source</button>
+                    <button class="topic-pill" data-topic="ai_safety">🛡️ AI Safety</button>
+                    <button class="topic-pill" data-topic="robotics">🦿 Robotics</button>
+                    <button class="topic-pill" data-topic="healthcare">🏥 Healthcare</button>
+                </div>
+                <button class="topic-onboard-go" id="topicOnboardGo" disabled>Build My Feed</button>
+                <div class="topic-onboard-sync" id="topicOnboardSync" style="display:none;">
+                    <p class="sync-label">Your Sync Code</p>
+                    <div class="sync-code-display">
+                        <span class="sync-code-text" id="topicSyncCode"></span>
+                        <button class="sync-copy-btn" id="topicSyncCopy" title="Copy">📋</button>
+                    </div>
+                    <p class="sync-hint">Save this code to sync your feed on other devices</p>
+                    <button class="topic-onboard-done" id="topicOnboardDone">Start Reading →</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== Sidebar Menu ===== -->
         <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
         <aside class="sidebar" id="sidebar">
@@ -110,6 +140,25 @@
                     <button type="submit" class="sidebar-sub-btn" id="subscribeBtn">Subscribe</button>
                 </form>
                 <p class="sidebar-note" id="subStatus"></p>
+            </div>
+
+            <!-- Sync Code -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">🔑 Sync Code</h3>
+                <div class="sync-sidebar-display" id="syncSidebarDisplay" style="display:none;">
+                    <div class="sync-code-display sync-code-sm">
+                        <span class="sync-code-text" id="sidebarSyncCode"></span>
+                        <button class="sync-copy-btn" id="sidebarSyncCopy" title="Copy">📋</button>
+                    </div>
+                </div>
+                <div class="sync-restore-wrap" id="syncRestoreWrap">
+                    <p class="sidebar-desc">Have a sync code? Restore your profile:</p>
+                    <div class="sync-restore-row">
+                        <input type="text" class="sync-restore-input" id="syncRestoreInput" placeholder="e.g. Clever-Panda-42">
+                        <button class="sync-restore-btn" id="syncRestoreBtn">→</button>
+                    </div>
+                    <p class="sidebar-note" id="syncRestoreStatus"></p>
+                </div>
             </div>
 
             <div class="sidebar-footer">
@@ -219,6 +268,15 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- ===== GDPR Consent Banner ===== -->
+    <div class="consent-banner" id="consentBanner" style="display:none;">
+        <p class="consent-text">We use local storage to personalize your feed and remember your preferences.</p>
+        <div class="consent-actions">
+            <button class="consent-btn consent-btn-accept" id="consentAccept">Accept</button>
+            <button class="consent-btn consent-btn-decline" id="consentDecline">Decline</button>
+        </div>
     </div>
 
     <script src="/static/app.js?v={{ app_version }}"></script>

@@ -669,6 +669,8 @@ const APP_FUNCTIONALITY_GUIDE = {
     let isDragging = false, startX = 0, startY = 0, deltaX = 0;
     let versionPollTimer = null;
     let currentTheme = localStorage.getItem('dailyai_theme') || 'dark';
+    let syncCode = localStorage.getItem('dailyai_sync_code') || '';
+    let consentGiven = localStorage.getItem('dailyai_consent') === '1';
 
     // ---- DOM ----
     const $ = id => document.getElementById(id);
@@ -812,10 +814,16 @@ const APP_FUNCTIONALITY_GUIDE = {
         fetchSubscriberCount();
         setupServiceWorker();
         startVersionWatcher();
+        initSyncRestore();
+        initConsentBanner();
+        updateSyncCodeUI();
 
         // Onboarding check
         if (!localStorage.getItem('dailyai_onboarded')) {
             showOnboarding();
+        } else if (!syncCode) {
+            // Already onboarded but no sync code — show topic picker
+            showTopicOnboarding();
         }
 
         // Load feed
@@ -955,6 +963,162 @@ const APP_FUNCTIONALITY_GUIDE = {
             restoreFeedMode();
             renderFeed();
         }
+
+        // Show topic onboarding if no sync code yet
+        if (!syncCode) {
+            setTimeout(() => showTopicOnboarding(), 500);
+        }
+    }
+
+    // ====================== TOPIC ONBOARDING ======================
+    function showTopicOnboarding() {
+        const backdrop = $('topicOnboardBackdrop');
+        if (!backdrop) return;
+        backdrop.style.display = 'flex';
+
+        const pills = backdrop.querySelectorAll('.topic-pill');
+        const goBtn = $('topicOnboardGo');
+        const selected = new Set();
+
+        pills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                const topic = pill.dataset.topic;
+                if (selected.has(topic)) {
+                    selected.delete(topic);
+                    pill.classList.remove('selected');
+                } else {
+                    selected.add(topic);
+                    pill.classList.add('selected');
+                }
+                goBtn.disabled = selected.size < 2;
+            });
+        });
+
+        goBtn.addEventListener('click', async () => {
+            goBtn.disabled = true;
+            goBtn.textContent = 'Creating...';
+            try {
+                const resp = await fetch('/api/profile/new', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preferred_topics: Array.from(selected),
+                        country: currentCountry,
+                        language: currentLanguage,
+                    }),
+                });
+                const data = await resp.json();
+                if (data.profile && data.profile.sync_code) {
+                    syncCode = data.profile.sync_code;
+                    localStorage.setItem('dailyai_sync_code', syncCode);
+
+                    // Show sync code
+                    $('topicSyncCode').textContent = syncCode;
+                    $('topicOnboardSync').style.display = '';
+                    goBtn.style.display = 'none';
+                    backdrop.querySelector('.topic-pill-grid').style.display = 'none';
+                    backdrop.querySelector('.topic-onboard-sub').textContent = 'Your personalized feed is ready!';
+
+                    // Update sidebar
+                    updateSyncCodeUI();
+
+                    // Re-fetch articles with personalization
+                    fetchArticles(currentTopic, { forceRefresh: true });
+                }
+            } catch (e) {
+                goBtn.textContent = 'Build My Feed';
+                goBtn.disabled = false;
+                showToast('Could not create profile. Try again.');
+            }
+        });
+
+        // Copy sync code buttons
+        $('topicSyncCopy')?.addEventListener('click', () => copySyncCode());
+        $('topicOnboardDone')?.addEventListener('click', () => {
+            backdrop.style.display = 'none';
+        });
+    }
+
+    function copySyncCode() {
+        if (!syncCode) return;
+        navigator.clipboard?.writeText(syncCode).then(() => {
+            showToast('Sync code copied!');
+        }).catch(() => {
+            showToast(syncCode);
+        });
+    }
+
+    function updateSyncCodeUI() {
+        const sidebarDisplay = $('syncSidebarDisplay');
+        const sidebarCode = $('sidebarSyncCode');
+        if (syncCode && sidebarDisplay && sidebarCode) {
+            sidebarCode.textContent = syncCode;
+            sidebarDisplay.style.display = '';
+        }
+    }
+
+    // ====================== SYNC RESTORE ======================
+    function initSyncRestore() {
+        const restoreBtn = $('syncRestoreBtn');
+        const restoreInput = $('syncRestoreInput');
+        const restoreStatus = $('syncRestoreStatus');
+        if (!restoreBtn || !restoreInput) return;
+
+        restoreBtn.addEventListener('click', async () => {
+            const code = restoreInput.value.trim();
+            if (!code) return;
+            restoreBtn.disabled = true;
+            try {
+                const resp = await fetch(`/api/profile/${encodeURIComponent(code)}`);
+                if (resp.status === 404) {
+                    if (restoreStatus) restoreStatus.textContent = 'Profile not found';
+                    restoreBtn.disabled = false;
+                    return;
+                }
+                const data = await resp.json();
+                if (data.profile) {
+                    syncCode = data.profile.sync_code;
+                    localStorage.setItem('dailyai_sync_code', syncCode);
+                    if (restoreStatus) restoreStatus.textContent = `Restored as ${syncCode}`;
+                    updateSyncCodeUI();
+                    fetchArticles(currentTopic, { forceRefresh: true });
+                    showToast(`Welcome back, ${syncCode}!`);
+                }
+            } catch {
+                if (restoreStatus) restoreStatus.textContent = 'Restore failed';
+            }
+            restoreBtn.disabled = false;
+        });
+
+        $('sidebarSyncCopy')?.addEventListener('click', () => copySyncCode());
+    }
+
+    // ====================== SIGNAL TRACKING ======================
+    function recordSignal(articleId, action, topic) {
+        if (!syncCode || !topic) return;
+        fetch(`/api/profile/${encodeURIComponent(syncCode)}/signal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article_id: articleId, action, topic }),
+        }).catch(() => { /* fire-and-forget */ });
+    }
+
+    // ====================== CONSENT BANNER ======================
+    function initConsentBanner() {
+        if (consentGiven || localStorage.getItem('dailyai_consent') === '0') return;
+        const banner = $('consentBanner');
+        if (!banner) return;
+        banner.style.display = '';
+
+        $('consentAccept')?.addEventListener('click', () => {
+            consentGiven = true;
+            localStorage.setItem('dailyai_consent', '1');
+            banner.style.display = 'none';
+        });
+        $('consentDecline')?.addEventListener('click', () => {
+            localStorage.setItem('dailyai_consent', '0');
+            banner.style.display = 'none';
+        });
     }
 
     // ====================== FEED MODE ======================
@@ -1562,10 +1726,9 @@ const APP_FUNCTIONALITY_GUIDE = {
         }
         const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000));
         try {
-            const resp = await Promise.race([
-                fetch(`${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}&language=${encodeURIComponent(currentLanguage)}`),
-                timeout,
-            ]);
+            let url = `${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}&language=${encodeURIComponent(currentLanguage)}`;
+            if (syncCode) url += `&sync_code=${encodeURIComponent(syncCode)}`;
+            const resp = await Promise.race([fetch(url), timeout]);
             const data = await resp.json();
             allArticles = (data.articles && data.articles.length > 0) ? data.articles : FALLBACK_ARTICLES;
             if (data.articles && data.articles.length > 0) {
@@ -1743,6 +1906,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         bookmarks[article.id] = article;
         localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
         updateSavedCount();
+        recordSignal(article.id, 'save', article.category || '');
     }
 
     function showDustbinThrow(sourceEl) {
@@ -1817,6 +1981,7 @@ const APP_FUNCTIONALITY_GUIDE = {
 
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
+        recordSignal(article.id || '', 'tap', article.category || '');
         const decisionHtml = buildDecisionMarkup(article, 'sheet');
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];

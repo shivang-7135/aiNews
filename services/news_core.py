@@ -81,7 +81,8 @@ async def get_news_payload(country_code: str, language: str) -> tuple[int, dict]
     }
 
 
-async def get_articles_payload(topic: str, country: str, language: str) -> dict:
+async def get_articles_payload(topic: str, country: str, language: str,
+                                sync_code: str = "") -> dict:
     country = country.upper()
     language = normalize_language(language)
     if country not in COUNTRIES:
@@ -140,6 +141,23 @@ async def get_articles_payload(topic: str, country: str, language: str) -> dict:
                 "updated_at": t.get("fetched_at", t.get("published", "")),
             }
         )
+
+    # ── Personalized re-ranking ──────────────────────────────────
+    if sync_code:
+        try:
+            from services.profiles import get_topic_scores
+            scores = get_topic_scores(sync_code)
+            if scores:
+                def rank_score(article: dict) -> float:
+                    cat = article.get("category", "general")
+                    pref_score = scores.get(cat, 0)
+                    imp_score = article.get("importance", 5)
+                    return pref_score * 2 + imp_score
+
+                articles.sort(key=rank_score, reverse=True)
+                logger.info(f"[Feed] Personalized for {sync_code} ({len(scores)} topic scores)")
+        except Exception as e:
+            logger.warning(f"[Feed] Personalization failed for {sync_code}: {e}")
 
     return {
         "articles": articles,

@@ -19,8 +19,12 @@ from fastapi.templating import Jinja2Templates
 
 from services.config import APP_VERSION, COUNTRIES, DEPLOYED_AT, SUPPORTED_LANGUAGES, TOPICS
 from services.config import normalize_language, store_key
-from services.models import ArticleBriefRequest, SubscribeRequest
+from services.models import (
+    ArticleBriefRequest, CreateProfileRequest, RecordSignalRequest,
+    SubscribeRequest, UpdateProfileRequest,
+)
 from services.news_core import agent, get_articles_payload, get_news_payload, refresh_all, refresh_news
+from services.profiles import create_profile, get_profile, record_signal, update_preferences
 from services.security import ensure_csrf_cookie, register_security_middleware
 from services.store import NEWS_STORE, get_daily_thought, load_subscribers, save_subscribers
 
@@ -119,8 +123,11 @@ async def get_languages():
 
 
 @app.get("/api/articles")
-async def get_articles(topic: str = "all", country: str = "GLOBAL", language: str = "en"):
-    payload = await get_articles_payload(topic=topic, country=country, language=language)
+async def get_articles(topic: str = "all", country: str = "GLOBAL",
+                       language: str = "en", sync_code: str = ""):
+    payload = await get_articles_payload(
+        topic=topic, country=country, language=language, sync_code=sync_code,
+    )
     payload["language_name"] = SUPPORTED_LANGUAGES.get(payload["language"], "English")
     return payload
 
@@ -216,6 +223,47 @@ async def subscribe(req: SubscribeRequest):
 @app.get("/api/subscribers/count")
 async def subscriber_count():
     return {"count": len(load_subscribers())}
+
+
+# ── Profile (anonymous recommendation) routes ──────────────────────
+@app.post("/api/profile/new")
+async def create_new_profile(req: CreateProfileRequest):
+    profile = create_profile(
+        preferred_topics=req.preferred_topics,
+        country=req.country,
+        language=req.language,
+    )
+    return {"status": "created", "profile": profile}
+
+
+@app.get("/api/profile/{sync_code}")
+async def fetch_profile(sync_code: str):
+    profile = get_profile(sync_code)
+    if not profile:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+    return {"profile": profile}
+
+
+@app.put("/api/profile/{sync_code}")
+async def update_profile(sync_code: str, req: UpdateProfileRequest):
+    profile = update_preferences(
+        sync_code=sync_code,
+        preferred_topics=req.preferred_topics,
+        country=req.country,
+        language=req.language,
+        bookmarks=req.bookmarks,
+    )
+    if not profile:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+    return {"status": "updated", "profile": profile}
+
+
+@app.post("/api/profile/{sync_code}/signal")
+async def profile_signal(sync_code: str, req: RecordSignalRequest):
+    profile = record_signal(sync_code=sync_code, topic=req.topic, action=req.action)
+    if not profile:
+        return JSONResponse({"error": "Profile not found or invalid signal"}, status_code=400)
+    return {"status": "recorded"}
 
 
 @app.get("/api/digest/preview", response_class=HTMLResponse)

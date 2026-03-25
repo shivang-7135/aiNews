@@ -35,3 +35,36 @@ class ArticleBriefRequest(BaseModel):
     why_it_matters: str = Field(default="", max_length=260)
     topic: str = Field(default="general", max_length=40)
     language: str = Field(default="en", min_length=2, max_length=5)
+
+
+class CreateProfileRequest(BaseModel):
+    preferred_topics: list[str] = Field(min_length=2, max_length=8)
+    country: str = Field(default="GLOBAL", min_length=2, max_length=10)
+    language: str = Field(default="en", min_length=2, max_length=5)
+
+    @pydantic_validator("preferred_topics")
+    def validate_profile_topics(cls, value: list[str]) -> list[str]:
+        allowed = {k for k in TOPICS.keys() if k != "all"}
+        clean: list[str] = []
+        for item in value or []:
+            topic = str(item or "").strip().lower()
+            if topic in allowed and topic not in clean:
+                clean.append(topic)
+            if len(clean) >= 8:
+                break
+        if len(clean) < 2:
+            raise ValueError("At least 2 valid topics are required")
+        return clean
+
+
+class UpdateProfileRequest(BaseModel):
+    preferred_topics: list[str] | None = None
+    country: str | None = None
+    language: str | None = None
+    bookmarks: list[str] | None = None
+
+
+class RecordSignalRequest(BaseModel):
+    article_id: str = Field(min_length=1, max_length=100)
+    action: str = Field(min_length=1, max_length=20)  # "tap", "save", "skip", "unsave"
+    topic: str = Field(default="", max_length=40)
