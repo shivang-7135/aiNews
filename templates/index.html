@@ -82,10 +82,7 @@
                 </select>
             </div>
 
-            <div class="sidebar-section">
-                <h3 class="sidebar-section-title" id="appearanceSectionTitle">🌓 Appearance</h3>
-                <button class="sidebar-action-btn" id="themeToggleBtn" type="button">Switch to Light Theme</button>
-            </div>
+
 
             <!-- Sort -->
             <div class="sidebar-section">
@@ -129,7 +126,11 @@
             <div class="top-bar-center">
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
             </div>
-            <div class="top-bar-spacer" aria-hidden="true"></div>
+            <div class="theme-toggle-pill" id="themeTogglePill" role="switch" aria-label="Toggle theme" tabindex="0">
+                <span class="theme-icon theme-icon-moon" id="themeIconMoon">🌙</span>
+                <span class="theme-icon theme-icon-sun" id="themeIconSun">☀️</span>
+                <span class="theme-toggle-thumb" id="themeThumb"></span>
+            </div>
         </header>
 
         <!-- ===== Filter Tabs ===== -->
@@ -162,6 +163,9 @@
 
         <!-- ===== Scroll Feed (InShorts mode) ===== -->
         <div class="scroll-feed" id="scrollFeed" style="display:none;"></div>
+        <div class="scroll-page-counter" id="scrollPageCounter" style="display:none;">
+            <span id="scrollCurrentPage">1</span> / <span id="scrollTotalPages">0</span>
+        </div>
 
         <!-- ===== List Feed (Saved) ===== -->
         <main class="feed" id="feed" style="display:none;"></main>

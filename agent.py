@@ -142,22 +142,24 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 GEMINI_MODELS = [
     "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
 ]
+
+# Provider 1: HuggingFace (free serverless API)
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODELS = [
+    "mistralai/Mistral-Small-24B-Instruct-2501",
     "Qwen/Qwen2.5-72B-Instruct",
     "meta-llama/Llama-3.1-8B-Instruct",
-    "mistralai/Mistral-Small-24B-Instruct-2501",
 ]
 
 # Provider 2: Groq (free, fast) — uses GROQ_API_KEY env var
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
+    "gemma2-9b-it",
     "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768",
-    "llama3-8b-8192",
+    "llama-3.2-3b-preview",
 ]
 
 DISABLED_PROVIDERS: set[str] = set()
@@ -297,7 +299,7 @@ async def _try_bytez(messages: list[dict]) -> str:
     try:
         from bytez import Bytez
         sdk = Bytez(bytez_key)
-        model = sdk.model("openai/o3-pro")
+        model = sdk.model("mistralai/Mistral-7B-Instruct-v0.3")
         
         # Convert messages to a single string prompt since Bytez expects text
         prompt_parts = []
@@ -315,7 +317,7 @@ async def _try_bytez(messages: list[dict]) -> str:
             logger.warning(f"[LLM] Bytez error: {results.error}")
             
         if hasattr(results, 'output') and results.output:
-            logger.info("[LLM] ✅ Got response from Bytez (o3-pro)")
+            logger.info("[LLM] ✅ Got response from Bytez (Mistral-7B)")
             out = results.output
             if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict) and "generated_text" in out[0]:
                 return out[0]["generated_text"]

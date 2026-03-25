@@ -465,7 +465,8 @@ const APP_FUNCTIONALITY_GUIDE = {
 
         const footerLines = document.querySelectorAll('.sidebar-footer p');
         if (footerLines[0]) footerLines[0].textContent = t('sidebarHint');
-        if (footerLines[2]) footerLines[2].textContent = getBuildFooterText();
+        const versionLabel = $('appVersionLabel');
+        if (versionLabel) versionLabel.textContent = getBuildFooterText();
 
         const savedBtn = $('savedBtn');
         if (savedBtn) savedBtn.setAttribute('aria-label', t('viewSaved'));
@@ -476,11 +477,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         setText('#bottomSettingsLabel', t('settingsNav'));
         setText('#bottomDiscoverLabel', t('viewDiscover'));
         setText('#bottomSavedLabel', t('viewSaved'));
-        if (themeToggleBtn) {
-            themeToggleBtn.textContent = currentTheme === 'light'
-                ? t('themeSwitchToDark')
-                : t('themeSwitchToLight');
-        }
+        // Theme toggle pill is in the top bar now, no sidebar button to update
 
         const modeBtn = $('modeToggle');
         if (modeBtn) modeBtn.setAttribute('title', t('modeTitle'));
@@ -697,7 +694,7 @@ const APP_FUNCTIONALITY_GUIDE = {
     const countrySelect = $('countrySelect');
     const languageSelect = $('languageSelect');
     const roleSelect = $('roleSelect');
-    const themeToggleBtn = $('themeToggleBtn');
+    const themeTogglePill = $('themeTogglePill');
     const modeToggle = $('modeToggle');
     const refreshNewsBtn = $('sidebarRefreshBtn');
     const langReloadBackdrop = $('langReloadBackdrop');
@@ -746,7 +743,11 @@ const APP_FUNCTIONALITY_GUIDE = {
         roleSelect?.addEventListener('change', onRoleChange);
 
         // Theme
-        themeToggleBtn?.addEventListener('click', onThemeToggle);
+        themeTogglePill?.addEventListener('click', onThemeToggle);
+        // Also support keyboard for accessibility
+        themeTogglePill?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onThemeToggle(); }
+        });
 
         // Newsletter
         $('subscribeForm').addEventListener('submit', onSubscribe);
@@ -996,17 +997,34 @@ const APP_FUNCTIONALITY_GUIDE = {
             const card = createScrollCard(article);
             scrollFeed.appendChild(card);
         });
+
+        // Page counter
+        const counter = $('scrollPageCounter');
+        const currentPageEl = $('scrollCurrentPage');
+        const totalPagesEl = $('scrollTotalPages');
+        if (counter && currentPageEl && totalPagesEl) {
+            totalPagesEl.textContent = articles.length;
+            currentPageEl.textContent = '1';
+            counter.style.display = '';
+            counter.classList.add('visible');
+
+            // Update page on scroll
+            scrollFeed.onscroll = () => {
+                const cards = scrollFeed.querySelectorAll('.scroll-card');
+                if (!cards.length) return;
+                const scrollTop = scrollFeed.scrollTop;
+                const cardH = cards[0].offsetHeight + 12; // margin
+                const idx = Math.round(scrollTop / cardH);
+                currentPageEl.textContent = Math.min(idx + 1, articles.length);
+            };
+        }
     }
 
     function applyTheme(theme) {
         currentTheme = theme === 'light' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         localStorage.setItem('dailyai_theme', currentTheme);
-        if (themeToggleBtn) {
-            themeToggleBtn.textContent = currentTheme === 'light'
-                ? t('themeSwitchToDark')
-                : t('themeSwitchToLight');
-        }
+        // Pill toggle updates itself via CSS :root[data-theme] selectors
     }
 
     function onThemeToggle() {
@@ -1406,6 +1424,8 @@ const APP_FUNCTIONALITY_GUIDE = {
             filterTabs.style.display = 'none';
             swipeContainer.style.display = 'none';
             scrollFeed.style.display = 'none';
+            const counter = $('scrollPageCounter');
+            if (counter) { counter.style.display = 'none'; counter.classList.remove('visible'); }
             feed.style.display = '';
             if (modeToggle) modeToggle.style.display = 'none';
             renderSavedList();
@@ -1844,13 +1864,20 @@ const APP_FUNCTIONALITY_GUIDE = {
         const saveFeedback = $('sheetSaveFeedback');
         saveBtn?.addEventListener('click', async () => {
             const currentlySaved = !!bookmarks[article.id];
-            if (saveFeedback) saveFeedback.style.display = 'block';
             if (currentlySaved) {
                 await unsaveArticle(article.id, { sourceEl: saveBtn, rerenderSaved: currentView === 'saved' });
                 saveBtn.textContent = t('saveAction');
+                if (saveFeedback) {
+                    saveFeedback.textContent = t('removedSaved') || 'Removed from saved';
+                    saveFeedback.style.display = 'block';
+                }
             } else {
                 saveFromSheet(article.id);
                 saveBtn.textContent = t('unsaveAction');
+                if (saveFeedback) {
+                    saveFeedback.textContent = t('addedSaved');
+                    saveFeedback.style.display = 'block';
+                }
                 showToast(t('saveToast'));
             }
         });
