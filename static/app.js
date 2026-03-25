@@ -515,11 +515,11 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
     // ---- Config ----
     const TOPIC_GRADIENTS = {
-        'AI Models':      'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
-        'Tools':          'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)',
-        'Research':       'linear-gradient(135deg, #0d0d0d, #1a1a2e, #16213e)',
-        'Top Stories':    'linear-gradient(135deg, #1f1c2c, #928dab)',
-        'Business':       'linear-gradient(135deg, #141e30, #243b55)',
+        'AI Models': 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
+        'Tools': 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)',
+        'Research': 'linear-gradient(135deg, #0d0d0d, #1a1a2e, #16213e)',
+        'Top Stories': 'linear-gradient(135deg, #1f1c2c, #928dab)',
+        'Business': 'linear-gradient(135deg, #141e30, #243b55)',
         'Tech & Science': 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
     };
     const TOPIC_PLACEHOLDER_IMAGES = {
@@ -563,15 +563,15 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         'Research': '/static/topic-covers/research.svg',
     };
     const COUNTRY_FLAGS = {
-        'US':'🇺🇸','GB':'🇬🇧','IN':'🇮🇳','DE':'🇩🇪','FR':'🇫🇷','CA':'🇨🇦',
-        'AU':'🇦🇺','JP':'🇯🇵','KR':'🇰🇷','CN':'🇨🇳','BR':'🇧🇷','SG':'🇸🇬',
-        'AE':'🇦🇪','IL':'🇮🇱','GLOBAL':'🌐',
+        'US': '🇺🇸', 'GB': '🇬🇧', 'IN': '🇮🇳', 'DE': '🇩🇪', 'FR': '🇫🇷', 'CA': '🇨🇦',
+        'AU': '🇦🇺', 'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'BR': '🇧🇷', 'SG': '🇸🇬',
+        'AE': '🇦🇪', 'IL': '🇮🇱', 'GLOBAL': '🌐',
     };
-    const AVATAR_COLORS = ['#6366f1','#2dd4a0','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#ec4899','#14b8a6'];
+    const AVATAR_COLORS = ['#6366f1', '#2dd4a0', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6', '#ec4899', '#14b8a6'];
     const FALLBACK_ARTICLES = [
-        { id:'fb-1', headline:'OpenAI Announces GPT-5 with Multimodal Reasoning', summary:'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters:'A major leap in AI capability, potentially transforming multiple industries.', topic:'AI Models', source_name:'TechCrunch', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
-        { id:'fb-2', headline:'EU Finalizes AI Act Implementation Timeline', summary:'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters:'Companies worldwide must adapt their AI products to meet these regulations.', topic:'Top Stories', source_name:'Reuters', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
-        { id:'fb-3', headline:'New Open-Source LLM Surpasses Commercial Models', summary:'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters:'Open-source AI is closing the gap, democratizing access to powerful tools.', topic:'Research', source_name:'ArXiv', source_avatar_url:null, image_url:null, article_url:'#', published_at:new Date().toISOString(), updated_at:new Date().toISOString() },
+        { id: 'fb-1', headline: 'OpenAI Announces GPT-5 with Multimodal Reasoning', summary: 'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters: 'A major leap in AI capability, potentially transforming multiple industries.', topic: 'AI Models', source_name: 'TechCrunch', source_avatar_url: null, image_url: null, article_url: '#', published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'fb-2', headline: 'EU Finalizes AI Act Implementation Timeline', summary: 'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters: 'Companies worldwide must adapt their AI products to meet these regulations.', topic: 'Top Stories', source_name: 'Reuters', source_avatar_url: null, image_url: null, article_url: '#', published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'fb-3', headline: 'New Open-Source LLM Surpasses Commercial Models', summary: 'A new open-source language model has outperformed leading commercial models on multiple benchmarks.', why_it_matters: 'Open-source AI is closing the gap, democratizing access to powerful tools.', topic: 'Research', source_name: 'ArXiv', source_avatar_url: null, image_url: null, article_url: '#', published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
     ];
 
     function getFeedCacheKey(topicParam, country, language) {
@@ -794,9 +794,22 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         let touchstartY = 0;
         let isPulling = false;
         const scrollEls = [$('scrollFeed'), $('feed')];
-        
+        const fab = $('scrollTopFab');
+
         scrollEls.forEach(el => {
             if (!el) return;
+
+            // Toggle FAB visibility on scroll
+            el.addEventListener('scroll', () => {
+                if (fab) {
+                    if (el.scrollTop > 300) {
+                        fab.classList.add('show');
+                    } else {
+                        fab.classList.remove('show');
+                    }
+                }
+            }, { passive: true });
+
             el.addEventListener('touchstart', e => {
                 if (el.scrollTop <= 0) {
                     touchstartY = e.touches[0].clientY;
@@ -804,14 +817,14 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 } else {
                     isPulling = false;
                 }
-            }, {passive: true});
-            
+            }, { passive: true });
+
             el.addEventListener('touchmove', e => {
                 if (!isPulling) return;
                 const y = e.touches[0].clientY;
                 if (y < touchstartY) isPulling = false;
-            }, {passive: true});
-            
+            }, { passive: true });
+
             el.addEventListener('touchend', e => {
                 if (!isPulling) return;
                 const y = e.changedTouches[0].clientY;
@@ -820,16 +833,19 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                     setTimeout(() => location.reload(), 500);
                 }
                 isPulling = false;
-            }, {passive: true});
+            }, { passive: true });
         });
 
-        $('topBar')?.addEventListener('click', () => {
+        const scrollToTop = () => {
             scrollEls.forEach(el => {
                 if (el && el.style.display !== 'none' && el.scrollTop > 0) {
                     el.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             });
-        });
+        };
+
+        $('topBar')?.addEventListener('click', scrollToTop);
+        $('scrollTopFab')?.addEventListener('click', scrollToTop);
     }
 
     function setupServiceWorker() {
@@ -992,10 +1008,10 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     async function showTopicOnboarding() {
         const backdrop = $('topicOnboardBackdrop');
         if (!backdrop) return;
-        
+
         let existingTopics = [];
         const isUpdate = !!syncCode;
-        
+
         if (isUpdate) {
             try {
                 const resp = await fetch(`/api/profile/${encodeURIComponent(syncCode)}`);
@@ -1007,7 +1023,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 console.warn('Could not load existing topics', e);
             }
         }
-        
+
         backdrop.style.display = 'flex';
         const selected = new Set(existingTopics);
 
@@ -1016,7 +1032,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const newGoBtn = goBtn.cloneNode(true);
         goBtn.parentNode.replaceChild(newGoBtn, goBtn);
         goBtn = newGoBtn;
-        
+
         goBtn.style.display = ''; // Ensure it's not hidden from a previous run
         goBtn.textContent = isUpdate ? 'Update Topics' : 'Build My Feed';
         goBtn.disabled = selected.size < 2;
@@ -1034,13 +1050,13 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             // clone pill to remove old listeners
             const newPill = pill.cloneNode(true);
             pill.parentNode.replaceChild(newPill, pill);
-            
+
             if (selected.has(topic)) {
                 newPill.classList.add('selected');
             } else {
                 newPill.classList.remove('selected');
             }
-            
+
             newPill.addEventListener('click', () => {
                 const t = newPill.dataset.topic;
                 if (selected.has(t)) {
@@ -1070,13 +1086,13 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                     }),
                 });
                 const data = await resp.json();
-                
+
                 if (!isUpdate && data.profile && data.profile.sync_code) {
                     syncCode = data.profile.sync_code;
                     localStorage.setItem('dailyai_sync_code', syncCode);
                     updateSyncCodeUI();
                 }
-                
+
                 if (isUpdate) {
                     backdrop.style.display = 'none';
                     showToast('Topics updated!');
@@ -1088,10 +1104,10 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                     grid.style.display = 'none';
                     backdrop.querySelector('.topic-onboard-sub').textContent = 'Your personalized feed is ready!';
                 }
-                
+
                 // Re-fetch articles with personalization
                 fetchArticles(currentTopic, { forceRefresh: true });
-                
+
             } catch (e) {
                 goBtn.textContent = isUpdate ? 'Update Topics' : 'Build My Feed';
                 goBtn.disabled = false;
@@ -1110,7 +1126,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 backdrop.style.display = 'none';
             });
         }
-        
+
         const copyBtn = $('topicSyncCopy');
         if (copyBtn) {
             const newCopy = copyBtn.cloneNode(true);
@@ -1295,7 +1311,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         card.dataset.id = article.id;
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const shortSummary = limitWords(article.summary, MAX_FEED_SUMMARY_WORDS);
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
@@ -1306,7 +1323,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
-                <p class="card-summary">${esc(shortSummary)}</p>
+                ${importanceHtml}
+                ${tapToReadHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1577,16 +1595,19 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     function createFeedCardHTML(article, i) {
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const shortSummary = limitWords(article.summary, MAX_FEED_SUMMARY_WORDS);
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : buildTopicCoverImg(article);
-        return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i*50}ms">
+
+        return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i * 50}ms">
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
-                <p class="card-summary">${esc(shortSummary)}</p>
+                ${importanceHtml}
+                ${tapToReadHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -1756,13 +1777,17 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const imgHtml = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : buildTopicCoverImg(article);
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
+
         card.innerHTML = `
             <div class="swipe-label swipe-label-save">${t('swipeLabelSave')}</div>
             <div class="swipe-label swipe-label-skip">${t('swipeLabelSkip')}</div>
             ${imgHtml}
             <div class="card-body">
                 <h2 class="card-headline">${esc(article.headline)}</h2>
-                <p class="card-summary">${esc(article.summary)}</p>
+                ${importanceHtml}
+                ${tapToReadHtml}
                 ${whyHtml}
                 <div class="card-footer">
                     <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
@@ -2128,8 +2153,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             .map((block) => `<p>${block.replace(/\n/g, '<br>')}</p>`)
             .join('');
     }
-    function hashCode(str) { let h=0; for(let i=0;i<(str||'').length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;} return Math.abs(h); }
-    function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+    function hashCode(str) { let h = 0; for (let i = 0; i < (str || '').length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; } return Math.abs(h); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
     // ====================== SESSION ANALYTICS ======================
     const _sessionStats = { taps: 0, saves: 0, reads: 0, skips: 0, briefs_opened: 0, time_spent_seconds: 0, session_count: 1 };
@@ -2152,7 +2177,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         } else {
             fetch(`/api/profile/${encodeURIComponent(syncCode)}/analytics`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true
-            }).catch(() => {});
+            }).catch(() => { });
         }
     }
 

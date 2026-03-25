@@ -180,5 +180,64 @@
     "bookmarks": [],
     "created_at": "2026-03-25T19:32:59.250957+00:00",
     "last_active": "2026-03-25T19:33:34.908612+00:00"
+  },
+  "Frost-Nebula-37": {
+    "sync_code": "Frost-Nebula-37",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 2
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T21:31:27.404329+00:00",
+    "last_active": "2026-03-25T21:31:47.662761+00:00"
+  },
+  "Neon-Flame-11": {
+    "sync_code": "Neon-Flame-11",
+    "preferred_topics": [
+      "research",
+      "llms"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {},
+    "bookmarks": [],
+    "created_at": "2026-03-25T21:35:07.856845+00:00",
+    "last_active": "2026-03-25T21:35:07.856845+00:00"
+  },
+  "Fuzzy-Horizon-49": {
+    "sync_code": "Fuzzy-Horizon-49",
+    "preferred_topics": [
+      "llms",
+      "research"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T21:40:40.721924+00:00",
+    "last_active": "2026-03-25T21:40:48.432363+00:00"
+  },
+  "Warm-Summit-82": {
+    "sync_code": "Warm-Summit-82",
+    "preferred_topics": [
+      "llms",
+      "big_tech"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T21:49:44.174948+00:00",
+    "last_active": "2026-03-25T21:49:56.244308+00:00"
   }
 }

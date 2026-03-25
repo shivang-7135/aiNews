@@ -160,7 +160,7 @@ async def get_articles_payload(topic: str, country: str, language: str,
         importance = int(t.get("importance", 5) or 5)
         category = str(t.get("category", "general") or "general").lower()
 
-        clean_summary = f"Relevance Score: {importance}/10. Tap to read the full story."
+        clean_summary = ""
         clean_why = ""
 
         articles.append(

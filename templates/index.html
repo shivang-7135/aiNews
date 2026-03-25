@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" data-release-version="{{ app_version }}">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="DailyAI turns AI headlines into decisions, impact, and next actions.">
     <meta name="theme-color" content="#111113">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,6 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css?v={{ app_version }}">
 </head>
+
 <body>
     <div class="boot-loader visible" id="bootLoader" aria-live="polite" aria-busy="true">
         <div class="boot-loader-spinner" aria-hidden="true"></div>
@@ -168,17 +171,20 @@
                 <div class="sync-restore-wrap" id="syncRestoreWrap">
                     <p class="sidebar-desc">Have a sync code? Restore your profile:</p>
                     <div class="sync-restore-row">
-                        <input type="text" class="sync-restore-input" id="syncRestoreInput" placeholder="e.g. Clever-Panda-42">
+                        <input type="text" class="sync-restore-input" id="syncRestoreInput"
+                            placeholder="e.g. Clever-Panda-42">
                         <button class="sync-restore-btn" id="syncRestoreBtn">→</button>
                     </div>
                     <p class="sidebar-note" id="syncRestoreStatus"></p>
                 </div>
-                <button class="sidebar-action-btn" id="changeTopicsBtn" style="margin-top:8px;">🎨 Change Topics</button>
+                <button class="sidebar-action-btn" id="changeTopicsBtn" style="margin-top:8px;">🎨 Change
+                    Topics</button>
             </div>
 
             <div class="sidebar-footer">
                 <p>Stay in the loop, not in a doomscroll spiral.</p>
-                <p style="margin-top:4px;opacity:0.5;" id="appVersionLabel">Build {{ app_version }} - No login required</p>
+                <p style="margin-top:4px;opacity:0.5;" id="appVersionLabel">Build {{ app_version }} - No login required
+                </p>
             </div>
         </aside>
 
@@ -231,6 +237,14 @@
         <!-- ===== List Feed (Saved) ===== -->
         <main class="feed" id="feed" style="display:none;"></main>
 
+        <!-- ===== Scroll to Top FAB ===== -->
+        <button class="scroll-top-fab" id="scrollTopFab" aria-label="Scroll to top">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+        </button>
+
         <!-- ===== Bottom Nav ===== -->
         <nav class="bottom-nav" id="bottomNav" aria-label="Primary">
             <button class="bottom-nav-item" id="bottomSettingsBtn" type="button">
@@ -259,7 +273,8 @@
 
         <!-- ===== Language Reload Modal ===== -->
         <div class="modal-backdrop" id="langReloadBackdrop" style="display:none;">
-            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="langReloadTitle" aria-describedby="langReloadBody">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="langReloadTitle"
+                aria-describedby="langReloadBody">
                 <h3 class="modal-title" id="langReloadTitle">Language changed</h3>
                 <p class="modal-body" id="langReloadBody">Reload now for best experience?</p>
                 <div class="modal-actions">
@@ -270,7 +285,8 @@
         </div>
 
         <div class="modal-backdrop" id="whatsNewBackdrop" style="display:none;">
-            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle" aria-describedby="whatsNewBody">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle"
+                aria-describedby="whatsNewBody">
                 <h3 class="modal-title" id="whatsNewTitle">What's New</h3>
                 <p class="modal-body" id="whatsNewBody">Your app just got better.</p>
                 <ul class="modal-list" id="whatsNewList"></ul>
@@ -293,4 +309,5 @@
 
     <script src="/static/app.js?v={{ app_version }}"></script>
 </body>
+
 </html>
