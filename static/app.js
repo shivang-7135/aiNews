@@ -1821,9 +1821,6 @@ const APP_FUNCTIONALITY_GUIDE = {
         sheetContent.innerHTML = `
             <div class="sheet-headline-row">
                 <h2 class="sheet-headline">${esc(article.headline)}</h2>
-                <button class="sheet-link sheet-expand-btn sheet-expand-inline" id="sheetExpandBtn" aria-label="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}" title="${bottomSheet.classList.contains('expanded') ? esc(t('collapseView')) : esc(t('expandView'))}">
-                    <span class="sheet-expand-icon" aria-hidden="true">${bottomSheet.classList.contains('expanded') ? '⤡' : '⤢'}</span>
-                </button>
             </div>
             <p class="sheet-summary">${esc(article.summary)}</p>
             ${decisionHtml}
@@ -1854,8 +1851,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         const existingActions = bottomSheet.querySelector('.sheet-actions');
         if (existingActions) existingActions.remove();
         bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
-        const expandBtn = $('sheetExpandBtn');
-        expandBtn?.addEventListener('click', () => toggleSheetExpanded(expandBtn));
+
         const saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id) || article;
             if (a) saveArticle(a);

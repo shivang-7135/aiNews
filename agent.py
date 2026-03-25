@@ -157,9 +157,7 @@ HF_MODELS = [
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
-    "gemma2-9b-it",
     "llama-3.1-8b-instant",
-    "llama-3.2-3b-preview",
 ]
 
 DISABLED_PROVIDERS: set[str] = set()

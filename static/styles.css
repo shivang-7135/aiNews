@@ -737,21 +737,7 @@ body {
     overflow: hidden;
 }
 .bottom-sheet.show { transform: translateX(-50%) translateY(0); }
-.bottom-sheet.expanded {
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    max-width: 430px;
-    max-height: 100vh;
-    max-height: 100dvh;
-    height: 100vh;
-    height: 100dvh;
-    border-radius: 0;
-}
-.bottom-sheet.expanded .sheet-content {
-    height: 100%;
-    padding: 0;
-}
+
 .sheet-handle {
     width: 36px; height: 4px; border-radius: 2px;
     background: #3a3a40; margin: 10px auto 0;
@@ -782,38 +768,7 @@ body {
     padding-right: 4px;
     margin-bottom: 14px;
 }
-.bottom-sheet.expanded .sheet-brief-wrap {
-    min-height: 0;
-    max-height: none;
-    flex: 1;
-    height: 100%;
-    margin: 0;
-    padding: calc(54px + env(safe-area-inset-top, 0px)) 16px calc(18px + env(safe-area-inset-bottom, 0px));
-}
-.bottom-sheet.expanded .sheet-handle,
-.bottom-sheet.expanded .sheet-summary,
-.bottom-sheet.expanded .sheet-why,
-.bottom-sheet.expanded .sheet-meta,
-.bottom-sheet.expanded .sheet-actions {
-    display: none;
-}
-.bottom-sheet.expanded .sheet-headline {
-    display: none;
-}
-.bottom-sheet.expanded .sheet-headline-row {
-    position: absolute;
-    top: calc(8px + env(safe-area-inset-top, 0px));
-    right: 10px;
-    left: auto;
-    margin: 0;
-    z-index: 6;
-    pointer-events: none;
-}
-.bottom-sheet.expanded .sheet-expand-inline {
-    pointer-events: auto;
-    background: rgba(0,0,0,0.45);
-    border-color: rgba(255,255,255,0.25);
-}
+
 .sheet-brief-wrap::-webkit-scrollbar { width: 8px; }
 .sheet-brief-wrap::-webkit-scrollbar-track {
     background: rgba(255,255,255,0.05);
@@ -888,33 +843,7 @@ body {
     color: var(--accent);
     cursor: pointer;
 }
-.sheet-expand-btn {
-    background: rgba(255,255,255,0.06);
-    color: var(--text);
-    border: 1px solid rgba(255,255,255,0.14);
-    width: 48px;
-    min-width: 48px;
-    justify-content: center;
-    padding: 0;
-}
-.sheet-expand-inline {
-    height: 36px;
-    width: 36px;
-    min-width: 36px;
-    border-radius: 9px;
-}
-.sheet-expand-icon {
-    font-size: 20px;
-    line-height: 1;
-}
-.focus-mode #topBar,
-.focus-mode #filterTabs,
-.focus-mode #swipeContainer,
-.focus-mode #scrollFeed,
-.focus-mode #feed {
-    filter: blur(3px);
-    transform: scale(0.995);
-}
+
 .save-feedback {
     width: 100%;
     margin-top: 2px;
