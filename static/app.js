@@ -1,7 +1,7 @@
 // DailyAI v3.0 — Scroll-first feed, onboarding, auto-dismiss streak
 const API_URL = '/api/articles';
-const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v2';
-const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v1';
+const FEED_CACHE_PREFIX = 'dailyai_feed_cache_v4';
+const BRIEF_CACHE_PREFIX = 'dailyai_brief_cache_v2';
 const FEED_CACHE_TTL_MS = 25 * 60 * 1000;
 const BRIEF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FEED_ITEMS = 30;
@@ -782,9 +782,54 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             showTopicOnboarding();
         }
 
+        // Pull to refresh & TopBar tap-to-top
+        setupPullToRefresh();
+
         // Load feed
         showSkeleton();
         fetchArticles(currentTopic);
+    }
+
+    function setupPullToRefresh() {
+        let touchstartY = 0;
+        let isPulling = false;
+        const scrollEls = [$('scrollFeed'), $('feed')];
+        
+        scrollEls.forEach(el => {
+            if (!el) return;
+            el.addEventListener('touchstart', e => {
+                if (el.scrollTop <= 0) {
+                    touchstartY = e.touches[0].clientY;
+                    isPulling = true;
+                } else {
+                    isPulling = false;
+                }
+            }, {passive: true});
+            
+            el.addEventListener('touchmove', e => {
+                if (!isPulling) return;
+                const y = e.touches[0].clientY;
+                if (y < touchstartY) isPulling = false;
+            }, {passive: true});
+            
+            el.addEventListener('touchend', e => {
+                if (!isPulling) return;
+                const y = e.changedTouches[0].clientY;
+                if (y - touchstartY > 80) {
+                    showToast(t('refreshingNews') || 'Refreshing...', 1000);
+                    setTimeout(() => location.reload(), 500);
+                }
+                isPulling = false;
+            }, {passive: true});
+        });
+
+        $('topBar')?.addEventListener('click', () => {
+            scrollEls.forEach(el => {
+                if (el && el.style.display !== 'none' && el.scrollTop > 0) {
+                    el.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        });
     }
 
     function setupServiceWorker() {
@@ -944,24 +989,66 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     }
 
     // ====================== TOPIC ONBOARDING ======================
-    function showTopicOnboarding() {
+    async function showTopicOnboarding() {
         const backdrop = $('topicOnboardBackdrop');
         if (!backdrop) return;
+        
+        let existingTopics = [];
+        const isUpdate = !!syncCode;
+        
+        if (isUpdate) {
+            try {
+                const resp = await fetch(`/api/profile/${encodeURIComponent(syncCode)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    existingTopics = data.profile?.preferred_topics || [];
+                }
+            } catch (e) {
+                console.warn('Could not load existing topics', e);
+            }
+        }
+        
         backdrop.style.display = 'flex';
+        const selected = new Set(existingTopics);
+
+        // Clean up old listeners by cloning
+        let goBtn = $('topicOnboardGo');
+        const newGoBtn = goBtn.cloneNode(true);
+        goBtn.parentNode.replaceChild(newGoBtn, goBtn);
+        goBtn = newGoBtn;
+        
+        goBtn.style.display = ''; // Ensure it's not hidden from a previous run
+        goBtn.textContent = isUpdate ? 'Update Topics' : 'Build My Feed';
+        goBtn.disabled = selected.size < 2;
+
+        const grid = backdrop.querySelector('.topic-pill-grid');
+        grid.style.display = 'flex';
+        if (isUpdate) {
+            $('topicOnboardSync').style.display = 'none';
+            backdrop.querySelector('.topic-onboard-sub').textContent = 'Update your personalized feed';
+        }
 
         const pills = backdrop.querySelectorAll('.topic-pill');
-        const goBtn = $('topicOnboardGo');
-        const selected = new Set();
-
         pills.forEach(pill => {
-            pill.addEventListener('click', () => {
-                const topic = pill.dataset.topic;
-                if (selected.has(topic)) {
-                    selected.delete(topic);
-                    pill.classList.remove('selected');
+            const topic = pill.dataset.topic;
+            // clone pill to remove old listeners
+            const newPill = pill.cloneNode(true);
+            pill.parentNode.replaceChild(newPill, pill);
+            
+            if (selected.has(topic)) {
+                newPill.classList.add('selected');
+            } else {
+                newPill.classList.remove('selected');
+            }
+            
+            newPill.addEventListener('click', () => {
+                const t = newPill.dataset.topic;
+                if (selected.has(t)) {
+                    selected.delete(t);
+                    newPill.classList.remove('selected');
                 } else {
-                    selected.add(topic);
-                    pill.classList.add('selected');
+                    selected.add(t);
+                    newPill.classList.add('selected');
                 }
                 goBtn.disabled = selected.size < 2;
             });
@@ -969,10 +1056,12 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
         goBtn.addEventListener('click', async () => {
             goBtn.disabled = true;
-            goBtn.textContent = 'Creating...';
+            goBtn.textContent = isUpdate ? 'Updating...' : 'Creating...';
             try {
-                const resp = await fetch('/api/profile/new', {
-                    method: 'POST',
+                const url = isUpdate ? `/api/profile/${encodeURIComponent(syncCode)}` : '/api/profile/new';
+                const method = isUpdate ? 'PUT' : 'POST';
+                const resp = await fetch(url, {
+                    method: method,
                     headers: getApiPostHeaders(),
                     body: JSON.stringify({
                         preferred_topics: Array.from(selected),
@@ -981,35 +1070,53 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                     }),
                 });
                 const data = await resp.json();
-                if (data.profile && data.profile.sync_code) {
+                
+                if (!isUpdate && data.profile && data.profile.sync_code) {
                     syncCode = data.profile.sync_code;
                     localStorage.setItem('dailyai_sync_code', syncCode);
-
-                    // Show sync code
+                    updateSyncCodeUI();
+                }
+                
+                if (isUpdate) {
+                    backdrop.style.display = 'none';
+                    showToast('Topics updated!');
+                } else {
+                    // First time: show sync code
                     $('topicSyncCode').textContent = syncCode;
                     $('topicOnboardSync').style.display = '';
                     goBtn.style.display = 'none';
-                    backdrop.querySelector('.topic-pill-grid').style.display = 'none';
+                    grid.style.display = 'none';
                     backdrop.querySelector('.topic-onboard-sub').textContent = 'Your personalized feed is ready!';
-
-                    // Update sidebar
-                    updateSyncCodeUI();
-
-                    // Re-fetch articles with personalization
-                    fetchArticles(currentTopic, { forceRefresh: true });
                 }
+                
+                // Re-fetch articles with personalization
+                fetchArticles(currentTopic, { forceRefresh: true });
+                
             } catch (e) {
-                goBtn.textContent = 'Build My Feed';
+                goBtn.textContent = isUpdate ? 'Update Topics' : 'Build My Feed';
                 goBtn.disabled = false;
-                showToast('Could not create profile. Try again.');
+                showToast(isUpdate ? 'Could not update topics.' : 'Could not create profile. Try again.');
             }
         });
 
-        // Copy sync code buttons
-        $('topicSyncCopy')?.addEventListener('click', () => copySyncCode());
-        $('topicOnboardDone')?.addEventListener('click', () => {
-            backdrop.style.display = 'none';
-        });
+        // Copy sync code buttons (ensure attached only once if possible, but safe to re-attach if not cloned)
+        // They aren't cloned here so we rely on multiple clicks just doing the same thing, 
+        // but let's avoid duplicates for Done
+        const doneBtn = $('topicOnboardDone');
+        if (doneBtn) {
+            const newDone = doneBtn.cloneNode(true);
+            doneBtn.parentNode.replaceChild(newDone, doneBtn);
+            newDone.addEventListener('click', () => {
+                backdrop.style.display = 'none';
+            });
+        }
+        
+        const copyBtn = $('topicSyncCopy');
+        if (copyBtn) {
+            const newCopy = copyBtn.cloneNode(true);
+            copyBtn.parentNode.replaceChild(newCopy, copyBtn);
+            newCopy.addEventListener('click', () => copySyncCode());
+        }
     }
 
     function copySyncCode() {
@@ -1822,7 +1929,6 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             <div class="sheet-headline-row">
                 <h2 class="sheet-headline">${esc(article.headline)}</h2>
             </div>
-            <p class="sheet-summary">${esc(article.summary)}</p>
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
                     <p class="sheet-brief" style="margin-bottom:6px;">${esc(t('loadingBrief'))}</p>

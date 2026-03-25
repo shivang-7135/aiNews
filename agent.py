@@ -25,6 +25,37 @@ import httpx
 
 logger = logging.getLogger("dailyai.agent")
 
+# Phrases that indicate the LLM echoed the prompt instead of responding
+_PROMPT_LEAK_MARKERS = [
+    "SYSTEM:",
+    "USER:",
+    "RULES:",
+    "OUTPUT FORMAT",
+    "Output EXACTLY",
+    "Each bullet starts with",
+    "Stay factual",
+    "No headings, no markdown",
+    "respond ONLY with a valid JSON",
+    "You are an expert AI news analyst",
+    "You are an AI news curator agent",
+    "Article data:",
+    "Write the detailed brief now.",
+    "Short summary:",
+    "Why it matters:",
+]
+
+
+def _sanitize_llm_response(text: str) -> str:
+    """Return empty string if the text contains prompt echo artifacts."""
+    if not text:
+        return ""
+    # Quick heuristic: if 3+ prompt markers appear, the model echoed the prompt
+    hits = sum(1 for m in _PROMPT_LEAK_MARKERS if m in text)
+    if hits >= 3:
+        logger.warning(f"[Sanitize] Detected prompt leakage ({hits} markers found), discarding response")
+        return ""
+    return text
+
 # ---------------------------------------------------------------------------
 # RSS sources  (free, no API key needed)
 # ---------------------------------------------------------------------------
@@ -287,7 +318,7 @@ async def _try_gemini(
 
 
 async def _try_bytez(messages: list[dict]) -> str:
-    """Try Bytez API (openai/o3-pro model) as primary provider."""
+    """Try Bytez API (Mistral-7B) as primary provider."""
     bytez_key = os.getenv("BYTEZ_API_KEY", "")
     if not bytez_key:
         return ""
@@ -298,7 +329,7 @@ async def _try_bytez(messages: list[dict]) -> str:
         from bytez import Bytez
         sdk = Bytez(bytez_key)
         model = sdk.model("mistralai/Mistral-7B-Instruct-v0.3")
-        
+
         # Convert messages to a single string prompt since Bytez expects text
         prompt_parts = []
         for m in messages:
@@ -310,25 +341,37 @@ async def _try_bytez(messages: list[dict]) -> str:
         # model.run is synchronous, run in executor to avoid blocking event loop
         loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(None, model.run, prompt)
-        
+
         if hasattr(results, 'error') and getattr(results, 'error', None):
             logger.warning(f"[LLM] Bytez error: {results.error}")
-            
+
         if hasattr(results, 'output') and results.output:
             logger.info("[LLM] ✅ Got response from Bytez (Mistral-7B)")
             out = results.output
             if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict) and "generated_text" in out[0]:
                 text = out[0]["generated_text"]
                 # Bytez Mistral echoes prompt — strip everything before actual response
-                for marker in ["Write the detailed brief now.", "Output valid JSON only.",
-                               "Return the JSON array now.", "ASSISTANT:", "assistant:"]:
+                # Try multiple end-of-prompt markers in priority order
+                for marker in [
+                    "Write the detailed brief now.",
+                    "Output valid JSON only.",
+                    "Return the JSON array now.",
+                    "Respond ONLY with a JSON array.",
+                    "ASSISTANT:",
+                    "assistant:",
+                ]:
                     if marker in text:
                         text = text.split(marker, 1)[-1].strip()
+                        break
+
+                # Second pass: if SYSTEM:/USER: markers are still present,
+                # the model echoed the whole prompt — discard it entirely
+                text = _sanitize_llm_response(text)
                 return text
-            return str(out)
+            raw = str(out)
+            return _sanitize_llm_response(raw)
     except Exception as e:
-        logger.warning(f"[LLM] Bytez o3-pro failed: {e}")
-        # DISABLED_PROVIDERS.add("bytez") # Don't permanently disable in case of temp errors
+        logger.warning(f"[LLM] Bytez failed: {e}")
     return ""
 
 
@@ -733,11 +776,17 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                         except (TypeError, ValueError):
                             importance_val = 5
 
+                        raw_summary = str(t.get("summary", ""))[:300]
+                        raw_why = str(t.get("why_it_matters", ""))[:200]
+                        # Reject individual fields that contain prompt leakage
+                        summary_clean = _sanitize_llm_response(raw_summary) or raw_summary[:0]
+                        why_clean = _sanitize_llm_response(raw_why) or raw_why[:0]
+
                         clean_tiles.append(
                             {
                                 "title": str(t.get("title", ""))[:150],
-                                "summary": str(t.get("summary", ""))[:300],
-                                "why_it_matters": str(t.get("why_it_matters", ""))[:200],
+                                "summary": summary_clean or "Tap to read the full story.",
+                                "why_it_matters": why_clean or "",
                                 "category": str(t.get("category", "general")).lower(),
                                 "topic": str(t.get("topic", "general")).lower(),
                                 "importance": min(max(importance_val, 1), 10),
@@ -880,7 +929,7 @@ Link: {link}
 Short summary: {summary}
 Why it matters: {why_it_matters}
 
-Write the detailed brief now."""
+Write the detailed brief now in 100 words."""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -892,7 +941,13 @@ Write the detailed brief now."""
         if not cleaned:
             return summary or why_it_matters or "No additional details available yet."
 
-        return cleaned[:1200]
+        # Guard: reject responses that echo the prompt back
+        sanitized = _sanitize_llm_response(cleaned)
+        if not sanitized:
+            logger.warning("[Agent] Brief response contained prompt leakage — using fallback")
+            return summary or why_it_matters or "No additional details available yet."
+
+        return sanitized[:1200]
 
 
 MAX_TILES_PER_FETCH = 20  # per refresh cycle

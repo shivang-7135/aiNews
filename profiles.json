@@ -82,5 +82,103 @@
     "bookmarks": [],
     "created_at": "2026-03-25T18:31:40.582846+00:00",
     "last_active": "2026-03-25T18:32:08.472593+00:00"
+  },
+  "Silky-Glacier-12": {
+    "sync_code": "Silky-Glacier-12",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 2
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T18:46:11.989373+00:00",
+    "last_active": "2026-03-25T18:46:51.502433+00:00"
+  },
+  "Epic-Hawk-16": {
+    "sync_code": "Epic-Hawk-16",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T18:52:20.494351+00:00",
+    "last_active": "2026-03-25T18:52:37.951577+00:00"
+  },
+  "Frost-Otter-10": {
+    "sync_code": "Frost-Otter-10",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "ai_safety",
+      "funding"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 2,
+      "funding": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T19:04:56.128287+00:00",
+    "last_active": "2026-03-25T19:06:13.501881+00:00"
+  },
+  "Drift-River-64": {
+    "sync_code": "Drift-River-64",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "healthcare"
+    ],
+    "country": "GLOBAL",
+    "language": "de",
+    "signals": {
+      "general": 5
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T19:10:21.087777+00:00",
+    "last_active": "2026-03-25T19:12:11.673914+00:00"
+  },
+  "Sharp-Lotus-10": {
+    "sync_code": "Sharp-Lotus-10",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups",
+      "funding"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T19:21:18.181342+00:00",
+    "last_active": "2026-03-25T19:21:59.647573+00:00"
+  },
+  "Vivid-Breeze-82": {
+    "sync_code": "Vivid-Breeze-82",
+    "preferred_topics": [
+      "llms",
+      "big_tech"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-25T19:32:59.250957+00:00",
+    "last_active": "2026-03-25T19:33:34.908612+00:00"
   }
 }

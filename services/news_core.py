@@ -5,7 +5,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent import NewsAgent
+from agent import NewsAgent, _sanitize_llm_response
 from services.config import COUNTRIES, MAX_TILES, UI_TOPIC_MAP, normalize_language, store_key
 from services.store import LAST_UPDATED, NEWS_STORE
 
@@ -160,12 +160,15 @@ async def get_articles_payload(topic: str, country: str, language: str,
         importance = int(t.get("importance", 5) or 5)
         category = str(t.get("category", "general") or "general").lower()
 
+        clean_summary = f"Relevance Score: {importance}/10. Tap to read the full story."
+        clean_why = ""
+
         articles.append(
             {
                 "id": f"{country}-{language}-{i}",
                 "headline": t.get("title", ""),
-                "summary": (t.get("summary", "") or "")[:1400],
-                "why_it_matters": (t.get("why_it_matters", "") or "")[:130],
+                "summary": clean_summary,
+                "why_it_matters": clean_why,
                 "importance": max(1, min(importance, 10)),
                 "category": category,
                 "topic": ui_topic,
