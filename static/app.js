@@ -1037,26 +1037,7 @@ const APP_FUNCTIONALITY_GUIDE = {
         return `${words.slice(0, maxWords).join(' ')}...`;
     }
 
-    function applyTheme(theme) {
-        currentTheme = theme === 'light' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        localStorage.setItem('dailyai_theme', currentTheme);
-        if (themeToggleBtn) {
-            themeToggleBtn.textContent = currentTheme === 'light'
-                ? t('themeSwitchToDark')
-                : t('themeSwitchToLight');
-        }
-    }
 
-    function onThemeToggle() {
-        applyTheme(currentTheme === 'light' ? 'dark' : 'light');
-    }
-
-    function limitWords(text, maxWords = MAX_FEED_SUMMARY_WORDS) {
-        const words = String(text || '').trim().split(/\s+/).filter(Boolean);
-        if (words.length <= maxWords) return String(text || '');
-        return `${words.slice(0, maxWords).join(' ')}...`;
-    }
 
     function createScrollCard(article) {
         const card = document.createElement('div');
