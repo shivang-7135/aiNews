@@ -55,15 +55,19 @@ def register_security_middleware(app: FastAPI) -> None:
         if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path.startswith(
             "/api/"
         ):
+            # Exempt analytics endpoint — sendBeacon() cannot send custom headers
+            is_analytics = "/analytics" in request.url.path
+
             origin = request.headers.get("origin", "")
             expected_origin = _expected_origin(request)
             if origin and expected_origin and origin != expected_origin:
                 return JSONResponse({"error": "Invalid request origin."}, status_code=403)
 
-            cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
-            header_token = request.headers.get("x-csrf-token", "")
-            if not cookie_token or not header_token or not secrets.compare_digest(cookie_token, header_token):
-                return JSONResponse({"error": "Security token missing or invalid."}, status_code=403)
+            if not is_analytics:
+                cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
+                header_token = request.headers.get("x-csrf-token", "")
+                if not cookie_token or not header_token or not secrets.compare_digest(cookie_token, header_token):
+                    return JSONResponse({"error": "Security token missing or invalid."}, status_code=403)
 
         limit_cfg = _api_limit_for(request.url.path, request.method)
         if limit_cfg:

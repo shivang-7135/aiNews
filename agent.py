@@ -166,17 +166,23 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# LLM Providers — tries Google Gemini first, then HuggingFace, then Groq
+# LLM Providers — tries NVIDIA first, then Gemini, HuggingFace, then Groq
 # ---------------------------------------------------------------------------
 
-# Provider 0: Google Gemini (free via AI Studio — ~1500 req/day, 1M TPM)
+# Provider 0 (PRIMARY): NVIDIA (DeepSeek via integrate.api.nvidia.com)
+NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NVIDIA_MODELS = [
+    "deepseek-ai/deepseek-v3.1",
+]
+
+# Provider 1: Google Gemini (free via AI Studio — ~1500 req/day, 1M TPM)
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 GEMINI_MODELS = [
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
 ]
 
-# Provider 1: HuggingFace (free serverless API)
+# Provider 2: HuggingFace (free serverless API)
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 HF_MODELS = [
     "mistralai/Mistral-Small-24B-Instruct-2501",
@@ -184,7 +190,7 @@ HF_MODELS = [
     "meta-llama/Llama-3.1-8B-Instruct",
 ]
 
-# Provider 2: Groq (free, fast) — uses GROQ_API_KEY env var
+# Provider 3: Groq (free, fast) — uses GROQ_API_KEY env var
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
@@ -376,16 +382,84 @@ async def _try_bytez(messages: list[dict]) -> str:
 
 
 
-async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Try Bytez first, then local Ollama, then Gemini, then HuggingFace, then Groq."""
+async def _try_nvidia(
+    models: list[str], messages: list[dict], api_key: str, max_tokens: int = 4096
+) -> str:
+    """Try NVIDIA NIM (DeepSeek R1) using the OpenAI-compatible endpoint."""
+    if "nvidia" in DISABLED_PROVIDERS:
+        return ""
 
-    # Try Bytez API (Primary LLM)
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    for model in models:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.6,
+            "top_p": 0.7,
+            "stream": False,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                resp = await client.post(NVIDIA_API_URL, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        message = choices[0].get("message", {})
+                        # DeepSeek models may return reasoning_content separately
+                        reasoning = message.get("reasoning_content", "")
+                        if reasoning:
+                            logger.info(
+                                f"[LLM] NVIDIA {model} reasoning (first 200 chars): {reasoning[:200]}"
+                            )
+                        content = message.get("content", "")
+                        content = content if isinstance(content, str) else ""
+                        if content:
+                            logger.info(f"[LLM] ✅ Got response from NVIDIA {model}")
+                            return content
+                elif resp.status_code == 429:
+                    logger.warning(f"[LLM] NVIDIA {model} → 429 Rate limited, skipping")
+                    continue
+                elif resp.status_code == 410:
+                    logger.warning(f"[LLM] NVIDIA {model} → 410 Gone (model EOL), skipping")
+                    continue
+                elif resp.status_code in (400, 401, 403):
+                    logger.warning(
+                        f"[LLM] NVIDIA {model} → {resp.status_code}. Check NVIDIA_API_KEY."
+                    )
+                    DISABLED_PROVIDERS.add("nvidia")
+                    return ""
+                else:
+                    logger.warning(f"[LLM] NVIDIA {model} → {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.warning(f"[LLM] NVIDIA {model} failed: {e}")
+            continue
+    return ""
+
+
+async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
+    """Try NVIDIA first, then Bytez, Ollama, Gemini, HuggingFace, then Groq."""
+
+    # Try NVIDIA DeepSeek R1 first (PRIMARY)
+    nvidia_key = os.getenv("NVIDIA_API_KEY", "")
+    if nvidia_key:
+        result = await _try_nvidia(NVIDIA_MODELS, messages, nvidia_key, max_tokens=4096)
+        if result:
+            return result
+        logger.warning("[LLM] NVIDIA DeepSeek R1 failed/not configured, trying Bytez...")
+
+    # Try Bytez API
     result = await _try_bytez(messages)
     if result:
         return result
     logger.warning("[LLM] Bytez failed/not configured, trying local Ollama...")
 
-    # Try local open-source models first (Ollama, optional)
+    # Try local open-source models (Ollama, optional)
     ollama_url, ollama_models = _get_ollama_config()
     if ollama_url and ollama_models:
         result = await _try_provider(
@@ -400,7 +474,7 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
             return result
         logger.warning("[LLM] All Ollama models failed, trying cloud providers...")
 
-    # Try Google Gemini first (most generous free tier)
+    # Try Google Gemini (most generous free tier)
     gemini_key = os.getenv("GOOGLE_AI_KEY", "")
     if gemini_key:
         result = await _try_gemini(GEMINI_MODELS, messages, gemini_key, max_tokens)

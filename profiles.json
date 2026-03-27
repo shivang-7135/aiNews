@@ -239,5 +239,71 @@
     "bookmarks": [],
     "created_at": "2026-03-25T21:49:44.174948+00:00",
     "last_active": "2026-03-25T21:49:56.244308+00:00"
+  },
+  "Lucky-Nova-84": {
+    "sync_code": "Lucky-Nova-84",
+    "preferred_topics": [
+      "llms",
+      "big_tech"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "industry": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-27T22:44:39.228048+00:00",
+    "last_active": "2026-03-27T23:29:00.689845+00:00",
+    "analytics": {
+      "total_taps": 0,
+      "total_saves": 0,
+      "total_reads": 0,
+      "total_skips": 0,
+      "total_briefs_opened": 0,
+      "total_time_spent_seconds": 3300,
+      "session_count": 10
+    }
+  },
+  "Pearl-Lantern-45": {
+    "sync_code": "Pearl-Lantern-45",
+    "preferred_topics": [
+      "llms",
+      "startups",
+      "big_tech"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-27T22:54:59.537319+00:00",
+    "last_active": "2026-03-27T22:55:05.945120+00:00"
+  },
+  "Silver-Glacier-82": {
+    "sync_code": "Silver-Glacier-82",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "general": 4,
+      "industry": 12
+    },
+    "bookmarks": [],
+    "created_at": "2026-03-27T23:25:00.236796+00:00",
+    "last_active": "2026-03-27T23:28:59.608952+00:00",
+    "analytics": {
+      "total_taps": 0,
+      "total_saves": 0,
+      "total_reads": 0,
+      "total_skips": 0,
+      "total_briefs_opened": 0,
+      "total_time_spent_seconds": 598,
+      "session_count": 5
+    }
   }
 }

@@ -270,7 +270,7 @@ async def profile_signal(sync_code: str, req: RecordSignalRequest):
 async def profile_analytics(sync_code: str, req: RecordAnalyticsRequest):
     result = record_analytics(
         sync_code=sync_code,
-        stats=req.model_dump(),
+        stats=req.dict() if hasattr(req, 'dict') else req.model_dump(),
     )
     if not result:
         return JSONResponse({"error": "Profile not found"}, status_code=404)

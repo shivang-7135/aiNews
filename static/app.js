@@ -524,36 +524,133 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     };
     const TOPIC_PLACEHOLDER_IMAGES = {
         'AI Models': [
-            'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1686191128892-3d19f2d7d53f?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1686191128892-3d19f2d7d53f?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1655720828018-edd2daec9349?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1697577418970-95d99b5a55cf?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1710993267928-e78e6d293048?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1684369175833-4b445ad6bfb5?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1680538400916-608e118e5e67?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1696429199683-0154c4dfa944?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1712002641088-9d76f9080889?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1555255707-c07966088b7b?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1580894894513-541e068a3e2b?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1617791160505-cb03e tried-96fa?auto=format&fit=crop&w=800&q=80',
         ],
         'Top Stories': [
-            'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1528819622765-d6bcf132f793?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
         ],
         'Tech & Science': [
-            'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1518152006812-edab29b069ac?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1518152006812-edab29b069ac?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1517976487492-5750f3195933?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1636690513351-0af1763f6571?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1580894908361-967195033215?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1624953587687-daf255b6b80a?auto=format&fit=crop&w=800&q=80',
         ],
         'Business': [
-            'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1551135049-8a33b5883817?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1553835973-dec43bfddbeb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80',
         ],
         'Tools': [
-            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1618477247222-acbdb0e159b3?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1504639725590-34d0984388bd?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1603468620905-8de7d86b781e?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1605379399642-870262d3d051?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?auto=format&fit=crop&w=800&q=80',
         ],
         'Research': [
-            'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1614935151651-0bea6508db6b?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1530973428-5bf2db2e4d71?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1628595351029-c2bf17511435?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1529079018732-bdef9ab517a1?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1607988795691-3d0147b43231?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1585435465945-bef5a93f8849?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1655720828018-edd2daec9349?auto=format&fit=crop&w=800&q=80',
         ],
     };
+
+    // Keyword-to-image map for content-relevant fallback images
+    const KEYWORD_IMAGE_MAP = [
+        { keywords: ['robot', 'robotics', 'humanoid', 'boston dynamics'], img: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['chip', 'semiconductor', 'nvidia', 'gpu', 'processor', 'hardware'], img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['regulation', 'law', 'act', 'policy', 'governance', 'government', 'eu', 'congress'], img: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['startup', 'funding', 'billion', 'million', 'valuation', 'raise', 'invest', 'venture'], img: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['openai', 'chatgpt', 'gpt'], img: 'https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['google', 'gemini', 'deepmind', 'alphabet'], img: 'https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['apple', 'siri', 'iphone', 'mac'], img: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['microsoft', 'copilot', 'azure', 'bing'], img: 'https://images.unsplash.com/photo-1633419461186-7d40a38105ec?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['meta', 'facebook', 'llama', 'instagram', 'zuckerberg'], img: 'https://images.unsplash.com/photo-1636114673156-052a83459fc4?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['autonomous', 'self-driving', 'car', 'vehicle', 'tesla', 'waymo'], img: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afe?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['healthcare', 'medical', 'drug', 'patient', 'doctor', 'diagnosis', 'health'], img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['education', 'student', 'school', 'university', 'teacher', 'learning'], img: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['climate', 'energy', 'solar', 'environment', 'green', 'carbon', 'sustainability'], img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['security', 'cyber', 'hack', 'privacy', 'deepfake', 'threat', 'attack'], img: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['space', 'nasa', 'satellite', 'rocket', 'launch', 'orbit', 'mars'], img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['data', 'database', 'analytics', 'cloud', 'aws', 'server'], img: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['open source', 'linux', 'github', 'developer', 'code'], img: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['image', 'video', 'generate', 'art', 'creative', 'dall-e', 'midjourney', 'diffusion'], img: 'https://images.unsplash.com/photo-1634017839464-5c339afa60d0?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['china', 'chinese', 'beijing', 'baidu'], img: 'https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?auto=format&fit=crop&w=800&q=80' },
+        { keywords: ['benchmark', 'test', 'score', 'performance', 'comparison'], img: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80' },
+    ];
+
     const TOPIC_LOCAL_FALLBACK_IMAGES = {
         'AI Models': '/static/topic-covers/ai-models.svg',
         'Top Stories': '/static/topic-covers/top-stories.svg',
@@ -562,6 +659,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         'Tools': '/static/topic-covers/tools.svg',
         'Research': '/static/topic-covers/research.svg',
     };
+
     const COUNTRY_FLAGS = {
         'US': '🇺🇸', 'GB': '🇬🇧', 'IN': '🇮🇳', 'DE': '🇩🇪', 'FR': '🇫🇷', 'CA': '🇨🇦',
         'AU': '🇦🇺', 'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'BR': '🇧🇷', 'SG': '🇸🇬',
@@ -1252,6 +1350,22 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     }
 
     // ====================== SCROLL FEED (InShorts) ======================
+    let cardObserver = null;
+
+    function setupCardObserver() {
+        if (cardObserver) cardObserver.disconnect();
+        cardObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry, idx) => {
+                if (entry.isIntersecting) {
+                    const card = entry.target;
+                    const delay = Math.min(idx * 80, 400);
+                    setTimeout(() => card.classList.add('card-visible'), delay);
+                    cardObserver.unobserve(card);
+                }
+            });
+        }, { root: scrollFeed, threshold: 0.1 });
+    }
+
     function renderScrollFeed() {
         scrollFeed.innerHTML = '';
         const articles = getFilteredArticles();
@@ -1259,9 +1373,13 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             scrollFeed.innerHTML = `<div style="padding:60px 20px;text-align:center;"><p style="font-size:48px;margin-bottom:12px;">📰</p><p style="font-size:16px;font-weight:600;">${t('noStories')}</p><p style="font-size:14px;color:var(--text3);margin-top:4px;">${t('noStoriesSub')}</p></div>`;
             return;
         }
+
+        setupCardObserver();
+
         articles.forEach(article => {
             const card = createScrollCard(article);
             scrollFeed.appendChild(card);
+            if (cardObserver) cardObserver.observe(card);
         });
 
         // Page counter
@@ -1309,6 +1427,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const card = document.createElement('div');
         card.className = 'scroll-card';
         card.dataset.id = article.id;
+        // Set importance as data attribute for CSS-driven glow effects
+        if (article.importance) card.dataset.importance = String(article.importance);
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
         const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
@@ -1346,7 +1466,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     function getTopicCoverUrl(topic, seed = '') {
         const list = TOPIC_PLACEHOLDER_IMAGES[topic] || TOPIC_PLACEHOLDER_IMAGES['Top Stories'];
         if (!Array.isArray(list) || list.length === 0) return TOPIC_PLACEHOLDER_IMAGES['Top Stories'][0];
-        const idx = hashCode(String(seed || topic || 'default')) % list.length;
+        const idx = Math.abs(hashCode(String(seed || topic || 'default'))) % list.length;
         return list[idx];
     }
 
@@ -1354,12 +1474,31 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         return TOPIC_LOCAL_FALLBACK_IMAGES[topic] || TOPIC_LOCAL_FALLBACK_IMAGES['Top Stories'];
     }
 
+    function getKeywordImage(headline) {
+        if (!headline) return null;
+        const lower = headline.toLowerCase();
+        for (const entry of KEYWORD_IMAGE_MAP) {
+            for (const kw of entry.keywords) {
+                if (lower.includes(kw)) return entry.img;
+            }
+        }
+        return null;
+    }
+
     function buildTopicCoverImg(article) {
         const topic = article.topic || 'Top Stories';
-        const seed = `${article.id || ''}|${article.headline || ''}|${article.source_name || ''}`;
+        const headline = article.headline || '';
+        // 1st: Try keyword-based content-relevant image
+        const keywordImg = getKeywordImage(headline);
+        if (keywordImg) {
+            const fallbackUrl = getTopicFallbackCoverUrl(topic);
+            return `<img src="${esc(keywordImg)}" alt="${esc(headline)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
+        }
+        // 2nd: Pick from expanded topic pool using unique seed
+        const seed = `${article.id || ''}|${headline}|${article.source_name || ''}`;
         const coverUrl = getTopicCoverUrl(topic, seed);
         const fallbackUrl = getTopicFallbackCoverUrl(topic);
-        return `<img src="${esc(coverUrl)}" alt="${esc(topic)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
+        return `<img src="${esc(coverUrl)}" alt="${esc(headline)}" class="card-image" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallbackUrl)}'">`;
     }
 
     // ====================== COUNTRIES ======================
