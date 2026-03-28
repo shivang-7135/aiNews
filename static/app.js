@@ -799,11 +799,14 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         languageSelect.addEventListener('change', onLanguageChange);
 
 
-        // Theme
-        themeTogglePill?.addEventListener('click', onThemeToggle);
+        // Theme — stopPropagation prevents topBar's scroll-to-top from firing
+        themeTogglePill?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onThemeToggle();
+        });
         // Also support keyboard for accessibility
         themeTogglePill?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onThemeToggle(); }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onThemeToggle(); }
         });
 
         // Newsletter
