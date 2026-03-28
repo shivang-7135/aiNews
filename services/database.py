@@ -66,13 +66,23 @@ async def db_insert(table: str, data: dict | list[dict]) -> list[dict]:
     return []
 
 
-async def db_upsert(table: str, data: dict) -> list[dict]:
-    """UPSERT (insert or update) a row in a Supabase table."""
+async def db_upsert(table: str, data: dict, on_conflict: str = "") -> list[dict]:
+    """UPSERT (insert or update) a row in a Supabase table.
+
+    Args:
+        table: Table name.
+        data: Row data dict.
+        on_conflict: Comma-separated column(s) to conflict-resolve on.
+                     E.g. "sync_code" or "email".
+    """
     try:
         headers = _headers()
         headers["Prefer"] = "return=representation,resolution=merge-duplicates"
+        params = {}
+        if on_conflict:
+            params["on_conflict"] = on_conflict
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(_url(table), headers=headers, json=data)
+            resp = await client.post(_url(table), headers=headers, json=data, params=params)
             if resp.status_code in (200, 201):
                 return resp.json()
             logger.warning(f"[DB] UPSERT {table} → {resp.status_code}: {resp.text[:200]}")
@@ -248,7 +258,7 @@ async def sync_all_to_supabase() -> dict:
                         "created_at": profile.get("created_at"),
                         "last_active": profile.get("last_active"),
                     }
-                    result = await db_upsert("profiles", row)
+                    result = await db_upsert("profiles", row, on_conflict="sync_code")
                     if result:
                         summary["profiles"] += 1
                     else:
@@ -275,7 +285,7 @@ async def sync_all_to_supabase() -> dict:
                         "subscribed_at": sub.get("subscribed_at"),
                         "is_active": sub.get("is_active", True),
                     }
-                    result = await db_upsert("subscribers", row)
+                    result = await db_upsert("subscribers", row, on_conflict="email")
                     if result:
                         summary["subscribers"] += 1
                     else:
