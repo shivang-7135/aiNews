@@ -514,6 +514,48 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
     return ""
 
 
+async def call_llm_fast(messages: list[dict], max_tokens: int = 800) -> str:
+    """Fast LLM path for brief generation.
+
+    Prioritizes speed: Groq (~2s) → NVIDIA (30s timeout) → Gemini.
+    Skips Bytez (prompt leakage) and HuggingFace (slow serverless cold starts).
+    """
+
+    # 1. Groq — fastest provider (~2 second responses)
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key:
+        result = await _try_provider(
+            GROQ_API_URL,
+            GROQ_MODELS,
+            messages,
+            groq_key,
+            max_tokens,
+            provider_name="groq",
+        )
+        if result:
+            return result
+        logger.warning("[LLM-Fast] Groq failed, trying NVIDIA...")
+
+    # 2. NVIDIA — good quality but slower; use 30s timeout
+    nvidia_key = os.getenv("NVIDIA_API_KEY", "")
+    if nvidia_key:
+        result = await _try_nvidia(NVIDIA_MODELS, messages, nvidia_key, max_tokens=max_tokens)
+        if result:
+            return result
+        logger.warning("[LLM-Fast] NVIDIA failed, trying Gemini...")
+
+    # 3. Gemini — fast when not rate-limited
+    gemini_key = os.getenv("GOOGLE_AI_KEY", "")
+    if gemini_key:
+        result = await _try_gemini(GEMINI_MODELS, messages, gemini_key, max_tokens)
+        if result:
+            return result
+        logger.warning("[LLM-Fast] Gemini failed too")
+
+    logger.error("[LLM-Fast] All fast providers failed")
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Agent class
 # ---------------------------------------------------------------------------
@@ -1010,7 +1052,7 @@ Write the detailed brief now in 100 words."""
             {"role": "user", "content": user_prompt},
         ]
 
-        response = await call_llm(messages, self.hf_token, max_tokens=800)
+        response = await call_llm_fast(messages, max_tokens=800)
         cleaned = (response or "").strip()
         if not cleaned:
             return summary or why_it_matters or "No additional details available yet."
