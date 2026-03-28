@@ -9,6 +9,7 @@ Falls back to JSON files if not configured.
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -214,3 +215,80 @@ CREATE POLICY "Allow all for anon" ON profiles FOR ALL USING (true);
 CREATE POLICY "Allow all for anon" ON analytics_events FOR ALL USING (true);
 CREATE POLICY "Allow all for anon" ON subscribers FOR ALL USING (true);
 """
+
+
+# ── Periodic Sync: Local JSON → Supabase ─────────────────────────────
+
+async def sync_all_to_supabase() -> dict:
+    """Read local JSON files and upsert all data to Supabase.
+
+    Called by the scheduler every 5 minutes.
+    Returns a summary dict with counts of synced items.
+    """
+    if not is_supabase_configured():
+        return {"status": "skipped", "reason": "Supabase not configured"}
+
+    summary = {"profiles": 0, "subscribers": 0, "errors": []}
+
+    # ── Sync profiles.json ──
+    profiles_path = Path("profiles.json")
+    if profiles_path.exists():
+        try:
+            profiles_data = json.loads(profiles_path.read_text())
+            if isinstance(profiles_data, dict):
+                for sync_code, profile in profiles_data.items():
+                    row = {
+                        "sync_code": sync_code,
+                        "preferred_topics": profile.get("preferred_topics", []),
+                        "country": profile.get("country", "GLOBAL"),
+                        "language": profile.get("language", "en"),
+                        "signals": profile.get("signals", {}),
+                        "bookmarks": profile.get("bookmarks", []),
+                        "analytics": profile.get("analytics", {}),
+                        "created_at": profile.get("created_at"),
+                        "last_active": profile.get("last_active"),
+                    }
+                    result = await db_upsert("profiles", row)
+                    if result:
+                        summary["profiles"] += 1
+                    else:
+                        summary["errors"].append(f"profile:{sync_code}")
+        except Exception as e:
+            logger.warning(f"[DB Sync] profiles.json error: {e}")
+            summary["errors"].append(f"profiles.json: {e}")
+
+    # ── Sync subscribers.json ──
+    subs_path = Path("subscribers.json")
+    if subs_path.exists():
+        try:
+            subs_data = json.loads(subs_path.read_text())
+            if isinstance(subs_data, list):
+                for sub in subs_data:
+                    email = sub.get("email", "").strip()
+                    if not email:
+                        continue
+                    row = {
+                        "email": email,
+                        "topics": sub.get("topics", []),
+                        "country": sub.get("country", "GLOBAL"),
+                        "language": sub.get("language", "en"),
+                        "subscribed_at": sub.get("subscribed_at"),
+                        "is_active": sub.get("is_active", True),
+                    }
+                    result = await db_upsert("subscribers", row)
+                    if result:
+                        summary["subscribers"] += 1
+                    else:
+                        summary["errors"].append(f"subscriber:{email}")
+        except Exception as e:
+            logger.warning(f"[DB Sync] subscribers.json error: {e}")
+            summary["errors"].append(f"subscribers.json: {e}")
+
+    err_count = len(summary["errors"])
+    logger.info(
+        f"[DB Sync] ✅ Synced {summary['profiles']} profiles, "
+        f"{summary['subscribers']} subscribers to Supabase"
+        f"{f' ({err_count} errors)' if err_count else ''}"
+    )
+    return summary
+

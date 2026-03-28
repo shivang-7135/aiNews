@@ -39,7 +39,17 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from services.database import is_supabase_configured, sync_all_to_supabase
+
     scheduler.add_job(refresh_all, "interval", hours=1, id="hourly_refresh", replace_existing=True)
+
+    # Supabase cloud sync — every 5 minutes
+    if is_supabase_configured():
+        scheduler.add_job(
+            sync_all_to_supabase, "interval", minutes=5,
+            id="supabase_sync", replace_existing=True
+        )
+        logger.info("Supabase sync scheduled every 5 minutes")
 
     if os.getenv("RESEND_API_KEY"):
 
@@ -60,6 +70,11 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info("Scheduler started")
     asyncio.create_task(refresh_news("GLOBAL", "en"))
+
+    # Run first Supabase sync immediately on startup
+    if is_supabase_configured():
+        asyncio.create_task(sync_all_to_supabase())
+
     yield
     scheduler.shutdown()
 

@@ -1,18 +1,15 @@
 """
 Anonymous user profiles with memorable Sync Codes.
 Profiles are stored in profiles.json (same pattern as subscribers.json).
-When Supabase is configured, profiles are also mirrored to cloud DB.
+When Supabase is configured, profiles are synced to cloud DB every 5 min.
 """
 
-import asyncio
 import json
 import logging
 import random
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
-
-from services.database import is_supabase_configured, db_create_profile, db_update_profile, db_record_analytics_event
 
 
 logger = logging.getLogger("dailyai.profiles")
@@ -101,24 +98,6 @@ def create_profile(preferred_topics: list[str], country: str = "GLOBAL",
     profiles[sync_code] = profile
     _save_profiles(profiles)
     logger.info(f"Created profile: {sync_code} (topics: {preferred_topics})")
-
-    # Mirror to Supabase cloud DB if configured
-    if is_supabase_configured():
-        try:
-            asyncio.get_event_loop().create_task(db_create_profile({
-                "sync_code": sync_code,
-                "preferred_topics": preferred_topics[:8],
-                "country": country,
-                "language": language,
-                "signals": {},
-                "bookmarks": [],
-                "analytics": {},
-                "created_at": now,
-                "last_active": now,
-            }))
-        except Exception:
-            pass  # fire-and-forget
-
     return profile
 
 
@@ -184,19 +163,6 @@ def record_signal(sync_code: str, topic: str, action: str) -> dict | None:
 
     profiles[sync_code] = profile
     _save_profiles(profiles)
-
-    # Mirror signal to Supabase as an analytics event
-    if is_supabase_configured():
-        try:
-            asyncio.get_event_loop().create_task(db_record_analytics_event({
-                "sync_code": sync_code,
-                "event_type": action,
-                "topic": topic,
-                "metadata": {"weight": weight},
-            }))
-        except Exception:
-            pass
-
     return profile
 
 
@@ -267,19 +233,4 @@ def record_analytics(sync_code: str, stats: dict) -> dict | None:
     profiles[sync_code] = profile
     _save_profiles(profiles)
     logger.info(f"Analytics updated for {sync_code}: {analytics}")
-
-    # Mirror analytics to Supabase cloud
-    if is_supabase_configured():
-        try:
-            asyncio.get_event_loop().create_task(db_update_profile(
-                sync_code, {"analytics": analytics, "last_active": profile["last_active"]}
-            ))
-            asyncio.get_event_loop().create_task(db_record_analytics_event({
-                "sync_code": sync_code,
-                "event_type": "session_analytics",
-                "metadata": stats,
-            }))
-        except Exception:
-            pass
-
     return analytics
