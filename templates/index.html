@@ -251,17 +251,22 @@
 
         <!-- ===== Bottom Nav ===== -->
         <nav class="bottom-nav" id="bottomNav" aria-label="Primary">
-            <button class="bottom-nav-item" id="bottomSettingsBtn" type="button">
-                <span class="bottom-nav-icon">⚙️</span>
-                <span id="bottomSettingsLabel">Settings</span>
-            </button>
             <button class="bottom-nav-item active" id="bottomDiscoverBtn" type="button">
-                <span class="bottom-nav-icon">🏠</span>
-                <span id="bottomDiscoverLabel">Discover</span>
+                <span class="bottom-nav-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                </span>
+                <span id="bottomDiscoverLabel">DISCOVER</span>
             </button>
-            <button class="bottom-nav-item" id="savedBtn" type="button">
-                <span class="bottom-nav-icon">🔖</span>
-                <span id="bottomSavedLabel">Saved</span>
+            <button class="bottom-nav-item bottom-nav-fab" id="savedBtn" type="button">
+                <span class="bottom-nav-fab-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                </span>
+            </button>
+            <button class="bottom-nav-item" id="bottomSettingsBtn" type="button">
+                <span class="bottom-nav-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </span>
+                <span id="bottomSettingsLabel">SETTINGS</span>
             </button>
         </nav>
 

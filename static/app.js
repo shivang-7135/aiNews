@@ -665,7 +665,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         'AU': '🇦🇺', 'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'BR': '🇧🇷', 'SG': '🇸🇬',
         'AE': '🇦🇪', 'IL': '🇮🇱', 'GLOBAL': '🌐',
     };
-    const AVATAR_COLORS = ['#6366f1', '#2dd4a0', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6', '#ec4899', '#14b8a6'];
+    const AVATAR_COLORS = ['#aca3ff', '#6f5fea', '#ff9eca', '#00D2FF', '#8b5cf6', '#6C5CE7', '#ff6e84', '#5948d3'];
     const FALLBACK_ARTICLES = [
         { id: 'fb-1', headline: 'OpenAI Announces GPT-5 with Multimodal Reasoning', summary: 'OpenAI has unveiled GPT-5, featuring advanced multimodal reasoning capabilities that can process text, images, and audio simultaneously.', why_it_matters: 'A major leap in AI capability, potentially transforming multiple industries.', topic: 'AI Models', source_name: 'TechCrunch', source_avatar_url: null, image_url: null, article_url: '#', published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         { id: 'fb-2', headline: 'EU Finalizes AI Act Implementation Timeline', summary: 'The European Union has released the final implementation timeline for the AI Act, giving companies 12 months to comply.', why_it_matters: 'Companies worldwide must adapt their AI products to meet these regulations.', topic: 'Top Stories', source_name: 'Reuters', source_avatar_url: null, image_url: null, article_url: '#', published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
@@ -1434,12 +1434,14 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         if (article.importance) card.dataset.importance = String(article.importance);
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 ${article.importance}/10</div>` : '';
         const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
-        const imgHtml = article.image_url
+        const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
+        const rawImg = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : buildTopicCoverImg(article);
+        const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
 
         const isSaved = !!bookmarks[article.id];
         card.innerHTML = `
@@ -1737,12 +1739,14 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     function createFeedCardHTML(article, i) {
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
-        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 ${article.importance}/10</div>` : '';
         const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
-        const imgHtml = article.image_url
+        const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
+        const rawImg = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : buildTopicCoverImg(article);
+        const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
 
         return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i * 50}ms">
             ${imgHtml}
@@ -1916,10 +1920,12 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const avatarColor = AVATAR_COLORS[hashCode(article.source_name) % AVATAR_COLORS.length];
         const initial = (article.source_name || 'D')[0].toUpperCase();
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
-        const imgHtml = article.image_url
+        const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
+        const rawImg = article.image_url
             ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
             : buildTopicCoverImg(article);
-        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 Relevance: ${article.importance}/10</div>` : '';
+        const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
+        const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 ${article.importance}/10</div>` : '';
         const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
 
         card.innerHTML = `
