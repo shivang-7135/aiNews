@@ -136,6 +136,14 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             whatsNewAcknowledge: 'Start Exploring',
             streakLine: '🔥 Day {count} reading streak',
             streakBadge: '🔥 Day {count} reading DailyAI',
+            shareAction: '📤 Share',
+            sharedSuccess: 'Link copied to clipboard',
+            readToday: '{count} stories read today',
+            heroDismiss: 'Start Reading →',
+            installPromptTitle: 'Add DailyAI to Home Screen',
+            installPromptSub: 'Get instant AI news — no app store needed',
+            installPromptBtn: 'Install',
+            trustSignalText: 'AI-curated from 50+ sources · Updated every hour',
         },
         hi: {
             htmlLang: 'hi',
@@ -257,19 +265,27 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             whatsNewAcknowledge: 'शुरू करें',
             streakLine: '🔥 दिन {count} पढ़ने की स्ट्रीक',
             streakBadge: '🔥 दिन {count} DailyAI पढ़ना',
+            shareAction: '📤 शेयर',
+            sharedSuccess: 'लिंक कॉपी हो गया',
+            readToday: 'आज {count} खबरें पढ़ीं',
+            heroDismiss: 'पढ़ना शुरू करें →',
+            installPromptTitle: 'DailyAI को होम स्क्रीन पर जोड़ें',
+            installPromptSub: 'तुरंत AI खबर पाएं — ऐप स्टोर की जरूरत नहीं',
+            installPromptBtn: 'इंस्टॉल करें',
+            trustSignalText: '50+ स्रोतों से AI द्वारा चयनित · हर घंटे अपडेट',
         },
         de: {
             htmlLang: 'de',
             pageTitle: 'DailyAI - KI-Entscheidungen in 60 Sekunden',
-            pageDescription: 'DailyAI macht aus KI-Schlagzeilen klare Entscheidungen, Wirkung und naechste Schritte.',
+            pageDescription: 'DailyAI macht aus KI-Schlagzeilen klare Entscheidungen, Wirkung und nächste Schritte.',
             onboardingTitle: 'Willkommen bei DailyAI',
             onboardingDesc: 'Von KI-Headlines zu konkreten Aktionen in unter 60 Sekunden.',
             onboardingFeatureSwipe: 'Schnell scrollen, Relevantes speichern, den Rest ignorieren.',
             onboardingFeatureLanguage: 'Sprache direkt oben in der Leiste wechseln.',
             onboardingFeatureCountry: 'Land oben umstellen, um den Feed zu lokalisieren.',
-            onboardingFeatureRead: 'Auf eine Karte tippen, um Sicherheit, Wirkung und den naechsten Schritt zu sehen.',
-            onboardingFeatureCache: 'Stories werden lokal zwischengespeichert fuer schnelleres Laden und weniger API-Aufrufe.',
-            onboardingCacheNote: 'Starte im allgemeinen Modus und wechsle den Entscheidungsfokus spaeter im Menue.',
+            onboardingFeatureRead: 'Auf eine Karte tippen, um Sicherheit, Wirkung und den nächsten Schritt zu sehen.',
+            onboardingFeatureCache: 'Stories werden lokal zwischengespeichert für schnelleres Laden und weniger API-Aufrufe.',
+            onboardingCacheNote: 'Starte im allgemeinen Modus und wechsle den Entscheidungsfokus später im Menü.',
             onboardingStart: 'Mit Scrollen starten ↕',
             onboardingScroll: 'Jetzt entdecken',
             navDiscover: 'Entdecken',
@@ -280,8 +296,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             sortBy: 'Sortieren nach',
             sortRelevance: '⚡ Relevanz',
             sortLatest: '🕐 Neueste',
-            digestTitle: '📬 Taeglicher Digest',
-            digestDesc: 'Der taegliche Digest kommt bald.',
+            digestTitle: '📬 Täglicher Digest',
+            digestDesc: 'Der tägliche Digest kommt bald.',
             readersSubscribed: 'Leser abonniert',
             emailPlaceholder: 'you@email.com',
             subscribe: 'Abonnieren',
@@ -305,17 +321,17 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             themeSwitchToDark: 'Zum dunklen Design wechseln',
             viewDiscover: 'Entdecken',
             viewSaved: 'Gespeichert',
-            forYou: 'Fuer dich',
+            forYou: 'Für dich',
             topStories: 'Top-Storys',
             techScience: 'Technik & Wissenschaft',
             aiModels: 'KI-Modelle',
             tools: 'Tools',
             research: 'Forschung',
             business: 'Business',
-            hintSkip: '← Ueberspringen',
+            hintSkip: '← Überspringen',
             hintSave: 'Speichern →',
             emptyCaughtUp: 'Du bist auf dem neuesten Stand!',
-            emptySub: 'Ziehe nach unten oder wechsle Tabs fuer mehr Storys.',
+            emptySub: 'Ziehe nach unten oder wechsle Tabs für mehr Storys.',
             reloadFeed: 'Feed neu laden ↻',
             noStories: 'Noch keine Storys',
             noStoriesSub: 'Zum Aktualisieren nach unten ziehen.',
@@ -330,7 +346,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             roleToast: 'Fokus: {name}',
             lensActive: 'Fokus: {name}',
             roleGeneral: 'Allgemein',
-            roleFounder: 'Gruender',
+            roleFounder: 'Gründer',
             roleDeveloper: 'Entwickler',
             roleStudent: 'Student',
             roleMarketer: 'Marketing',
@@ -341,21 +357,21 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             impact: 'Wirkung',
             impactImmediate: 'Sofort',
             impactWatchlist: 'Beobachten',
-            confidenceHint: 'Sicherheit schaetzt ein, wie verlaesslich die Story laut Quelle und Bestaetigungen ist.',
-            impactHint: 'Wirkung schaetzt ein, wie schnell die Story die meisten Menschen oder Teams betreffen koennte.',
-            decisionExplainer: 'So liest du es: Sicherheit zeigt die Quellenzuverlaessigkeit; Wirkung zeigt die praktische Dringlichkeit.',
-            doNext: 'Naechster Schritt',
-            actionFounder: 'Business-Auswirkung fuer dein Team einordnen und diese Woche einen Pilot waehlen.',
-            actionDeveloper: 'Technische Folgen pruefen und heute einen Umsetzungsweg testen.',
-            actionStudent: 'Einen Kernpunkt notieren und Story fuer die Lern-Wiederholung speichern.',
+            confidenceHint: 'Sicherheit schätzt ein, wie verlässlich die Story laut Quelle und Bestätigungen ist.',
+            impactHint: 'Wirkung schätzt ein, wie schnell die Story die meisten Menschen oder Teams betreffen könnte.',
+            decisionExplainer: 'So liest du es: Sicherheit zeigt die Quellenzuverlässigkeit; Wirkung zeigt die praktische Dringlichkeit.',
+            doNext: 'Nächster Schritt',
+            actionFounder: 'Business-Auswirkung für dein Team einordnen und diese Woche einen Pilot wählen.',
+            actionDeveloper: 'Technische Folgen prüfen und heute einen Umsetzungsweg testen.',
+            actionStudent: 'Einen Kernpunkt notieren und Story für die Lern-Wiederholung speichern.',
             actionMarketer: 'Einen nutzerorientierten Winkel ableiten und einen kurzen Messaging-Test planen.',
             languageToast: 'Sprache: {name}',
-            languageRefreshNotice: 'Sprache wurde geaendert. Bitte Seite neu laden.',
+            languageRefreshNotice: 'Sprache wurde geändert. Bitte Seite neu laden.',
             languageReloadTitle: 'Sprache aktualisiert',
-            languageReloadPrompt: 'Sprache wurde geaendert. Jetzt neu laden fuer das beste Erlebnis?',
+            languageReloadPrompt: 'Sprache wurde geändert. Jetzt neu laden für das beste Erlebnis?',
             languageReloadNow: 'Jetzt neu laden',
-            languageReloadLaterAction: 'Spaeter',
-            languageReloadLater: 'Sprache wurde geaendert. Du kannst jederzeit neu laden fuer eine vollstaendige Aktualisierung.',
+            languageReloadLaterAction: 'Später',
+            languageReloadLater: 'Sprache wurde geändert. Du kannst jederzeit neu laden für eine vollständige Aktualisierung.',
             subscribedToast: 'Abonniert! 🎉',
             subscribedOk: 'Abonniert!',
             networkError: 'Netzwerkfehler',
@@ -365,19 +381,27 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             saveAction: '🔖 Speichern',
             savedAction: '✓ Gespeichert',
             unsaveAction: '🗑 Entfernen',
-            addedSaved: '✓ Zu gespeicherten Artikeln hinzugefuegt',
+            addedSaved: '✓ Zu gespeicherten Artikeln hinzugefügt',
             removedSaved: 'Aus Gespeichert entfernt',
-            expandView: 'Ansicht vergroessern',
+            expandView: 'Ansicht vergrößern',
             collapseView: 'Kompakte Ansicht',
-            loadingBrief: 'Ausfuehrlicher Brief wird erstellt...',
-            briefUnavailable: 'Ausfuehrlicher Brief ist noch nicht verfuegbar. Bitte erneut versuchen.',
-            publishedAt: 'Veroeffentlicht',
+            loadingBrief: 'Ausführlicher Brief wird erstellt...',
+            briefUnavailable: 'Ausführlicher Brief ist noch nicht verfügbar. Bitte erneut versuchen.',
+            publishedAt: 'Veröffentlicht',
             updatedAt: 'Aktualisiert',
             whatsNewTitle: 'So hilft DailyAI bei Entscheidungen',
-            whatsNewBody: 'Jede Story zeigt jetzt Sicherheit, Wirkung und den naechsten Schritt:',
+            whatsNewBody: 'Jede Story zeigt jetzt Sicherheit, Wirkung und den nächsten Schritt:',
             whatsNewAcknowledge: 'Los gehts',
             streakLine: '🔥 Tag {count} Lesestreak',
             streakBadge: '🔥 Tag {count} DailyAI gelesen',
+            shareAction: '📤 Teilen',
+            sharedSuccess: 'Link kopiert',
+            readToday: 'Heute {count} Storys gelesen',
+            heroDismiss: 'Jetzt lesen →',
+            installPromptTitle: 'DailyAI zum Startbildschirm',
+            installPromptSub: 'Sofortige KI-News holen — kein App Store nötig',
+            installPromptBtn: 'Installieren',
+            trustSignalText: 'KI-kuratiert aus 50+ Quellen · Stündlich aktualisiert',
         },
     };
 
@@ -428,6 +452,13 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         setText('#sortSectionTitle', t('sortBy'));
         setText('#refreshSectionTitle', t('refreshSectionTitle'));
         setText('#digestSectionTitle', t('digestTitle'));
+        
+        setText('#heroDismiss', t('heroDismiss'));
+        setText('#installPromptTitle', t('installPromptTitle'));
+        setText('#installPromptSub', t('installPromptSub'));
+        setText('#installPromptBtn', t('installPromptBtn'));
+        setText('#trustSignalText', t('trustSignalText'));
+        updateProgressRing();
 
         setText('.sidebar-desc', t('digestDesc'));
         setText('#sidebarRefreshBtn', t('refreshNews'));
@@ -771,6 +802,90 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     const whatsNewOkBtn = $('whatsNewOkBtn');
     const whatsNewList = $('whatsNewList');
 
+    // ====================== MARKET-FIT UPGRADE ======================
+    let deferredPrompt;
+    function updateProgressRing() {
+        const today = new Date().toDateString();
+        let count = parseInt(localStorage.getItem('dailyai_read_count') || '0', 10);
+        if (localStorage.getItem('dailyai_read_date') !== today) count = 0;
+        
+        const max = 10;
+        const progress = Math.min(count / max, 1);
+        const circumference = 97.4;
+        const offset = circumference - (progress * circumference);
+        
+        const fillEl = document.querySelector('.progress-ring-fill');
+        if (fillEl) fillEl.style.strokeDashoffset = offset;
+        
+        const countEl = document.querySelector('.progress-count');
+        if (countEl) countEl.textContent = count;
+        
+        const ringRow = document.querySelector('.reading-progress');
+        if (ringRow) {
+            ringRow.setAttribute('aria-label', t('readToday', { count }));
+            ringRow.title = t('readToday', { count });
+        }
+    }
+
+    function trackReadArticle() {
+        const today = new Date().toDateString();
+        let lastDate = localStorage.getItem('dailyai_read_date');
+        let count = parseInt(localStorage.getItem('dailyai_read_count') || '0', 10);
+        if (lastDate !== today) {
+            count = 0;
+            localStorage.setItem('dailyai_read_date', today);
+        }
+        if (count < 10) {
+            count++;
+            localStorage.setItem('dailyai_read_count', count);
+            updateProgressRing();
+        }
+    }
+
+    function initMarketFitFeatures() {
+        // Hero Banner
+        const heroBanner = document.getElementById('heroBanner');
+        const heroDismiss = document.getElementById('heroDismiss');
+        if (heroBanner && heroDismiss) {
+            if (!localStorage.getItem('dailyai_hero_dismissed')) {
+                heroBanner.style.display = 'block';
+                heroDismiss.addEventListener('click', () => {
+                    heroBanner.style.animation = 'heroBannerIn 0.4s reverse forwards';
+                    setTimeout(() => heroBanner.style.display = 'none', 400);
+                    localStorage.setItem('dailyai_hero_dismissed', '1');
+                });
+            } else {
+                heroBanner.style.display = 'none';
+            }
+        }
+
+        // PWA Install Prompt
+        const promptEl = document.getElementById('installPrompt');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (promptEl && !localStorage.getItem('dailyai_install_dismissed')) {
+                setTimeout(() => promptEl.style.display = 'flex', 8000); // 8s delay
+
+                document.getElementById('installPromptBtn')?.addEventListener('click', async () => {
+                    promptEl.style.display = 'none';
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        deferredPrompt = null;
+                        if (outcome === 'accepted') localStorage.setItem('dailyai_install_dismissed', '1');
+                    }
+                });
+                document.getElementById('installPromptClose')?.addEventListener('click', () => {
+                    promptEl.style.display = 'none';
+                    localStorage.setItem('dailyai_install_dismissed', '1');
+                });
+            }
+        });
+
+        updateProgressRing();
+    }
+
     // ====================== INIT ======================
     async function init() {
         if (!['dark', 'light'].includes(currentTheme)) {
@@ -874,6 +989,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         initSyncRestore();
         initConsentBanner();
         updateSyncCodeUI();
+
+        initMarketFitFeatures();
 
         // Onboarding check
         if (!localStorage.getItem('dailyai_onboarded')) {
@@ -1426,6 +1543,25 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
 
 
+    function getReadingTimeMarkup(article) {
+        // Average silent reading speed is ~250 wpm. Using character count approx (1000 chars ~ 1 min)
+        const chars = (article.headline || '').length + (article.summary || '').length + (article.why_it_matters || '').length || 800;
+        const mins = Math.max(1, Math.ceil(chars / 800));
+        return `<div class="card-reading-time">${mins} min read</div>`;
+    }
+
+    function getCardBadges(article) {
+        let badgesHtml = '';
+        if (article.importance >= 9) {
+            badgesHtml += `<div class="card-badge-trending">Trending</div>`;
+        } else if (article.importance >= 8) {
+            const pubDate = new Date(article.published_at || article.updated_at || new Date());
+            const hoursOld = (new Date() - pubDate) / (1000 * 60 * 60);
+            if (hoursOld < 12) badgesHtml += `<div class="card-badge-breaking">Breaking</div>`;
+        }
+        return badgesHtml;
+    }
+
     function createScrollCard(article) {
         const card = document.createElement('div');
         card.className = 'scroll-card';
@@ -1439,14 +1575,19 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
         const rawImg = article.image_url
-            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy" onerror="this.onerror=null; this.src='${esc(getTopicFallbackCoverUrl(article.topic))}';">`
             : buildTopicCoverImg(article);
         const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
+
+        const badgesHtml = getCardBadges(article);
+        const readingTimeHtml = getReadingTimeMarkup(article);
 
         const isSaved = !!bookmarks[article.id];
         card.innerHTML = `
             ${imgHtml}
             <div class="card-body">
+                ${badgesHtml}
+                ${readingTimeHtml}
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 ${importanceHtml}
                 ${tapToReadHtml}
@@ -1744,13 +1885,18 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
         const rawImg = article.image_url
-            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy" onerror="this.onerror=null; this.src='${esc(getTopicFallbackCoverUrl(article.topic))}';">`
             : buildTopicCoverImg(article);
         const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
+
+        const badgesHtml = getCardBadges(article);
+        const readingTimeHtml = getReadingTimeMarkup(article);
 
         return `<div class="feed-card" data-id="${esc(article.id)}" style="animation-delay:${i * 50}ms">
             ${imgHtml}
             <div class="card-body">
+                ${badgesHtml}
+                ${readingTimeHtml}
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 ${importanceHtml}
                 ${tapToReadHtml}
@@ -1922,17 +2068,21 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const whyHtml = article.why_it_matters ? `<div class="card-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const topicTag = article.topic ? `<span class="card-topic-tag">${esc(article.topic)}</span>` : '';
         const rawImg = article.image_url
-            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy">`
+            ? `<img src="${esc(article.image_url)}" alt="" class="card-image" loading="lazy" onerror="this.onerror=null; this.src='${esc(getTopicFallbackCoverUrl(article.topic))}';">`
             : buildTopicCoverImg(article);
         const imgHtml = `<div class="card-image-wrap">${topicTag}${rawImg}</div>`;
         const importanceHtml = article.importance ? `<div class="relevance-badge">🔥 ${article.importance}/10</div>` : '';
         const tapToReadHtml = `<p class="tap-to-read">✨ Tap to generate AI brief...</p>`;
+        const badgesHtml = getCardBadges(article);
+        const readingTimeHtml = getReadingTimeMarkup(article);
 
         card.innerHTML = `
             <div class="swipe-label swipe-label-save">${t('swipeLabelSave')}</div>
             <div class="swipe-label swipe-label-skip">${t('swipeLabelSkip')}</div>
             ${imgHtml}
             <div class="card-body">
+                ${badgesHtml}
+                ${readingTimeHtml}
                 <h2 class="card-headline">${esc(article.headline)}</h2>
                 ${importanceHtml}
                 ${tapToReadHtml}
@@ -2096,6 +2246,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
         recordSignal(article.id || '', 'tap', article.category || '');
+        trackReadArticle();
+        
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];
         sheetContent.innerHTML = `
@@ -2120,8 +2272,15 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
         const actionsHtml = `
             <div class="sheet-actions">
-                <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
+                <button class="sheet-link sheet-link-share" id="sheetShareBtn" aria-label="${t('shareAction')}" title="${t('shareAction')}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                        <polyline points="16 6 12 2 8 6"></polyline>
+                        <line x1="12" y1="2" x2="12" y2="15"></line>
+                    </svg>
+                </button>
                 <button class="sheet-link sheet-link-secondary" id="sheetSaveBtn">${isSaved ? t('unsaveAction') : t('saveAction')}</button>
+                <a href="${esc(article.article_url)}" target="_blank" rel="noopener noreferrer" class="sheet-link">${t('readOriginal')}</a>
                 <p class="save-feedback" id="sheetSaveFeedback" style="display:none;">${t('addedSaved')}</p>
             </div>
         `;
@@ -2129,6 +2288,22 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         const existingActions = bottomSheet.querySelector('.sheet-actions');
         if (existingActions) existingActions.remove();
         bottomSheet.insertAdjacentHTML('beforeend', actionsHtml);
+
+        const shareBtn = $('sheetShareBtn');
+        shareBtn?.addEventListener('click', async () => {
+            const shareData = {
+                title: 'DailyAI: ' + article.headline,
+                text: article.summary,
+                url: article.article_url
+            };
+            try {
+                if (navigator.share) await navigator.share(shareData);
+                else {
+                    await navigator.clipboard.writeText(shareData.url);
+                    showToast(t('sharedSuccess'));
+                }
+            } catch (e) { console.error('Share failed', e); }
+        });
 
         const saveFromSheet = (id) => {
             const a = allArticles.find(x => x.id === id) || article;

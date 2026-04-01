@@ -197,12 +197,27 @@
             <div class="top-bar-center">
                 <h1 class="top-bar-title" id="viewTitle">Discover</h1>
             </div>
-            <div class="theme-toggle-pill" id="themeTogglePill" role="switch" aria-label="Toggle theme" tabindex="0">
-                <span class="theme-icon theme-icon-moon" id="themeIconMoon">🌙</span>
-                <span class="theme-icon theme-icon-sun" id="themeIconSun">☀️</span>
-                <span class="theme-toggle-thumb" id="themeThumb"></span>
+            <div class="top-bar-right">
+                <div class="reading-progress" id="readingProgress" title="Stories read today">
+                    <svg class="progress-ring" width="32" height="32" viewBox="0 0 36 36">
+                        <circle class="progress-ring-bg" cx="18" cy="18" r="15.5" />
+                        <circle class="progress-ring-fill" id="progressRingFill" cx="18" cy="18" r="15.5" />
+                    </svg>
+                    <span class="progress-count" id="progressCount">0</span>
+                </div>
+                <div class="theme-toggle-pill" id="themeTogglePill" role="switch" aria-label="Toggle theme" tabindex="0">
+                    <span class="theme-icon theme-icon-moon" id="themeIconMoon">🌙</span>
+                    <span class="theme-icon theme-icon-sun" id="themeIconSun">☀️</span>
+                    <span class="theme-toggle-thumb" id="themeThumb"></span>
+                </div>
             </div>
         </header>
+
+        <!-- ===== AI Trust Signal ===== -->
+        <div class="trust-signal" id="trustSignal">
+            <span class="trust-signal-icon">🤖</span>
+            <span class="trust-signal-text" id="trustSignalText">AI-curated from 50+ sources · Updated every hour</span>
+        </div>
 
         <!-- ===== Filter Tabs ===== -->
         <nav class="filter-tabs" id="filterTabs">
@@ -216,6 +231,24 @@
                 <button class="filter-pill" data-topic="Business">Business</button>
             </div>
         </nav>
+
+        <!-- ===== Hero Banner ===== -->
+        <div class="hero-banner" id="heroBanner" style="display:none;">
+            <div class="hero-banner-glow"></div>
+            <div class="hero-banner-content">
+                <div class="hero-badge">✨ YOUR AI NEWSROOM</div>
+                <h2 class="hero-title" id="heroTitle">30 AI stories.<br>Curated by AI.<br>In 60 seconds.</h2>
+                <p class="hero-sub" id="heroSub">No noise. No login. Just the AI news that matters to you — with confidence scores, impact ratings, and actionable next steps.</p>
+                <div class="hero-stats">
+                    <div class="hero-stat"><span class="hero-stat-num">50+</span><span class="hero-stat-label" id="heroStatSources">Sources</span></div>
+                    <div class="hero-stat-divider"></div>
+                    <div class="hero-stat"><span class="hero-stat-num">3</span><span class="hero-stat-label" id="heroStatLangs">Languages</span></div>
+                    <div class="hero-stat-divider"></div>
+                    <div class="hero-stat"><span class="hero-stat-num">15</span><span class="hero-stat-label" id="heroStatRegions">Regions</span></div>
+                </div>
+                <button class="hero-dismiss" id="heroDismiss">Start Reading →</button>
+            </div>
+        </div>
 
         <!-- ===== Swipe Stack ===== -->
         <div class="swipe-container" id="swipeContainer">
@@ -305,6 +338,19 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- ===== PWA Install Prompt ===== -->
+    <div class="install-prompt" id="installPrompt" style="display:none;">
+        <div class="install-prompt-icon">📱</div>
+        <div class="install-prompt-body">
+            <p class="install-prompt-title" id="installPromptTitle">Add DailyAI to Home Screen</p>
+            <p class="install-prompt-sub" id="installPromptSub">Get instant AI news — no app store needed</p>
+        </div>
+        <div class="install-prompt-actions">
+            <button class="install-prompt-btn" id="installPromptBtn">Install</button>
+            <button class="install-prompt-close" id="installPromptClose">✕</button>
+        </div>
     </div>
 
     <!-- ===== GDPR Consent Banner ===== -->
