@@ -71,10 +71,6 @@ async def lifespan(app: FastAPI):
     logger.info("Scheduler started")
     asyncio.create_task(refresh_news("GLOBAL", "en"))
 
-    # Run first Supabase sync immediately on startup
-    if is_supabase_configured():
-        asyncio.create_task(sync_all_to_supabase())
-
     yield
     scheduler.shutdown()
 
@@ -139,9 +135,15 @@ async def get_languages():
 
 @app.get("/api/articles")
 async def get_articles(topic: str = "all", country: str = "GLOBAL",
-                       language: str = "en", sync_code: str = ""):
+                       language: str = "en", sync_code: str = "",
+                       offset: int = 0, limit: int = 15):
     payload = await get_articles_payload(
-        topic=topic, country=country, language=language, sync_code=sync_code,
+        topic=topic,
+        country=country,
+        language=language,
+        sync_code=sync_code,
+        offset=max(0, offset),
+        limit=max(1, min(limit, 30)),
     )
     payload["language_name"] = SUPPORTED_LANGUAGES.get(payload["language"], "English")
     return payload
@@ -175,6 +177,8 @@ async def force_refresh(country_code: str, language: str = "en"):
 
 @app.post("/api/subscribe")
 async def subscribe(req: SubscribeRequest):
+    from services.database import is_supabase_configured, sync_subscriber_to_supabase
+
     email = req.email.strip().lower()
     language = normalize_language(req.language)
     country = (req.country or "GLOBAL").upper()
@@ -194,6 +198,8 @@ async def subscribe(req: SubscribeRequest):
             subscriber["language"] = language
             subscriber["updated_at"] = now_iso
             save_subscribers(subs)
+            if is_supabase_configured():
+                asyncio.create_task(sync_subscriber_to_supabase(subscriber))
             return {"status": "updated", "message": "Preferences updated!"}
 
     subs.append(
@@ -207,6 +213,8 @@ async def subscribe(req: SubscribeRequest):
         }
     )
     save_subscribers(subs)
+    if is_supabase_configured():
+        asyncio.create_task(sync_subscriber_to_supabase(subs[-1]))
     logger.info(f"New subscriber: {email} (topics: {req.topics})")
 
     preferred_key = store_key(country, language)
@@ -243,11 +251,15 @@ async def subscriber_count():
 # ── Profile (anonymous recommendation) routes ──────────────────────
 @app.post("/api/profile/new")
 async def create_new_profile(req: CreateProfileRequest):
+    from services.database import is_supabase_configured, sync_profile_to_supabase
+
     profile = create_profile(
         preferred_topics=req.preferred_topics,
         country=req.country,
         language=req.language,
     )
+    if is_supabase_configured():
+        asyncio.create_task(sync_profile_to_supabase(profile))
     return {"status": "created", "profile": profile}
 
 
@@ -261,6 +273,8 @@ async def fetch_profile(sync_code: str):
 
 @app.put("/api/profile/{sync_code}")
 async def update_profile(sync_code: str, req: UpdateProfileRequest):
+    from services.database import is_supabase_configured, sync_profile_to_supabase
+
     profile = update_preferences(
         sync_code=sync_code,
         preferred_topics=req.preferred_topics,
@@ -270,25 +284,37 @@ async def update_profile(sync_code: str, req: UpdateProfileRequest):
     )
     if not profile:
         return JSONResponse({"error": "Profile not found"}, status_code=404)
+    if is_supabase_configured():
+        asyncio.create_task(sync_profile_to_supabase(profile))
     return {"status": "updated", "profile": profile}
 
 
 @app.post("/api/profile/{sync_code}/signal")
 async def profile_signal(sync_code: str, req: RecordSignalRequest):
+    from services.database import is_supabase_configured, sync_profile_to_supabase
+
     profile = record_signal(sync_code=sync_code, topic=req.topic, action=req.action)
     if not profile:
         return JSONResponse({"error": "Profile not found or invalid signal"}, status_code=400)
+    if is_supabase_configured():
+        asyncio.create_task(sync_profile_to_supabase(profile))
     return {"status": "recorded"}
 
 
 @app.post("/api/profile/{sync_code}/analytics")
 async def profile_analytics(sync_code: str, req: RecordAnalyticsRequest):
+    from services.database import is_supabase_configured, sync_profile_to_supabase
+
     result = record_analytics(
         sync_code=sync_code,
         stats=req.dict() if hasattr(req, 'dict') else req.model_dump(),
     )
     if not result:
         return JSONResponse({"error": "Profile not found"}, status_code=404)
+    if is_supabase_configured():
+        profile = get_profile(sync_code)
+        if profile:
+            asyncio.create_task(sync_profile_to_supabase(profile))
     return {"status": "recorded", "analytics": result}
 
 

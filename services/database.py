@@ -302,3 +302,51 @@ async def sync_all_to_supabase() -> dict:
     )
     return summary
 
+
+async def sync_profile_to_supabase(profile: dict | None) -> bool:
+    """Upsert one profile row to Supabase after user-level changes."""
+    if not is_supabase_configured() or not profile:
+        return False
+    try:
+        row = {
+            "sync_code": profile.get("sync_code", ""),
+            "preferred_topics": profile.get("preferred_topics", []),
+            "country": profile.get("country", "GLOBAL"),
+            "language": profile.get("language", "en"),
+            "signals": profile.get("signals", {}),
+            "bookmarks": profile.get("bookmarks", []),
+            "analytics": profile.get("analytics", {}),
+            "created_at": profile.get("created_at"),
+            "last_active": profile.get("last_active"),
+        }
+        if not row["sync_code"]:
+            return False
+        result = await db_upsert("profiles", row, on_conflict="sync_code")
+        return bool(result)
+    except Exception as e:
+        logger.warning(f"[DB Sync] profile upsert failed: {e}")
+        return False
+
+
+async def sync_subscriber_to_supabase(subscriber: dict | None) -> bool:
+    """Upsert one subscriber row to Supabase after subscribe/update."""
+    if not is_supabase_configured() or not subscriber:
+        return False
+    try:
+        email = str(subscriber.get("email", "")).strip().lower()
+        if not email:
+            return False
+        row = {
+            "email": email,
+            "topics": subscriber.get("topics", []),
+            "country": subscriber.get("country", "GLOBAL"),
+            "language": subscriber.get("language", "en"),
+            "subscribed_at": subscriber.get("subscribed_at"),
+            "is_active": subscriber.get("is_active", True),
+        }
+        result = await db_upsert("subscribers", row, on_conflict="email")
+        return bool(result)
+    except Exception as e:
+        logger.warning(f"[DB Sync] subscriber upsert failed: {e}")
+        return False
+

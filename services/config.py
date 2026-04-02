@@ -12,24 +12,13 @@ DEPLOYED_AT = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 COUNTRIES = {
     "US": "United States",
     "GB": "United Kingdom",
-    "IN": "India",
     "DE": "Germany",
-    "FR": "France",
-    "CA": "Canada",
-    "AU": "Australia",
-    "JP": "Japan",
-    "KR": "South Korea",
-    "CN": "China",
-    "BR": "Brazil",
-    "SG": "Singapore",
-    "AE": "UAE",
-    "IL": "Israel",
+    "IN": "India",
     "GLOBAL": "Global / Worldwide",
 }
 
 SUPPORTED_LANGUAGES = {
     "en": "English",
-    "hi": "Hindi",
     "de": "German",
 }
 

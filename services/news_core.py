@@ -121,7 +121,8 @@ async def get_news_payload(country_code: str, language: str) -> tuple[int, dict]
 
 
 async def get_articles_payload(topic: str, country: str, language: str,
-                                sync_code: str = "") -> dict:
+                                sync_code: str = "", offset: int = 0,
+                                limit: int = 15) -> dict:
     country = country.upper()
     language = normalize_language(language)
     if country not in COUNTRIES:
@@ -181,25 +182,51 @@ async def get_articles_payload(topic: str, country: str, language: str,
             }
         )
 
-    # ── Personalized re-ranking ──────────────────────────────────
+    def importance_sort_key(article: dict) -> tuple:
+        return (
+            int(article.get("importance", 0) or 0),
+            str(article.get("published_at", "") or ""),
+        )
+
+    common_count = 5
+    common_articles = sorted(articles, key=importance_sort_key, reverse=True)[:common_count]
+    common_ids = {article.get("id") for article in common_articles}
+    personalized_pool = [article for article in articles if article.get("id") not in common_ids]
+
     if sync_code:
         try:
             from services.profiles import get_topic_scores
+
             scores = get_topic_scores(sync_code)
             if scores:
-                def rank_score(article: dict) -> float:
-                    cat = article.get("category", "general")
-                    pref_score = scores.get(cat, 0)
-                    imp_score = article.get("importance", 5)
-                    return pref_score * 2 + imp_score
+                def personalized_rank(article: dict) -> float:
+                    category = article.get("category", "general")
+                    topic = article.get("topic", "Top Stories")
+                    pref_score = float(scores.get(category, 0)) + float(scores.get(topic, 0))
+                    imp_score = float(article.get("importance", 5))
+                    return pref_score * 2.0 + imp_score
 
-                articles.sort(key=rank_score, reverse=True)
+                personalized_pool.sort(key=personalized_rank, reverse=True)
                 logger.info(f"[Feed] Personalized for {sync_code} ({len(scores)} topic scores)")
+            else:
+                personalized_pool.sort(key=importance_sort_key, reverse=True)
         except Exception as e:
             logger.warning(f"[Feed] Personalization failed for {sync_code}: {e}")
+            personalized_pool.sort(key=importance_sort_key, reverse=True)
+    else:
+        personalized_pool.sort(key=importance_sort_key, reverse=True)
+
+    curated_articles = common_articles + personalized_pool
+    has_more = offset + limit < len(curated_articles)
+    page = curated_articles[offset: offset + limit]
 
     return {
-        "articles": articles,
+        "articles": page,
+        "common_count": min(common_count, len(common_articles)),
+        "total": len(curated_articles),
+        "offset": offset,
+        "limit": limit,
+        "has_more": has_more,
         "country": country,
         "country_name": COUNTRIES.get(country, country),
         "language": language,

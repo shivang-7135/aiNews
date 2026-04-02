@@ -10,6 +10,8 @@ const RELEASE_VERSION = document.documentElement.dataset.releaseVersion || 'dev'
 const VERSION_POLL_MS = 45 * 1000;
 const BUILD_MARKER_KEY = 'dailyai_last_loaded_build';
 const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
+const TOPIC_AFFINITY_KEY = 'dailyai_topic_affinity_v1';
+const FEED_PAGE_SIZE = 15;
 
 
 (function () {
@@ -144,6 +146,11 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             installPromptSub: 'Get instant AI news — no app store needed',
             installPromptBtn: 'Install',
             trustSignalText: 'AI-curated from 50+ sources · Updated every hour',
+            pulseTitle: 'Market Pulse',
+            pulseStories: '{count} stories',
+            pulseFresh: 'Fresh: {time}',
+            relatedStories: 'Related stories',
+            swipeDiscoverHint: 'Swipe left or right to move across stories',
         },
         hi: {
             htmlLang: 'hi',
@@ -273,6 +280,11 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             installPromptSub: 'तुरंत AI खबर पाएं — ऐप स्टोर की जरूरत नहीं',
             installPromptBtn: 'इंस्टॉल करें',
             trustSignalText: '50+ स्रोतों से AI द्वारा चयनित · हर घंटे अपडेट',
+            pulseTitle: 'मार्केट पल्स',
+            pulseStories: '{count} खबरें',
+            pulseFresh: 'ताज़ा: {time}',
+            relatedStories: 'मिलती-जुलती खबरें',
+            swipeDiscoverHint: 'खबरों के बीच जाने के लिए बाएं या दाएं स्वाइप करें',
         },
         de: {
             htmlLang: 'de',
@@ -402,6 +414,11 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             installPromptSub: 'Sofortige KI-News holen — kein App Store nötig',
             installPromptBtn: 'Installieren',
             trustSignalText: 'KI-kuratiert aus 50+ Quellen · Stündlich aktualisiert',
+            pulseTitle: 'Marktimpuls',
+            pulseStories: '{count} Storys',
+            pulseFresh: 'Neu: {time}',
+            relatedStories: 'Aehnliche Storys',
+            swipeDiscoverHint: 'Nach links oder rechts wischen, um Storys zu wechseln',
         },
     };
 
@@ -530,11 +547,6 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     function translateCountryName(code, name) {
         const COUNTRY_LABELS = {
             en: { GLOBAL: 'Global / Worldwide' },
-            hi: {
-                US: 'संयुक्त राज्य अमेरिका', GB: 'यूनाइटेड किंगडम', IN: 'भारत', DE: 'जर्मनी', FR: 'फ्रांस',
-                CA: 'कनाडा', AU: 'ऑस्ट्रेलिया', JP: 'जापान', KR: 'दक्षिण कोरिया', CN: 'चीन',
-                BR: 'ब्राज़ील', SG: 'सिंगापुर', AE: 'यूएई', IL: 'इज़राइल', GLOBAL: 'ग्लोबल / विश्वव्यापी',
-            },
             de: {
                 US: 'Vereinigte Staaten', GB: 'Vereinigtes Koenigreich', IN: 'Indien', DE: 'Deutschland', FR: 'Frankreich',
                 CA: 'Kanada', AU: 'Australien', JP: 'Japan', KR: 'Suedkorea', CN: 'China',
@@ -755,6 +767,72 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         });
     }
 
+    function readTopicAffinity() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(TOPIC_AFFINITY_KEY) || '{}');
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function writeTopicAffinity(data) {
+        try {
+            localStorage.setItem(TOPIC_AFFINITY_KEY, JSON.stringify(data));
+        } catch {
+            // Best-effort personalization persistence.
+        }
+    }
+
+    function updateTopicAffinity(topic, action) {
+        const normalizedTopic = String(topic || '').trim();
+        if (!normalizedTopic) return;
+
+        const deltas = {
+            tap: 0.8,
+            read: 1.2,
+            save: 2.2,
+            skip: -0.9,
+        };
+        const delta = deltas[action] || 0;
+        if (!delta) return;
+
+        const affinity = readTopicAffinity();
+        const prev = Number(affinity[normalizedTopic]) || 0;
+        const next = Math.max(-8, Math.min(18, prev + delta));
+        affinity[normalizedTopic] = Number(next.toFixed(2));
+        writeTopicAffinity(affinity);
+    }
+
+    function rankAndDiversifyForYou(articles) {
+        const affinity = readTopicAffinity();
+        const now = Date.now();
+        const scored = (articles || []).map((article) => {
+            const topic = String(article.topic || '').trim();
+            const importanceScore = Number(article.importance || 0);
+            const topicAffinity = Number(affinity[topic] || 0);
+            const publishedMs = new Date(article.published_at || article.updated_at || 0).getTime() || 0;
+            const ageHours = Math.max(0, (now - publishedMs) / (1000 * 60 * 60));
+            const freshnessBoost = Math.max(0, 4 - ageHours * 0.15);
+            const score = importanceScore + (topicAffinity * 0.9) + freshnessBoost;
+            return { article, score };
+        }).sort((a, b) => b.score - a.score);
+
+        const picked = [];
+        const perSourceCap = 2;
+        const sourceCount = {};
+        for (const item of scored) {
+            const source = String(item.article.source_name || 'unknown');
+            const used = Number(sourceCount[source] || 0);
+            if (used >= perSourceCap) continue;
+            picked.push(item.article);
+            sourceCount[source] = used + 1;
+            if (picked.length >= MAX_FEED_ITEMS) break;
+        }
+
+        return picked;
+    }
+
     // ---- State ----
     let allArticles = [];
     let currentTopic = 'For You';
@@ -770,6 +848,10 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     let currentTheme = localStorage.getItem('dailyai_theme') || 'dark';
     let syncCode = localStorage.getItem('dailyai_sync_code') || '';
     let consentGiven = localStorage.getItem('dailyai_consent') === '1';
+    let currentSheetArticleId = '';
+    let feedOffset = 0;
+    let hasMoreFeed = true;
+    let isLoadingMoreFeed = false;
 
     // ---- DOM ----
     const $ = id => document.getElementById(id);
@@ -801,6 +883,16 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     const whatsNewBackdrop = $('whatsNewBackdrop');
     const whatsNewOkBtn = $('whatsNewOkBtn');
     const whatsNewList = $('whatsNewList');
+
+    if (!['en', 'de'].includes(currentLanguage)) {
+        currentLanguage = 'en';
+        localStorage.setItem('dailyai_language', currentLanguage);
+    }
+    const ALLOWED_COUNTRIES = ['US', 'GB', 'DE', 'IN', 'GLOBAL'];
+    if (!ALLOWED_COUNTRIES.includes(currentCountry)) {
+        currentCountry = 'GLOBAL';
+        localStorage.setItem('dailyai_country', currentCountry);
+    }
 
     // ====================== MARKET-FIT UPGRADE ======================
     let deferredPrompt;
@@ -843,21 +935,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     }
 
     function initMarketFitFeatures() {
-        // Hero Banner
         const heroBanner = document.getElementById('heroBanner');
-        const heroDismiss = document.getElementById('heroDismiss');
-        if (heroBanner && heroDismiss) {
-            if (!localStorage.getItem('dailyai_hero_dismissed')) {
-                heroBanner.style.display = 'block';
-                heroDismiss.addEventListener('click', () => {
-                    heroBanner.style.animation = 'heroBannerIn 0.4s reverse forwards';
-                    setTimeout(() => heroBanner.style.display = 'none', 400);
-                    localStorage.setItem('dailyai_hero_dismissed', '1');
-                });
-            } else {
-                heroBanner.style.display = 'none';
-            }
-        }
+        if (heroBanner) heroBanner.style.display = 'none';
 
         // PWA Install Prompt
         const promptEl = document.getElementById('installPrompt');
@@ -1047,8 +1126,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 if (!isPulling) return;
                 const y = e.changedTouches[0].clientY;
                 if (y - touchstartY > 80) {
-                    showToast(t('refreshingNews') || 'Refreshing...', 1000);
-                    setTimeout(() => location.reload(), 500);
+                    refreshNewsNow();
                 }
                 isPulling = false;
             }, { passive: true });
@@ -1062,7 +1140,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             });
         };
 
-        $('topBar')?.addEventListener('click', scrollToTop);
+        const titleEl = $('viewTitle');
+        titleEl?.addEventListener('click', scrollToTop);
         $('scrollTopFab')?.addEventListener('click', scrollToTop);
     }
 
@@ -1415,6 +1494,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
     // ====================== SIGNAL TRACKING ======================
     function recordSignal(articleId, action, topic) {
+        if (topic) updateTopicAffinity(topic, action);
         if (!syncCode || !topic) return;
         fetch(`/api/profile/${encodeURIComponent(syncCode)}/signal`, {
             method: 'POST',
@@ -1520,6 +1600,9 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 const cardH = cards[0].offsetHeight + 12; // margin
                 const idx = Math.round(scrollTop / cardH);
                 currentPageEl.textContent = Math.min(idx + 1, articles.length);
+
+                const nearBottom = scrollFeed.scrollHeight - (scrollFeed.scrollTop + scrollFeed.clientHeight) < 420;
+                if (nearBottom) loadMoreFeedIfNeeded();
             };
         }
     }
@@ -1603,10 +1686,65 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     }
 
     function getFilteredArticles() {
-        const filtered = currentTopic === 'For You'
-            ? allArticles
-            : allArticles.filter(a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase());
+        if (currentTopic === 'For You') {
+            return (allArticles || []).slice(0, MAX_FEED_ITEMS);
+        }
+        const filtered = (allArticles || []).filter(
+            a => (a.topic || '').toLowerCase() === currentTopic.toLowerCase()
+        );
         return filtered.slice(0, MAX_FEED_ITEMS);
+    }
+
+    function renderMarketPulse(articles) {
+        const pulseEl = $('marketPulse');
+        if (!pulseEl) return;
+
+        const topicCounts = {};
+        for (const article of (articles || [])) {
+            const topic = String(article.topic || 'Top Stories').trim();
+            topicCounts[topic] = Number(topicCounts[topic] || 0) + 1;
+        }
+        const topTopics = Object.entries(topicCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+
+        if (topTopics.length === 0) {
+            pulseEl.style.display = 'none';
+            pulseEl.innerHTML = '';
+            return;
+        }
+
+        const newestArticle = (articles || [])
+            .map((article) => new Date(article.published_at || article.updated_at || 0).getTime() || 0)
+            .sort((a, b) => b - a)[0] || Date.now();
+        const freshness = getTimeAgo(new Date(newestArticle).toISOString());
+
+        pulseEl.style.display = 'flex';
+        pulseEl.innerHTML = `
+            <div class="market-pulse-header">
+                <span class="market-pulse-title">${esc(t('pulseTitle'))}</span>
+                <span class="market-pulse-fresh">${esc(t('pulseFresh', { time: freshness }))}</span>
+            </div>
+            <div class="market-pulse-topics">
+                ${topTopics.map(([topic, count]) => `
+                    <button class="market-pulse-chip" data-topic="${esc(topic)}" type="button">
+                        <span class="chip-topic">${esc(topic)}</span>
+                        <span class="chip-count">${esc(t('pulseStories', { count }))}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
+        pulseEl.querySelectorAll('.market-pulse-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const targetTopic = chip.dataset.topic;
+                if (!targetTopic) return;
+                const tab = Array.from(document.querySelectorAll('.filter-pill')).find(
+                    (pill) => String(pill.dataset.topic || '').toLowerCase() === String(targetTopic).toLowerCase()
+                );
+                if (tab) tab.click();
+            });
+        });
     }
 
     function getTopicCoverUrl(topic, seed = '') {
@@ -1668,27 +1806,40 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
     }
 
     async function loadLanguages() {
-        const fallback = { en: 'English', hi: 'Hindi', de: 'German' };
-        const compactLabels = { en: 'EN', hi: 'HI', de: 'DE' };
+        const fallback = { en: 'English', de: 'Deutsch' };
+        const allowedLangs = new Set(['en', 'de']);
         try {
             const resp = await fetch('/api/languages');
             const data = await resp.json();
-            const languages = data.languages || fallback;
+            const apiLanguages = data.languages || fallback;
+            const languages = Object.fromEntries(
+                Object.entries(apiLanguages).filter(([code]) => allowedLangs.has(code))
+            );
             languageSelect.innerHTML = '';
             for (const [code, name] of Object.entries(languages)) {
                 const opt = document.createElement('option');
                 opt.value = code;
-                opt.textContent = compactLabels[code] || String(code).toUpperCase();
+                opt.textContent = String(name);
                 opt.title = name;
                 if (code === currentLanguage) opt.selected = true;
                 languageSelect.appendChild(opt);
+            }
+            if (!Object.keys(languages).length) {
+                for (const [code, name] of Object.entries(fallback)) {
+                    const opt = document.createElement('option');
+                    opt.value = code;
+                    opt.textContent = String(name);
+                    opt.title = name;
+                    if (code === currentLanguage) opt.selected = true;
+                    languageSelect.appendChild(opt);
+                }
             }
         } catch {
             languageSelect.innerHTML = '';
             for (const [code, name] of Object.entries(fallback)) {
                 const opt = document.createElement('option');
                 opt.value = code;
-                opt.textContent = compactLabels[code] || String(code).toUpperCase();
+                opt.textContent = String(name);
                 opt.title = name;
                 if (code === currentLanguage) opt.selected = true;
                 languageSelect.appendChild(opt);
@@ -1740,9 +1891,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
         await fetchArticles(currentTopic, { forceRefresh: true });
         const localizedLabel = {
-            en: { en: 'English', hi: 'Hindi', de: 'German' },
-            hi: { en: 'अंग्रेजी', hi: 'हिंदी', de: 'जर्मन' },
-            de: { en: 'Englisch', hi: 'Hindi', de: 'Deutsch' },
+            en: { en: 'English', de: 'Deutsch' },
+            de: { en: 'Englisch', de: 'Deutsch' },
         };
         const name = (localizedLabel[currentLanguage] && localizedLabel[currentLanguage][currentLanguage]) || currentLanguage;
         showToast(t('languageToast', { name }));
@@ -1965,13 +2115,15 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
     // ====================== FETCH ======================
     async function fetchArticles(topic, options = {}) {
-        const { forceRefresh = false } = options;
+        const { forceRefresh = false, append = false } = options;
         const param = topic === 'For You' ? 'all' : topic;
         const cacheKey = getFeedCacheKey(param, currentCountry, currentLanguage);
-        if (!forceRefresh) {
+        if (!append && !forceRefresh) {
             const cachedArticles = readCacheEntry(cacheKey, FEED_CACHE_TTL_MS);
             if (cachedArticles && cachedArticles.length > 0) {
                 allArticles = cachedArticles;
+                feedOffset = cachedArticles.length;
+                hasMoreFeed = cachedArticles.length >= FEED_PAGE_SIZE;
                 sortArticles();
                 swipeCardIndex = 0;
                 swipeEmpty.style.display = 'none';
@@ -1982,24 +2134,58 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         }
         const timeout = new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000));
         try {
-            let url = `${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}&language=${encodeURIComponent(currentLanguage)}`;
+            const effectiveOffset = append ? feedOffset : 0;
+            let url = `${API_URL}?topic=${encodeURIComponent(param)}&country=${encodeURIComponent(currentCountry)}&language=${encodeURIComponent(currentLanguage)}&offset=${effectiveOffset}&limit=${FEED_PAGE_SIZE}`;
             if (syncCode) url += `&sync_code=${encodeURIComponent(syncCode)}`;
             const resp = await Promise.race([fetch(url), timeout]);
             const data = await resp.json();
-            allArticles = (data.articles && data.articles.length > 0) ? data.articles : FALLBACK_ARTICLES;
-            if (data.articles && data.articles.length > 0) {
-                writeCacheEntry(cacheKey, data.articles);
-                if (param === 'all') hydrateTopicCachesFromAll(data.articles);
+            const batch = (data.articles && data.articles.length > 0) ? data.articles : [];
+            if (!append) {
+                allArticles = batch.length > 0 ? batch : FALLBACK_ARTICLES;
+                feedOffset = batch.length;
+            } else if (batch.length > 0) {
+                const seenIds = new Set(allArticles.map(a => a.id));
+                const merged = batch.filter(a => !seenIds.has(a.id));
+                allArticles = allArticles.concat(merged);
+                feedOffset = allArticles.length;
+            }
+            hasMoreFeed = Boolean(data.has_more);
+
+            if (!append && batch.length > 0) {
+                writeCacheEntry(cacheKey, batch);
+                if (param === 'all') hydrateTopicCachesFromAll(batch);
             }
         } catch {
-            const staleArticles = readCacheEntry(cacheKey, FEED_CACHE_TTL_MS, true);
-            allArticles = (staleArticles && staleArticles.length > 0) ? staleArticles : FALLBACK_ARTICLES;
+            if (!append) {
+                const staleArticles = readCacheEntry(cacheKey, FEED_CACHE_TTL_MS, true);
+                allArticles = (staleArticles && staleArticles.length > 0) ? staleArticles : FALLBACK_ARTICLES;
+                feedOffset = allArticles.length;
+                hasMoreFeed = false;
+            }
         }
         sortArticles();
         swipeCardIndex = 0;
         swipeEmpty.style.display = 'none';
-        renderFeed();
+        if (append && scrollFeed && scrollFeed.style.display !== 'none') {
+            const prevTop = scrollFeed.scrollTop;
+            renderScrollFeed();
+            requestAnimationFrame(() => {
+                scrollFeed.scrollTop = prevTop;
+            });
+        } else {
+            renderFeed();
+        }
         setGlobalLoading(false);
+    }
+
+    async function loadMoreFeedIfNeeded() {
+        if (isLoadingMoreFeed || !hasMoreFeed || currentView !== 'discover') return;
+        isLoadingMoreFeed = true;
+        try {
+            await fetchArticles(currentTopic, { append: true });
+        } finally {
+            isLoadingMoreFeed = false;
+        }
     }
 
     async function refreshNewsNow() {
@@ -2153,6 +2339,10 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
             showToast(t('saveToast'));
             updateSavedCount();
+            recordSignal(article.id, 'save', article.topic || article.category || '');
+        }
+        if (dir < 0 && article) {
+            recordSignal(article.id, 'skip', article.topic || article.category || '');
         }
         swipeCardIndex++;
         setTimeout(() => renderSwipeStack(), 350);
@@ -2170,7 +2360,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         bookmarks[article.id] = article;
         localStorage.setItem('dailyai_bookmarks', JSON.stringify(bookmarks));
         updateSavedCount();
-        recordSignal(article.id, 'save', article.category || '');
+        recordSignal(article.id, 'save', article.topic || article.category || '');
     }
 
     function showDustbinThrow(sourceEl) {
@@ -2245,7 +2435,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
 
     // ====================== BOTTOM SHEET ======================
     function openSheet(article) {
-        recordSignal(article.id || '', 'tap', article.category || '');
+        currentSheetArticleId = String(article.id || '');
+        recordSignal(article.id || '', 'tap', article.topic || article.category || '');
         trackReadArticle();
         
         const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
@@ -2267,6 +2458,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
                 <p class="sheet-brief" id="sheetBrief" style="display:none;"></p>
             </div>
             ${whyHtml}
+            <p class="sheet-swipe-hint">${esc(t('swipeDiscoverHint'))}</p>
+            <section class="sheet-related" id="sheetRelated"></section>
             <p class="sheet-meta">${esc(article.source_name)} • ${esc(t('publishedAt'))}: ${esc(getShortDate(article.published_at || article.updated_at))} • ${esc(getExactTimestamp(article.updated_at || article.published_at, 'updatedAt'))}</p>
         `;
 
@@ -2332,6 +2525,8 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         });
 
         loadDetailedBrief(article);
+        renderRelatedStories(article);
+        attachSheetSwipeNavigation();
         sheetBackdrop.classList.add('show');
         bottomSheet.classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -2385,7 +2580,131 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
             briefEl.textContent = t('briefUnavailable');
         }
     }
+
+    function getStorySimilarityScore(baseArticle, candidate) {
+        if (!baseArticle || !candidate || baseArticle.id === candidate.id) return -1;
+        let score = 0;
+        if ((baseArticle.topic || '').toLowerCase() === (candidate.topic || '').toLowerCase()) score += 4;
+        if ((baseArticle.source_name || '').toLowerCase() === (candidate.source_name || '').toLowerCase()) score += 1.5;
+
+        const tokenize = (text) => String(text || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .split(/\s+/)
+            .filter((w) => w.length > 3);
+
+        const aTokens = new Set(tokenize(baseArticle.headline));
+        const bTokens = new Set(tokenize(candidate.headline));
+        let overlap = 0;
+        aTokens.forEach((token) => {
+            if (bTokens.has(token)) overlap += 1;
+        });
+        score += Math.min(overlap, 5);
+
+        const publishedMs = new Date(candidate.published_at || candidate.updated_at || 0).getTime() || 0;
+        const ageHours = Math.max(0, (Date.now() - publishedMs) / (1000 * 60 * 60));
+        score += Math.max(0, 3 - ageHours * 0.2);
+        return score;
+    }
+
+    function renderRelatedStories(baseArticle) {
+        const relatedEl = $('sheetRelated');
+        if (!relatedEl) return;
+
+        const related = (allArticles || [])
+            .map((candidate) => ({
+                candidate,
+                score: getStorySimilarityScore(baseArticle, candidate),
+            }))
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 6)
+            .map((entry) => entry.candidate);
+
+        if (!related.length) {
+            relatedEl.innerHTML = '';
+            return;
+        }
+
+        relatedEl.innerHTML = `
+            <p class="sheet-related-title">${esc(t('relatedStories'))}</p>
+            <div class="sheet-related-rail">
+                ${related.map((article) => `
+                    <button class="sheet-related-card" data-id="${esc(article.id)}" type="button">
+                        <span class="related-topic">${esc(article.topic || 'Top Stories')}</span>
+                        <span class="related-headline">${esc(article.headline || '')}</span>
+                        <span class="related-time">${esc(getTimeAgo(article.published_at || article.updated_at))}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
+        relatedEl.querySelectorAll('.sheet-related-card').forEach((button) => {
+            button.addEventListener('click', () => {
+                const articleId = button.dataset.id;
+                const article = (allArticles || []).find((entry) => String(entry.id) === String(articleId));
+                if (article) openSheet(article);
+            });
+        });
+    }
+
+    function getCurrentFeedArticles() {
+        if (currentView !== 'discover') return [];
+        if (currentTopic === 'For You') return allArticles || [];
+        return (allArticles || []).filter(
+            (article) => String(article.topic || '').toLowerCase() === String(currentTopic || '').toLowerCase()
+        );
+    }
+
+    function openAdjacentStoryFromSheet(direction) {
+        const stories = getCurrentFeedArticles();
+        if (!stories.length || !currentSheetArticleId) return;
+        const index = stories.findIndex((article) => String(article.id) === currentSheetArticleId);
+        if (index < 0) return;
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= stories.length) return;
+        openSheet(stories[targetIndex]);
+    }
+
+    function attachSheetSwipeNavigation() {
+        const contentEl = $('sheetContent');
+        if (!contentEl) return;
+        const existingCleanup = contentEl._sheetSwipeCleanup;
+        if (typeof existingCleanup === 'function') existingCleanup();
+
+        let startX = 0;
+        let startY = 0;
+        const onTouchStart = (event) => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            startX = touch.clientX;
+            startY = touch.clientY;
+        };
+        const onTouchEnd = (event) => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            const deltaX = touch.clientX - startX;
+            const deltaY = touch.clientY - startY;
+            if (Math.abs(deltaX) < 75) return;
+            if (Math.abs(deltaY) > Math.abs(deltaX) * 0.7) return;
+            if (deltaX < 0) openAdjacentStoryFromSheet(1);
+            if (deltaX > 0) openAdjacentStoryFromSheet(-1);
+        };
+
+        contentEl.addEventListener('touchstart', onTouchStart, { passive: true });
+        contentEl.addEventListener('touchend', onTouchEnd, { passive: true });
+        contentEl._sheetSwipeCleanup = () => {
+            contentEl.removeEventListener('touchstart', onTouchStart);
+            contentEl.removeEventListener('touchend', onTouchEnd);
+            contentEl._sheetSwipeCleanup = null;
+        };
+    }
+
     function closeSheet() {
+        const contentEl = $('sheetContent');
+        const existingCleanup = contentEl && contentEl._sheetSwipeCleanup;
+        if (typeof existingCleanup === 'function') existingCleanup();
+        currentSheetArticleId = '';
         sheetBackdrop.classList.remove('show');
         sheetBackdrop.classList.remove('focused');
         bottomSheet.classList.remove('show');
@@ -2424,13 +2743,13 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         try {
             const d = new Date(dateStr), now = new Date();
             const m = Math.floor((now - d) / 60000);
-            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
-            if (m < 1) return currentLanguage === 'de' ? 'Gerade eben' : currentLanguage === 'hi' ? 'अभी' : 'Just now';
-            if (m < 60) return currentLanguage === 'de' ? `vor ${m} Min` : currentLanguage === 'hi' ? `${m} मिनट पहले` : `${m}m ago`;
+            const locale = currentLanguage === 'de' ? 'de-DE' : 'en-US';
+            if (m < 1) return currentLanguage === 'de' ? 'Gerade eben' : 'Just now';
+            if (m < 60) return currentLanguage === 'de' ? `vor ${m} Min` : `${m}m ago`;
             const h = Math.floor(m / 60);
-            if (h < 24) return currentLanguage === 'de' ? `vor ${h} Std` : currentLanguage === 'hi' ? `${h} घंटे पहले` : `${h}h ago`;
+            if (h < 24) return currentLanguage === 'de' ? `vor ${h} Std` : `${h}h ago`;
             const dy = Math.floor(h / 24);
-            if (dy < 7) return currentLanguage === 'de' ? `vor ${dy} Tg` : currentLanguage === 'hi' ? `${dy} दिन पहले` : `${dy}d ago`;
+            if (dy < 7) return currentLanguage === 'de' ? `vor ${dy} Tg` : `${dy}d ago`;
             return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         } catch { return ''; }
     }
@@ -2439,7 +2758,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         try {
             const d = new Date(dateStr);
             if (Number.isNaN(d.getTime())) return `${t(labelKey)}: -`;
-            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+            const locale = currentLanguage === 'de' ? 'de-DE' : 'en-US';
             const formatted = d.toLocaleString(locale, {
                 year: 'numeric',
                 month: 'short',
@@ -2462,7 +2781,7 @@ const CACHE_SCHEMA_KEY = 'dailyai_cache_schema_v2';
         try {
             const d = new Date(dateStr);
             if (Number.isNaN(d.getTime())) return '-';
-            const locale = currentLanguage === 'de' ? 'de-DE' : currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+            const locale = currentLanguage === 'de' ? 'de-DE' : 'en-US';
             return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         } catch {
             return '-';
