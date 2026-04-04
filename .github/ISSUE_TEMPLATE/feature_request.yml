@@ -1,0 +1,33 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: What feature would you like to see?
+      placeholder: A clear description of the feature
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why would this be useful?
+      placeholder: Explain the problem this solves or the value it adds
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - UI / UX
+        - AI Intelligence (trust, sentiment, threads)
+        - Developer API
+        - Localization / i18n
+        - Performance
+        - Integrations (Slack, Discord, etc.)
+        - Other
+    validations:
+      required: true

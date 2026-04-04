@@ -19,13 +19,17 @@ def _api_limit_for(path: str, method: str) -> tuple[int, int] | None:
     if not path.startswith("/api/"):
         return None
     if path.startswith("/api/refresh"):
-        return (15, 60)
+        return (4, 60)
     if path.startswith("/api/subscribe"):
         return (10, 60)
     if path.startswith("/api/articles/brief"):
+        return (20, 60)
+    if path.startswith("/api/profile/") and path.endswith("/signal"):
         return (30, 60)
+    if path.startswith("/api/profile/") and path.endswith("/analytics"):
+        return (20, 60)
     if method.upper() == "POST":
-        return (60, 60)
+        return (45, 60)
     return (240, 60)
 
 

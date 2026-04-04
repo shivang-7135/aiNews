@@ -250,20 +250,20 @@
     "language": "en",
     "signals": {
       "industry": 8,
-      "Business": 4,
-      "Top Stories": 2
+      "Business": 7,
+      "Top Stories": 15
     },
     "bookmarks": [],
     "created_at": "2026-03-27T22:44:39.228048+00:00",
-    "last_active": "2026-04-02T17:17:04.566334+00:00",
+    "last_active": "2026-04-04T10:55:08.794763+00:00",
     "analytics": {
       "total_taps": 0,
       "total_saves": 0,
       "total_reads": 0,
       "total_skips": 0,
       "total_briefs_opened": 0,
-      "total_time_spent_seconds": 2588658,
-      "session_count": 132
+      "total_time_spent_seconds": 2888620,
+      "session_count": 142
     }
   },
   "Pearl-Lantern-45": {
@@ -306,6 +306,35 @@
       "total_briefs_opened": 0,
       "total_time_spent_seconds": 598,
       "session_count": 5
+    }
+  },
+  "Drift-Falcon-88": {
+    "sync_code": "Drift-Falcon-88",
+    "preferred_topics": [
+      "llms",
+      "open_source",
+      "ai_safety"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "Business": 4,
+      "Top Stories": 33,
+      "Tech & Science": 1,
+      "AI Models": 1,
+      "Research": 3
+    },
+    "bookmarks": [],
+    "created_at": "2026-04-04T10:55:26.232496+00:00",
+    "last_active": "2026-04-04T11:59:06.850761+00:00",
+    "analytics": {
+      "total_taps": 0,
+      "total_saves": 0,
+      "total_reads": 0,
+      "total_skips": 0,
+      "total_briefs_opened": 0,
+      "total_time_spent_seconds": 15596,
+      "session_count": 51
     }
   }
 }

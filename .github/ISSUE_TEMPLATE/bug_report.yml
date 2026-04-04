@@ -1,0 +1,43 @@
+name: Bug Report
+description: Report a bug or issue with DailyAI
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of the bug
+      placeholder: When I do X, I expect Y but Z happens instead
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Feed / News Display
+        - AI Brief Generation
+        - API (Developer API v1)
+        - Email Digest
+        - PWA / Installation
+        - Performance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - Browser: Chrome 125
+        - OS: macOS 15
+        - Mobile/Desktop: Desktop

@@ -1,173 +1,205 @@
-# DailyAI - AI News Aggregator
+<div align="center">
 
-DailyAI is a mobile-first AI news app that curates and summarizes AI headlines into
-concise, actionable bullet points. It supports language & region personalization,
-anonymous profile sync, local caching, and a PWA install flow.
+# 🤖 DailyAI
 
-## Key Features
+### AI News Intelligence in 60 Seconds
 
-- **Scroll-first feed** — 15-30 curated AI headlines per session
-- **3-5 bullet point summaries** — tap any card to get key takeaways
-- **Anonymous recommendations** — Sync Code (e.g. `Swift-Horizon-51`) personalizes your feed without login
-- **Topic onboarding** — pick your interests, change them anytime from sidebar
-- **Multi-language** — English, Hindi, German
-- **Multi-region** — Global + 20+ country feeds
-- **Offline-friendly** — articles cached to JSON on disk + localStorage in browser
-- **PWA** — installable, service worker caching, version-safe cache resets
+[![CI](https://github.com/shivangsinha/DailyAInews/actions/workflows/ci.yml/badge.svg)](https://github.com/shivangsinha/DailyAInews/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Live Demo](https://img.shields.io/badge/demo-dailyai.site-2dd4a0)](https://www.dailyai.site)
 
-## Core User Flow
+**From AI headlines to action — curated, scored, and explained by AI agents.**
 
-1. Open app → animated 3-step guide (Scroll / Tap / Save)
-2. Pick topics → get a Sync Code for anonymous cross-device sync
-3. Scroll feed → articles ranked by your preferences + importance
-4. Tap a card → see 3-5 bullet points + link to original article
-5. Save useful items → review in Saved tab
+[Live Demo](https://www.dailyai.site) · [API Docs](https://www.dailyai.site/api/docs/guide) · [Report Bug](.github/ISSUE_TEMPLATE/bug_report.yml) · [Request Feature](.github/ISSUE_TEMPLATE/feature_request.yml)
 
-## Local Setup
+</div>
 
-### 1. Install Dependencies
+---
+
+## What is DailyAI?
+
+DailyAI is an **AI-powered news intelligence platform** that curates the most important AI industry news, scores source trustworthiness, analyzes sentiment, and groups related stories into threads — so busy professionals can make informed decisions in 60 seconds.
+
+**Not just another aggregator.** DailyAI tells you:
+- 📰 **What happened** — AI-curated from 50+ sources hourly
+- ✅ **How trustworthy** — Source trust scoring (Verified / Known / Unrated)
+- 📈 **Market sentiment** — Bullish / Bearish / Neutral per story
+- 🧵 **Story threads** — Related articles grouped by event
+- 💡 **Why it matters** — One-sentence professional relevance
+- 🎯 **What to do next** — Role-based action items
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🤖 **AI Curation** | Agentic pipeline with multi-LLM fallback (Gemini, NVIDIA, Groq, HuggingFace) |
+| ✅ **Source Trust** | 3-tier trust scoring: Verified, Known, Unrated |
+| 📈 **Sentiment** | Per-article market sentiment analysis |
+| 🧵 **Story Threads** | Automatic grouping of related coverage |
+| 🌍 **Multilingual** | English, German, Hindi with native translations |
+| 🇩🇪 **Germany-first** | DACH sources (Heise, Golem, t3n, Handelsblatt), DSGVO compliant |
+| 📱 **PWA** | Installable, works offline, no app store needed |
+| 🔐 **Privacy-first** | No login, no tracking cookies, local-first storage |
+| 📬 **Email Digest** | Daily AI brief delivered to your inbox |
+| 🔌 **Developer API** | REST API with free/pro tiers for building on DailyAI data |
+| 🎨 **Dark/Light** | Premium dark mode with light theme option |
+
+## Quick Start
 
 ```bash
+# Clone
+git clone https://github.com/shivangsinha/DailyAInews.git
 cd DailyAInews
-python3 -m venv .venv
-source .venv/bin/activate
+
+# Setup
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env  # Add your API keys
+
+# Run
+python -m uvicorn app:app --reload --port 8000
 ```
 
-### 2. Configure Environment
+Open [http://localhost:8000](http://localhost:8000) 🚀
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GOOGLE_AI_KEY` | ✅ | Google Gemini API key (primary LLM) |
+| `GROQ_API_KEY` | Optional | Groq API key (fallback LLM) |
+| `NVIDIA_API_KEY` | Optional | NVIDIA API key (fallback LLM) |
+| `LLM7AI_KEY` | Optional | llm7.io API key (OpenAI-compatible fallback LLM) |
+| `LLM7_API_URL` | Optional | Override llm7 endpoint (default: `https://api.llm7.io/v1/chat/completions`) |
+| `LLM7_MODEL` | Optional | llm7 model name override (default: `gpt-4o-mini`) |
+| `HF_API_TOKEN` | Optional | HuggingFace API token |
+| `BYTEZ_API_KEY` | Optional | Bytez API key |
+| `RESEND_API_KEY` | Optional | Resend API key for email digest |
+| `SUPABASE_URL` | Optional | Supabase URL for cloud sync |
+| `SUPABASE_KEY` | Optional | Supabase anon key |
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend
+        PWA[PWA Web App]
+        JS[Vanilla JS + CSS]
+    end
+    
+    subgraph Backend
+        API[FastAPI Server]
+        Agent[AI Agent Pipeline]
+        Scheduler[APScheduler]
+    end
+    
+    subgraph Intelligence
+        LLM[Multi-LLM Fallback]
+        Trust[Source Trust Engine]
+        Sentiment[Sentiment Analysis]
+        Threads[Story Threading]
+    end
+    
+    subgraph Data
+        RSS[50+ RSS Sources]
+        Cache[In-Memory + JSON Cache]
+        Supabase[Cloud Sync]
+    end
+    
+    PWA --> API
+    API --> Agent
+    Scheduler --> Agent
+    Agent --> LLM
+    Agent --> Trust
+    Agent --> Sentiment
+    Agent --> Threads
+    Agent --> RSS
+    API --> Cache
+    API --> Supabase
+```
+
+## Developer API
+
+Get curated AI news data for your apps, bots, and workflows.
 
 ```bash
-cp .env.example .env
+# Get a free API key
+curl -X POST https://www.dailyai.site/api/v1/keys \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My App", "email": "you@example.com"}'
+
+# Fetch AI news
+curl https://www.dailyai.site/api/v1/feed \
+  -H "X-API-Key: dai_your_key_here"
 ```
 
-Set values you need:
+| Tier | Price | Requests/Day | Features |
+|---|---|---|---|
+| **Free** | €0 | 100 | Basic fields, all topics |
+| **Pro** | €7.99/mo | 10,000 | + sentiment, trust, threads |
+| **Enterprise** | Custom | 50,000+ | + white-label, SLA |
 
-```dotenv
-HF_API_TOKEN=hf_xxx
-PORT=8000
-BYTEZ_API_KEY=...
-
-# Optional
-GROQ_API_KEY=gsk_xxx
-RESEND_API_KEY=re_xxx
-RESEND_FROM_EMAIL="DailyAI <news@your-verified-domain.com>"
-RESEND_REPLY_TO="support@your-verified-domain.com"
-GOOGLE_AI_KEY=...
-```
-
-Important:
-
-- Do not commit real keys to git.
-- Rotate any key that was ever pushed publicly.
-
-### 3. Run App
-
-```bash
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open http://localhost:8000
-
-## Deployment Workflow
-
-### Recommended: Render
-
-1. Push latest code to your repo.
-2. Create or update Render Web Service.
-3. Set build command:
-
-```bash
-pip install -r requirements.txt
-```
-
-4. Set start command:
-
-```bash
-uvicorn app:app --host 0.0.0.0 --port $PORT
-```
-
-5. Add environment variables in Render dashboard.
-
-### Optional: Railway
-
-1. Connect repo.
-2. Add required environment variables.
-3. Deploy.
-
-### Optional: Docker
-
-```bash
-docker build -t dailyai .
-docker run -p 8000:8000 --env-file .env dailyai
-```
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/articles` | Fetch curated feed (supports `sync_code` for personalization) |
-| POST | `/api/articles/brief` | Generate 3-5 bullet point summary for an article |
-| POST | `/api/refresh/{country_code}` | Force refresh news for a country |
-| GET | `/api/version` | Current app version (for cache invalidation) |
-| POST | `/api/subscribe` | Subscribe to email digest |
-| GET | `/api/subscribers/count` | Subscriber count |
-| POST | `/api/profile/new` | Create anonymous profile with topic preferences |
-| GET | `/api/profile/{sync_code}` | Get profile by sync code |
-| PUT | `/api/profile/{sync_code}` | Update profile preferences |
-| POST | `/api/profile/{sync_code}/signal` | Record implicit signal (tap/save/skip) |
-| GET | `/api/countries` | Available country codes |
-| GET | `/api/languages` | Available languages |
-
-## Project Structure
-
-```text
-DailyAInews/
-├── app.py                    # FastAPI routes
-├── agent.py                  # LLM-powered news curation + brief generation
-├── services/
-│   ├── config.py             # Topics, countries, MAX_TILES
-│   ├── news_core.py          # Feed fetching, JSON persistence, personalization
-│   ├── profiles.py           # Anonymous profiles, sync codes, signal tracking
-│   ├── security.py           # CSRF, CSP, rate limiting
-│   └── store.py              # In-memory news store
-├── templates/
-│   └── index.html            # Main SPA template
-├── static/
-│   ├── app.js                # Frontend logic
-│   ├── styles.css            # Design system
-│   ├── sw.js                 # Service worker
-│   └── manifest.json         # PWA manifest
-├── articles_cache.json       # Persisted article cache (auto-generated)
-├── profiles.json             # User profiles (auto-generated)
-├── digest.py                 # Email digest sender
-├── requirements.txt
-└── Dockerfile
-```
+📖 **[Full API Documentation →](https://www.dailyai.site/api/docs/guide)**
 
 ## Tech Stack
 
-- Backend: FastAPI, APScheduler, Pydantic
-- Frontend: Vanilla JS, HTML, CSS, PWA
-- LLM: Bytez (Mistral-7B), with Ollama/Gemini/Groq/HuggingFace fallbacks
-- News source: RSS aggregation + AI ranking pipeline
-- Deployment: Render, Railway, Docker
+- **Backend**: Python 3.11+ · FastAPI · APScheduler · Pydantic
+- **Frontend**: Vanilla JS · CSS3 · PWA
+- **AI**: Gemini · NVIDIA DeepSeek · Groq · HuggingFace (multi-provider fallback)
+- **Storage**: In-memory + JSON persistence · Supabase cloud sync
+- **Email**: Resend API
+- **CI**: GitHub Actions · Ruff · mypy · pytest
 
-## Troubleshooting
+## Contributing
 
-### App stuck on "Loading latest stories"
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
 
-1. Confirm deployment completed and new version is live.
-2. Open /api/version and verify version changed.
-3. Reload once to allow cache reset and service worker refresh.
-4. Verify environment keys are present in deployment platform.
-5. Check backend logs for fetch or model provider failures.
+```bash
+# Run tests
+pytest tests/ -v
 
-### Subscriber emails not delivered
+# Lint
+ruff check .
+```
 
-1. Verify Resend domain is validated.
-2. Ensure RESEND_FROM_EMAIL uses verified domain.
-3. Confirm API key is active and not restricted.
+## Roadmap
+
+| Feature | Status | FutureScope |
+|---|---|---|
+| Multi-LLM fallback pipeline | Done | Add provider health scoring and adaptive prompt shrinking for 413/429 handling. |
+| Source trust scoring | Done | Expand source registry with region-specific confidence tuning. |
+| Sentiment analysis | Done | Add confidence score and domain-aware sentiment calibration. |
+| Story thread grouping | Done | Improve clustering across multilingual duplicates. |
+| Developer API v1 | Done | Add API v2 with thread-centric and delta-feed endpoints. |
+| German market compliance (Impressum, DSGVO) | Done | Add automated policy/version changelog in release notes. |
+| CI pipeline | Done | Add browser E2E tests for card interactions and sheet behavior. |
+| Related stories mini-cards (tap-to-open) | In Progress | Add semantic embeddings to guarantee 5 strong related cards even in sparse regional feeds. |
+| Browser extension | Planned | Build read-later capture to DailyAI saved list. |
+| Slack/Discord bot | Planned | Post digest + thread updates with topic subscriptions. |
+| Custom alert rules | Planned | User-defined triggers by topic, sentiment, and source trust. |
+| AI model comparison tracker | Planned | Track model releases with benchmark deltas over time. |
+| Pro tier billing integration | Planned | Stripe-based usage metering and subscription lifecycle sync. |
+
+## Legal
+
+- 📄 [Impressum](https://www.dailyai.site/impressum) (German legal notice)
+- 🔒 [Datenschutz](https://www.dailyai.site/datenschutz) (Privacy Policy / DSGVO)
+- 📋 [Terms of Service](https://www.dailyai.site/terms)
 
 ## License
 
-MIT
+MIT License — see [LICENSE](LICENSE) for details.
+
+The core platform is open-source. The Developer API monetization layer (`services/api_keys.py`) is operational but follows a separate commercial model.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for the AI community**
+
+[⭐ Star this repo](https://github.com/shivangsinha/DailyAInews) if DailyAI helps you stay informed!
+
+</div>

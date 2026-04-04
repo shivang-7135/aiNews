@@ -70,6 +70,14 @@ FEED_QUERIES = {
     "ai_policy": "AI+Act+OR+AI+policy+OR+AI+governance+OR+AI+safety+institute",
 }
 
+# German-specific queries for DACH region feeds
+FEED_QUERIES_DE = {
+    "ki_allgemein": "Künstliche+Intelligenz+OR+KI+OR+maschinelles+Lernen+OR+generative+KI",
+    "ki_industrie": "OpenAI+OR+Google+KI+OR+Meta+KI+OR+Anthropic+OR+Mistral+OR+DeepMind+OR+Aleph+Alpha",
+    "ki_regulierung": "AI+Act+OR+KI+Regulierung+OR+KI+Gesetz+OR+Datenschutz+KI+OR+EU+KI+Verordnung",
+    "ki_startups": "KI+Startup+Deutschland+OR+AI+Startup+Germany+OR+Aleph+Alpha+OR+DeepL",
+}
+
 SUPPORTED_OUTPUT_LANGUAGES = {
     "en": "English",
     "hi": "Hindi",
@@ -136,8 +144,20 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
     """Fetch AI-specific news from multiple query angles."""
     hl, gl = LANG_MAP.get(country_code, ("en", "US"))
     all_items = []
-    tasks = [fetch_rss_feed(q, gl=gl, hl=hl) for q in FEED_QUERIES.values()]
+
+    # Use standard queries + German-specific queries for DACH region
+    queries = dict(FEED_QUERIES)
+    if country_code in ("DE", "AT", "CH") or gl == "DE":
+        queries.update(FEED_QUERIES_DE)
+
+    tasks = [fetch_rss_feed(q, gl=gl, hl=hl) for q in queries.values()]
     results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Track RSS failures for circuit breaker
+    fail_count = sum(1 for r in results if isinstance(r, Exception))
+    if fail_count >= 3:
+        logger.warning(f"[Agent] {fail_count}/{len(results)} RSS feeds failed — may use cached data")
+
     for r in results:
         if isinstance(r, list):
             all_items.extend(r)
@@ -197,7 +217,17 @@ GROQ_MODELS = [
     "llama-3.1-8b-instant",
 ]
 
+# Provider 4: LLM7 (optional, OpenAI-compatible endpoint)
+LLM7_API_URL = os.getenv("LLM7_API_URL", "https://api.llm7.io/v1/chat/completions").strip()
+LLM7_MODELS = [
+    os.getenv("LLM7_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
+]
+
 DISABLED_PROVIDERS: set[str] = set()
+
+
+def _get_llm7_key() -> str:
+    return (os.getenv("LLM7AI_KEY") or os.getenv("LLM7_API_KEY") or "").strip()
 
 
 def _get_ollama_config() -> tuple[str, list[str]]:
@@ -443,7 +473,7 @@ async def _try_nvidia(
 
 
 async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) -> str:
-    """Try NVIDIA first, then Bytez, Ollama, Gemini, HuggingFace, then Groq."""
+    """Try NVIDIA first, then LLM7, Bytez, Ollama, Gemini, HuggingFace, then Groq."""
 
     # Try NVIDIA DeepSeek R1 first (PRIMARY)
     nvidia_key = os.getenv("NVIDIA_API_KEY", "")
@@ -451,7 +481,22 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
         result = await _try_nvidia(NVIDIA_MODELS, messages, nvidia_key, max_tokens=4096)
         if result:
             return result
-        logger.warning("[LLM] NVIDIA DeepSeek R1 failed/not configured, trying Bytez...")
+        logger.warning("[LLM] NVIDIA DeepSeek R1 failed/not configured, trying LLM7...")
+
+    # Try LLM7 OpenAI-compatible endpoint
+    llm7_key = _get_llm7_key()
+    if llm7_key:
+        result = await _try_provider(
+            LLM7_API_URL,
+            LLM7_MODELS,
+            messages,
+            llm7_key,
+            max_tokens,
+            provider_name="llm7",
+        )
+        if result:
+            return result
+        logger.warning("[LLM] LLM7 failed/not configured, trying Bytez...")
 
     # Try Bytez API
     result = await _try_bytez(messages)
@@ -517,7 +562,7 @@ async def call_llm(messages: list[dict], hf_token: str, max_tokens: int = 2048) 
 async def call_llm_fast(messages: list[dict], max_tokens: int = 800) -> str:
     """Fast LLM path for brief generation.
 
-    Prioritizes speed: Groq (~2s) → NVIDIA (30s timeout) → Gemini.
+    Prioritizes speed: Groq (~2s) → LLM7 → NVIDIA (30s timeout) → Gemini.
     Skips Bytez (prompt leakage) and HuggingFace (slow serverless cold starts).
     """
 
@@ -534,9 +579,24 @@ async def call_llm_fast(messages: list[dict], max_tokens: int = 800) -> str:
         )
         if result:
             return result
-        logger.warning("[LLM-Fast] Groq failed, trying NVIDIA...")
+        logger.warning("[LLM-Fast] Groq failed, trying LLM7...")
 
-    # 2. NVIDIA — good quality but slower; use 30s timeout
+    # 2. LLM7 — optional low-cost OpenAI-compatible provider
+    llm7_key = _get_llm7_key()
+    if llm7_key:
+        result = await _try_provider(
+            LLM7_API_URL,
+            LLM7_MODELS,
+            messages,
+            llm7_key,
+            max_tokens,
+            provider_name="llm7",
+        )
+        if result:
+            return result
+        logger.warning("[LLM-Fast] LLM7 failed, trying NVIDIA...")
+
+    # 3. NVIDIA — good quality but slower; use 30s timeout
     nvidia_key = os.getenv("NVIDIA_API_KEY", "")
     if nvidia_key:
         result = await _try_nvidia(NVIDIA_MODELS, messages, nvidia_key, max_tokens=max_tokens)
@@ -544,7 +604,7 @@ async def call_llm_fast(messages: list[dict], max_tokens: int = 800) -> str:
             return result
         logger.warning("[LLM-Fast] NVIDIA failed, trying Gemini...")
 
-    # 3. Gemini — fast when not rate-limited
+    # 4. Gemini — fast when not rate-limited
     gemini_key = os.getenv("GOOGLE_AI_KEY", "")
     if gemini_key:
         result = await _try_gemini(GEMINI_MODELS, messages, gemini_key, max_tokens)
@@ -587,6 +647,40 @@ class NewsAgent:
             "bbc",
             "the guardian",
             "cnbc",
+            # German high-trust sources (DACH region)
+            "heise",
+            "golem",
+            "t3n",
+            "handelsblatt",
+            "faz",
+            "frankfurter allgemeine",
+            "spiegel",
+            "der spiegel",
+            "süddeutsche zeitung",
+            "die zeit",
+            "tagesschau",
+            "nzz",
+            "der standard",
+        }
+        self.medium_trust_sources = {
+            "venturebeat",
+            "zdnet",
+            "ars technica",
+            "the information",
+            "the register",
+            "engadget",
+            "mashable",
+            "nikkei",
+            "south china morning post",
+            "business insider",
+            "fortune",
+            "fast company",
+            "cnet",
+            "tom's hardware",
+            "9to5mac",
+            "9to5google",
+            "chip.de",
+            "computerbild",
         }
 
     async def run(
@@ -663,6 +757,8 @@ RULES:
 10. Consider relevance to {country_name} when applicable
 11. Prefer trustworthy, primary reporting sources over low-credibility or duplicate aggregators
 12. Return title, summary and why_it_matters in {output_language}
+13. Assign a sentiment: "bullish" (positive/optimistic for AI industry), "bearish" (negative/concerning), or "neutral"
+14. Assign a story_thread — a short label (3-5 words max) grouping related articles about the same event/topic. E.g. "OpenAI GPT-5 Launch", "EU AI Act", "NVIDIA Earnings". Different articles about the same event MUST share the same story_thread.
 
 OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
 [
@@ -673,6 +769,8 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
     "category": "category_name",
     "topic": "topic_tag",
     "importance": 8,
+    "sentiment": "bullish",
+    "story_thread": "Short Thread Label",
     "source": "Source name",
     "link": "URL",
     "published": "ISO date"
@@ -699,9 +797,20 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
             return 0
         if any(trusted in src for trusted in self.high_trust_sources):
             return 2
+        if any(med in src for med in self.medium_trust_sources):
+            return 1
         if "news" in src or "times" in src or "post" in src or "journal" in src:
             return 1
         return 0
+
+    def _source_trust_tier(self, source: str) -> str:
+        """Return trust tier label: 'high', 'medium', or 'low'."""
+        score = self._source_quality_score(source)
+        if score >= 2:
+            return "high"
+        if score >= 1:
+            return "medium"
+        return "low"
 
     def _quality_rerank(self, tiles: list[dict]) -> list[dict]:
         now = datetime.now(UTC)
@@ -898,6 +1007,18 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                         summary_clean = _sanitize_llm_response(raw_summary) or raw_summary[:0]
                         why_clean = _sanitize_llm_response(raw_why) or raw_why[:0]
 
+                        # Compute trust tier from source
+                        source_str = str(t.get("source", ""))
+                        trust_tier = self._source_trust_tier(source_str)
+
+                        # Validate sentiment
+                        raw_sentiment = str(t.get("sentiment", "neutral")).lower().strip()
+                        if raw_sentiment not in ("bullish", "bearish", "neutral"):
+                            raw_sentiment = "neutral"
+
+                        # Story thread for grouping
+                        raw_thread = str(t.get("story_thread", "")).strip()[:60]
+
                         clean_tiles.append(
                             {
                                 "title": str(t.get("title", ""))[:150],
@@ -906,7 +1027,10 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                                 "category": str(t.get("category", "general")).lower(),
                                 "topic": str(t.get("topic", "general")).lower(),
                                 "importance": min(max(importance_val, 1), 10),
-                                "source": str(t.get("source", "")),
+                                "source": source_str,
+                                "source_trust": trust_tier,
+                                "sentiment": raw_sentiment,
+                                "story_thread": raw_thread,
                                 "link": str(t.get("link", "")),
                                 "published": str(t.get("published", "")),
                                 "fetched_at": datetime.now(UTC).isoformat(),
@@ -1003,6 +1127,9 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                     "topic": topic,
                     "importance": importance,
                     "source": source,
+                    "source_trust": self._source_trust_tier(source),
+                    "sentiment": "neutral",
+                    "story_thread": "",
                     "link": a.get("link", ""),
                     "published": a.get("published", ""),
                     "fetched_at": datetime.now(UTC).isoformat(),

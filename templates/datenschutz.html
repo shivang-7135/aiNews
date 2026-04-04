@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datenschutzerklärung — DailyAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0a0a0b; --surface: #111113; --border: #2a2a2e; --text: #f0f0ff; --text-muted: #a0a0c0; --accent: #2dd4a0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; line-height: 1.7; padding: 24px; }
+        .container { max-width: 680px; margin: 0 auto; }
+        .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); text-decoration: none; font-size: 14px; margin-bottom: 24px; }
+        .back-link:hover { text-decoration: underline; }
+        h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+        h2 { font-size: 18px; font-weight: 700; margin: 28px 0 12px; color: var(--accent); }
+        h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+        p, li { color: var(--text-muted); font-size: 15px; margin-bottom: 12px; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--accent); }
+        .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 16px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-muted); }
+        th { color: var(--text); font-weight: 600; }
+        .footer-legal { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; }
+        .footer-legal a { color: var(--text-muted); text-decoration: none; margin: 0 12px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Zurück zu DailyAI</a>
+        <h1>Datenschutzerklärung</h1>
+        <p class="subtitle">Stand: April 2026 — Gemäß DSGVO (EU) 2016/679</p>
+
+        <h2>1. Verantwortlicher</h2>
+        <div class="info-card">
+            <p>Shivang Sinha</p>
+            <p>E-Mail: <a href="mailto:hello@dailyai.site">hello@dailyai.site</a></p>
+            <p>Website: <a href="https://www.dailyai.site">https://www.dailyai.site</a></p>
+        </div>
+
+        <h2>2. Übersicht der Datenverarbeitung</h2>
+        <p>DailyAI verarbeitet so wenig personenbezogene Daten wie möglich. Die App funktioniert <strong>ohne Registrierung und ohne Login</strong>. Wir setzen auf Privacy-by-Design.</p>
+
+        <h2>3. Welche Daten wir verarbeiten</h2>
+        <table>
+            <tr><th>Datenart</th><th>Zweck</th><th>Rechtsgrundlage</th><th>Speicherdauer</th></tr>
+            <tr><td>Lokale Speicherung (localStorage)</td><td>Feed-Personalisierung, Lesezeichen, Einstellungen</td><td>Einwilligung (Art. 6 I a DSGVO)</td><td>Bis zur Löschung durch den Nutzer</td></tr>
+            <tr><td>E-Mail-Adresse (bei Newsletter-Anmeldung)</td><td>Versand des täglichen AI-Digests</td><td>Einwilligung (Art. 6 I a DSGVO)</td><td>Bis zum Widerruf</td></tr>
+            <tr><td>Sync Code (anonymes Profil)</td><td>Geräteübergreifende Synchronisierung</td><td>Einwilligung (Art. 6 I a DSGVO)</td><td>Bis zur Löschung durch den Nutzer</td></tr>
+            <tr><td>Nutzungsstatistiken (aggregiert)</td><td>Verbesserung der Feed-Qualität</td><td>Berechtigtes Interesse (Art. 6 I f DSGVO)</td><td>90 Tage</td></tr>
+            <tr><td>Server-Logs</td><td>Sicherheit, Fehlerdiagnose</td><td>Berechtigtes Interesse (Art. 6 I f DSGVO)</td><td>30 Tage</td></tr>
+        </table>
+
+        <h2>4. Cookies und lokale Speicherung</h2>
+        <p>DailyAI verwendet <strong>keine Tracking-Cookies und keine Werbe-Cookies</strong>. Wir verwenden ausschließlich:</p>
+        <ul>
+            <li><strong>CSRF-Token-Cookie</strong> (technisch notwendig, Sicherheit)</li>
+            <li><strong>localStorage</strong> (Einstellungen, Feed-Cache, Lesezeichen — nur lokal auf Ihrem Gerät)</li>
+        </ul>
+
+        <h2>5. Externe Dienste</h2>
+        <h3>5.1 Google Fonts</h3>
+        <p>Wir verwenden Google Fonts (Schriftart „Inter"). Beim Laden der Seite wird eine Verbindung zu Google-Servern hergestellt. Dabei kann Ihre IP-Adresse an Google übermittelt werden. Datenschutzerklärung von Google: <a href="https://policies.google.com/privacy" target="_blank">https://policies.google.com/privacy</a></p>
+
+        <h3>5.2 Nachrichtenquellen (RSS)</h3>
+        <p>DailyAI aggregiert öffentlich zugängliche RSS-Feeds. Es werden keine personenbezogenen Daten an die Nachrichtenquellen übermittelt.</p>
+
+        <h3>5.3 KI-Dienste (LLM-Provider)</h3>
+        <p>Für die Zusammenfassung von Nachrichten nutzen wir verschiedene KI-Dienste (Google Gemini, Groq, NVIDIA, HuggingFace). An diese Dienste werden ausschließlich Nachrichteninhalte (Schlagzeilen) übermittelt — <strong>keine personenbezogenen Daten</strong>.</p>
+
+        <h3>5.4 Hosting</h3>
+        <p>DailyAI wird auf Servern in der EU gehostet. Server-Logs werden für maximal 30 Tage aufbewahrt.</p>
+
+        <h2>6. Ihre Rechte</h2>
+        <p>Sie haben gemäß DSGVO folgende Rechte:</p>
+        <ul>
+            <li><strong>Auskunftsrecht</strong> (Art. 15 DSGVO) — Welche Daten wir über Sie speichern</li>
+            <li><strong>Berichtigungsrecht</strong> (Art. 16 DSGVO) — Korrektur unrichtiger Daten</li>
+            <li><strong>Löschungsrecht</strong> (Art. 17 DSGVO) — Löschung Ihrer Daten</li>
+            <li><strong>Einschränkung der Verarbeitung</strong> (Art. 18 DSGVO)</li>
+            <li><strong>Datenübertragbarkeit</strong> (Art. 20 DSGVO)</li>
+            <li><strong>Widerspruchsrecht</strong> (Art. 21 DSGVO)</li>
+            <li><strong>Widerruf der Einwilligung</strong> (Art. 7 III DSGVO) — jederzeit möglich</li>
+            <li><strong>Beschwerderecht</strong> bei einer Aufsichtsbehörde (Art. 77 DSGVO)</li>
+        </ul>
+
+        <h2>7. Kontakt für Datenschutzanfragen</h2>
+        <p>Bei Fragen zum Datenschutz kontaktieren Sie uns unter: <a href="mailto:hello@dailyai.site">hello@dailyai.site</a></p>
+
+        <h2>8. Änderungen</h2>
+        <p>Wir behalten uns vor, diese Datenschutzerklärung anzupassen, um sie an geänderte Rechtslagen oder bei Änderungen des Dienstes anzupassen. Die aktuelle Version finden Sie stets unter <a href="https://www.dailyai.site/datenschutz">dailyai.site/datenschutz</a>.</p>
+
+        <div class="footer-legal">
+            <a href="/">DailyAI</a>
+            <a href="/datenschutz">Datenschutz</a>
+            <a href="/impressum">Impressum</a>
+            <a href="/terms">Terms</a>
+        </div>
+    </div>
+</body>
+</html>

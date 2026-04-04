@@ -150,7 +150,7 @@ const FEED_PAGE_SIZE = 15;
             pulseStories: '{count} stories',
             pulseFresh: 'Fresh: {time}',
             relatedStories: 'Related stories',
-            swipeDiscoverHint: 'Swipe left or right to move across stories',
+            swipeDiscoverHint: 'Swipe the related cards below, then tap a card to open it.',
         },
         hi: {
             htmlLang: 'hi',
@@ -284,7 +284,7 @@ const FEED_PAGE_SIZE = 15;
             pulseStories: '{count} खबरें',
             pulseFresh: 'ताज़ा: {time}',
             relatedStories: 'मिलती-जुलती खबरें',
-            swipeDiscoverHint: 'खबरों के बीच जाने के लिए बाएं या दाएं स्वाइप करें',
+            swipeDiscoverHint: 'नीचे related cards को swipe करें, फिर खोलने के लिए card पर tap करें।',
         },
         de: {
             htmlLang: 'de',
@@ -418,7 +418,7 @@ const FEED_PAGE_SIZE = 15;
             pulseStories: '{count} Storys',
             pulseFresh: 'Neu: {time}',
             relatedStories: 'Aehnliche Storys',
-            swipeDiscoverHint: 'Nach links oder rechts wischen, um Storys zu wechseln',
+            swipeDiscoverHint: 'Unten verwandte Karten wischen und zum Oeffnen antippen.',
         },
     };
 
@@ -1645,6 +1645,34 @@ const FEED_PAGE_SIZE = 15;
         return badgesHtml;
     }
 
+    function getTrustBadge(trust) {
+        const tier = String(trust || 'low').toLowerCase();
+        const map = {
+            high:   { icon: '✅', cls: 'trust-high', label: 'Verified' },
+            medium: { icon: '🟡', cls: 'trust-medium', label: 'Known' },
+            low:    { icon: '🔵', cls: 'trust-low', label: 'Unrated' },
+        };
+        const m = map[tier] || map.low;
+        return `<span class="trust-badge ${m.cls}" title="Source trust: ${m.label}">${m.icon}</span>`;
+    }
+
+    function getSentimentPill(sentiment) {
+        const s = String(sentiment || 'neutral').toLowerCase();
+        const map = {
+            bullish: { icon: '📈', label: 'Bullish', cls: 'sentiment-bullish' },
+            bearish: { icon: '📉', label: 'Bearish', cls: 'sentiment-bearish' },
+            neutral: { icon: '➡️', label: 'Neutral', cls: 'sentiment-neutral' },
+        };
+        const m = map[s] || map.neutral;
+        return `<span class="sentiment-pill ${m.cls}" title="Sentiment: ${m.label}">${m.icon}</span>`;
+    }
+
+    function getThreadBadge(article) {
+        const count = Number(article.thread_count || 0);
+        if (count <= 1) return '';
+        return `<span class="thread-badge" title="${count} sources covering this story">📰 ${count} sources</span>`;
+    }
+
     function createScrollCard(article) {
         const card = document.createElement('div');
         card.className = 'scroll-card';
@@ -1665,6 +1693,10 @@ const FEED_PAGE_SIZE = 15;
         const badgesHtml = getCardBadges(article);
         const readingTimeHtml = getReadingTimeMarkup(article);
 
+        const trustHtml = getTrustBadge(article.source_trust);
+        const sentimentHtml = getSentimentPill(article.sentiment);
+        const threadHtml = getThreadBadge(article);
+
         const isSaved = !!bookmarks[article.id];
         card.innerHTML = `
             ${imgHtml}
@@ -1675,8 +1707,12 @@ const FEED_PAGE_SIZE = 15;
                 ${importanceHtml}
                 ${tapToReadHtml}
                 ${whyHtml}
+                <div class="card-intelligence">
+                    ${threadHtml}
+                    ${sentimentHtml}
+                </div>
                 <div class="card-footer">
-                    <div class="card-source"><div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
+                    <div class="card-source">${trustHtml}<div class="source-avatar" style="background:${avatarColor}">${initial}</div><span class="source-name">${esc(article.source_name)}</span></div>
                     <span class="card-time">${getCardTimeMarkup(article)}</span>
                 </div>
             </div>
@@ -1849,9 +1885,17 @@ const FEED_PAGE_SIZE = 15;
 
 
 
+    function setActiveTopic(topic) {
+        currentTopic = topic || 'For You';
+        document.querySelectorAll('.filter-pill').forEach((pill) => {
+            pill.classList.toggle('active', String(pill.dataset.topic || '') === currentTopic);
+        });
+    }
+
     function onCountryChange() {
         currentCountry = countrySelect.value;
         localStorage.setItem('dailyai_country', currentCountry);
+        setActiveTopic('For You');
         updateTopBarCountry();
         closeSidebar();
         showSkeleton();
@@ -1877,16 +1921,21 @@ const FEED_PAGE_SIZE = 15;
         loadCountries();
         loadLanguages();
         closeSidebar();
+        setActiveTopic('For You');
         showSkeleton();
 
-        // Regenerate country feed in selected language so card headlines also switch.
+        // Regenerate country feed in selected language, but do not block UI indefinitely.
+        const refreshTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('refresh_timeout')), 6000));
         try {
-            await fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
+            await Promise.race([
+                fetch(`/api/refresh/${encodeURIComponent(currentCountry)}?language=${encodeURIComponent(currentLanguage)}`, {
                 method: 'POST',
                 headers: getApiPostHeaders(),
-            });
+                }),
+                refreshTimeout,
+            ]);
         } catch {
-            // Ignore refresh failures and fallback to normal article fetch.
+            // Ignore refresh failures/timeouts and fallback to normal article fetch.
         }
 
         await fetchArticles(currentTopic, { forceRefresh: true });
@@ -2221,9 +2270,7 @@ const FEED_PAGE_SIZE = 15;
     function onTabClick(e) {
         const pill = e.target.closest('.filter-pill');
         if (!pill || pill.classList.contains('active')) return;
-        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        currentTopic = pill.dataset.topic;
+        setActiveTopic(pill.dataset.topic);
         showSkeleton();
         fetchArticles(currentTopic);
     }
@@ -2438,13 +2485,28 @@ const FEED_PAGE_SIZE = 15;
         currentSheetArticleId = String(article.id || '');
         recordSignal(article.id || '', 'tap', article.topic || article.category || '');
         trackReadArticle();
-        
-        const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
         const isSaved = !!bookmarks[article.id];
+        const whyHtml = article.why_it_matters ? `<div class="sheet-why">💡 ${esc(article.why_it_matters)}</div>` : '';
+        
+        const trustLabel = { high: 'Verified Source', medium: 'Known Source', low: 'Unrated Source' };
+        const trustTier = String(article.source_trust || 'low').toLowerCase();
+        const sentimentLabel = { bullish: '📈 Bullish', bearish: '📉 Bearish', neutral: '➡️ Neutral' };
+        const sentimentVal = String(article.sentiment || 'neutral').toLowerCase();
+        const threadCount = Number(article.thread_count || 0);
+        const threadHtml = threadCount > 1 ? `<div class="sheet-thread-badge">📰 ${threadCount} sources covering this story</div>` : '';
+        const intelligenceHtml = `
+            <div class="sheet-intelligence">
+                <span class="sheet-trust-badge trust-${trustTier}">${getTrustBadge(trustTier)} ${trustLabel[trustTier] || 'Unrated'}</span>
+                <span class="sheet-sentiment-badge">${sentimentLabel[sentimentVal] || '➡️ Neutral'}</span>
+                ${threadHtml}
+            </div>
+        `;
+
         sheetContent.innerHTML = `
             <div class="sheet-headline-row">
                 <h2 class="sheet-headline">${esc(article.headline)}</h2>
             </div>
+            ${intelligenceHtml}
             <div class="sheet-brief-wrap" id="sheetBriefWrap">
                 <div class="sheet-brief-loading" id="sheetBriefLoading">
                     <p class="sheet-brief" style="margin-bottom:6px;">${esc(t('loadingBrief'))}</p>
@@ -2526,7 +2588,6 @@ const FEED_PAGE_SIZE = 15;
 
         loadDetailedBrief(article);
         renderRelatedStories(article);
-        attachSheetSwipeNavigation();
         sheetBackdrop.classList.add('show');
         bottomSheet.classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -2611,15 +2672,43 @@ const FEED_PAGE_SIZE = 15;
         const relatedEl = $('sheetRelated');
         if (!relatedEl) return;
 
-        const related = (allArticles || [])
-            .map((candidate) => ({
-                candidate,
-                score: getStorySimilarityScore(baseArticle, candidate),
-            }))
+        const scored = (allArticles || [])
+            .map((candidate) => ({ candidate, score: getStorySimilarityScore(baseArticle, candidate) }))
             .filter((entry) => entry.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 6)
-            .map((entry) => entry.candidate);
+            .sort((a, b) => b.score - a.score);
+
+        const sameTopic = (a, b) => String(a.topic || '').toLowerCase() === String(b.topic || '').toLowerCase();
+        const sameThread = (a, b) => {
+            const at = String(a.story_thread || '').trim().toLowerCase();
+            const bt = String(b.story_thread || '').trim().toLowerCase();
+            return at && bt && at === bt;
+        };
+
+        const strongMatches = scored.filter((entry) => (
+            entry.score >= 4.5 ||
+            sameTopic(baseArticle, entry.candidate) ||
+            sameThread(baseArticle, entry.candidate)
+        ));
+
+        const related = [];
+        const seen = new Set();
+        for (const entry of strongMatches) {
+            const key = String(entry.candidate.id || entry.candidate.headline || '').toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            related.push(entry.candidate);
+            if (related.length >= 5) break;
+        }
+
+        if (related.length < 5) {
+            for (const entry of scored) {
+                const key = String(entry.candidate.id || entry.candidate.headline || '').toLowerCase();
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                related.push(entry.candidate);
+                if (related.length >= 5) break;
+            }
+        }
 
         if (!related.length) {
             relatedEl.innerHTML = '';
@@ -2631,9 +2720,7 @@ const FEED_PAGE_SIZE = 15;
             <div class="sheet-related-rail">
                 ${related.map((article) => `
                     <button class="sheet-related-card" data-id="${esc(article.id)}" type="button">
-                        <span class="related-topic">${esc(article.topic || 'Top Stories')}</span>
                         <span class="related-headline">${esc(article.headline || '')}</span>
-                        <span class="related-time">${esc(getTimeAgo(article.published_at || article.updated_at))}</span>
                     </button>
                 `).join('')}
             </div>

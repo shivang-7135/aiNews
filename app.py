@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -326,3 +326,244 @@ async def digest_preview():
     if not tiles:
         return HTMLResponse("<p>No news available yet. Check back later.</p>")
     return HTMLResponse(generate_digest_html(tiles[:10]))
+
+
+# ── Legal pages (required for German market) ───────────────────────
+@app.get("/impressum", response_class=HTMLResponse)
+async def impressum(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="impressum.html",
+        context={"request": request, "app_version": APP_VERSION},
+    )
+
+
+@app.get("/datenschutz", response_class=HTMLResponse)
+async def datenschutz(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="datenschutz.html",
+        context={"request": request, "app_version": APP_VERSION},
+    )
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="terms.html",
+        context={"request": request, "app_version": APP_VERSION},
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Developer API v1 — Public REST API with API key authentication
+# ══════════════════════════════════════════════════════════════════════
+
+@app.post("/api/v1/keys")
+async def create_key(request: Request):
+    """Create a new API key (free tier by default)."""
+    from services.api_keys import create_api_key
+
+    body = await request.json()
+    name = str(body.get("name", "My App"))[:100]
+    email = str(body.get("email", ""))[:200]
+
+    if not email or "@" not in email:
+        return JSONResponse({"error": "Valid email required"}, status_code=400)
+
+    result = create_api_key(name=name, email=email, tier="free")
+    return result
+
+
+@app.get("/api/v1/keys/stats")
+async def key_stats(x_api_key: str = Header(None)):
+    """Get usage stats for your API key."""
+    from services.api_keys import get_api_key_stats
+
+    if not x_api_key:
+        return JSONResponse({"error": "X-API-Key header required"}, status_code=401)
+
+    stats = get_api_key_stats(x_api_key)
+    if not stats:
+        return JSONResponse({"error": "Invalid API key"}, status_code=401)
+    return stats
+
+
+def _validate_v1_key(api_key: str | None) -> tuple[dict | None, JSONResponse | None]:
+    """Validate API key and check rate limit. Returns (record, error_response)."""
+    from services.api_keys import check_rate_limit, validate_api_key
+
+    if not api_key:
+        return None, JSONResponse(
+            {"error": "Missing X-API-Key header. Get a free key at https://www.dailyai.site/api/docs"},
+            status_code=401,
+        )
+
+    record = validate_api_key(api_key)
+    if not record:
+        return None, JSONResponse({"error": "Invalid or deactivated API key"}, status_code=401)
+
+    tier = record.get("tier", "free")
+    key_hash = record.get("key_hash", "")
+    allowed, remaining, limit = check_rate_limit(key_hash, tier)
+
+    if not allowed:
+        resp = JSONResponse(
+            {"error": "Rate limit exceeded", "limit": limit, "reset": "rolling 24h"},
+            status_code=429,
+        )
+        resp.headers["X-RateLimit-Limit"] = str(limit)
+        resp.headers["X-RateLimit-Remaining"] = "0"
+        resp.headers["Retry-After"] = "3600"
+        return None, resp
+
+    return record, None
+
+
+@app.get("/api/v1/feed")
+async def api_v1_feed(
+    topic: str = "all",
+    country: str = "GLOBAL",
+    language: str = "en",
+    offset: int = 0,
+    limit: int = 15,
+    x_api_key: str = Header(None),
+):
+    """Public Developer API — Get curated AI news feed.
+
+    Requires X-API-Key header. Get a free key at https://www.dailyai.site
+    """
+    from services.api_keys import filter_fields_for_tier
+
+    record, error = _validate_v1_key(x_api_key)
+    if error:
+        return error
+
+    tier = record.get("tier", "free")
+    payload = await get_articles_payload(
+        topic=topic,
+        country=country.upper(),
+        language=normalize_language(language),
+        offset=max(0, offset),
+        limit=max(1, min(limit, 30)),
+    )
+
+    # Filter fields based on tier
+    filtered_articles = [
+        filter_fields_for_tier(a, tier) for a in payload.get("articles", [])
+    ]
+
+    return {
+        "articles": filtered_articles,
+        "total": payload.get("total", 0),
+        "offset": payload.get("offset", 0),
+        "limit": payload.get("limit", 15),
+        "has_more": payload.get("has_more", False),
+        "country": payload.get("country", "GLOBAL"),
+        "language": payload.get("language", "en"),
+        "api_version": "v1",
+        "tier": tier,
+    }
+
+
+@app.get("/api/v1/trending")
+async def api_v1_trending(
+    country: str = "GLOBAL",
+    language: str = "en",
+    x_api_key: str = Header(None),
+):
+    """Public Developer API — Get trending story threads.
+
+    Groups articles by story thread and returns top threads by coverage.
+    """
+    record, error = _validate_v1_key(x_api_key)
+    if error:
+        return error
+
+    language = normalize_language(language)
+    country = country.upper()
+    key = store_key(country, language)
+
+    if key not in NEWS_STORE:
+        await refresh_news(country, language)
+
+    tiles = list(NEWS_STORE.get(key, []))
+
+    # Group by story_thread
+    threads: dict[str, dict] = {}
+    for t in tiles:
+        thread_name = str(t.get("story_thread", "")).strip()
+        if not thread_name:
+            continue
+        thread_key = thread_name.lower()
+        if thread_key not in threads:
+            threads[thread_key] = {
+                "thread": thread_name,
+                "articles_count": 0,
+                "sources": [],
+                "top_headline": t.get("title", ""),
+                "sentiment": t.get("sentiment", "neutral"),
+                "max_importance": 0,
+                "latest_published": "",
+            }
+        entry = threads[thread_key]
+        entry["articles_count"] += 1
+        src = t.get("source", "")
+        if src and src not in entry["sources"]:
+            entry["sources"].append(src)
+        imp = int(t.get("importance", 5) or 5)
+        if imp > entry["max_importance"]:
+            entry["max_importance"] = imp
+            entry["top_headline"] = t.get("title", "")
+        pub = str(t.get("published", ""))
+        if pub > entry["latest_published"]:
+            entry["latest_published"] = pub
+
+    # Sort by coverage (article count * max importance)
+    sorted_threads = sorted(
+        threads.values(),
+        key=lambda x: x["articles_count"] * x["max_importance"],
+        reverse=True,
+    )
+
+    return {
+        "threads": sorted_threads[:20],
+        "total": len(sorted_threads),
+        "country": country,
+        "language": language,
+        "api_version": "v1",
+    }
+
+
+@app.get("/api/v1/sources")
+async def api_v1_sources(x_api_key: str = Header(None)):
+    """Public Developer API — Get source trust database."""
+    record, error = _validate_v1_key(x_api_key)
+    if error:
+        return error
+
+    # Build source trust database from agent's source lists
+    from services.news_core import agent as news_agent
+
+    sources = []
+    for src in sorted(news_agent.high_trust_sources):
+        sources.append({"name": src.title(), "trust_tier": "high"})
+    for src in sorted(news_agent.medium_trust_sources):
+        sources.append({"name": src.title(), "trust_tier": "medium"})
+
+    return {
+        "sources": sources,
+        "total": len(sources),
+        "api_version": "v1",
+    }
+
+
+# ── API Documentation page ─────────────────────────────────────────
+@app.get("/api/docs/guide", response_class=HTMLResponse)
+async def api_docs_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="api_docs.html",
+        context={"request": request, "app_version": APP_VERSION},
+    )
