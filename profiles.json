@@ -336,5 +336,54 @@
       "total_time_spent_seconds": 15596,
       "session_count": 51
     }
+  },
+  "Amber-Falcon-23": {
+    "sync_code": "Amber-Falcon-23",
+    "preferred_topics": [
+      "llms",
+      "big_tech",
+      "startups"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "Top Stories": 2
+    },
+    "bookmarks": [],
+    "created_at": "2026-04-04T15:32:47.439645+00:00",
+    "last_active": "2026-04-05T12:14:24.907893+00:00",
+    "analytics": {
+      "total_taps": 0,
+      "total_saves": 0,
+      "total_reads": 0,
+      "total_skips": 0,
+      "total_briefs_opened": 0,
+      "total_time_spent_seconds": 9693383,
+      "session_count": 257
+    }
+  },
+  "Cosmic-Prism-83": {
+    "sync_code": "Cosmic-Prism-83",
+    "preferred_topics": [
+      "llms",
+      "research"
+    ],
+    "country": "GLOBAL",
+    "language": "en",
+    "signals": {
+      "Tech & Science": 1
+    },
+    "bookmarks": [],
+    "created_at": "2026-04-05T12:10:44.640155+00:00",
+    "last_active": "2026-04-05T12:15:19.569614+00:00",
+    "analytics": {
+      "total_taps": 0,
+      "total_saves": 0,
+      "total_reads": 0,
+      "total_skips": 0,
+      "total_briefs_opened": 0,
+      "total_time_spent_seconds": 874,
+      "session_count": 4
+    }
   }
 }

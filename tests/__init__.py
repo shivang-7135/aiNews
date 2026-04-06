@@ -1,1 +1,1 @@
-# DailyAI Tests
+"""DailyAI test suite."""

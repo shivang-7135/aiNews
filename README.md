@@ -1,205 +1,114 @@
 <div align="center">
-
-# 🤖 DailyAI
-
-### AI News Intelligence in 60 Seconds
-
-[![CI](https://github.com/shivangsinha/DailyAInews/actions/workflows/ci.yml/badge.svg)](https://github.com/shivangsinha/DailyAInews/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Live Demo](https://img.shields.io/badge/demo-dailyai.site-2dd4a0)](https://www.dailyai.site)
-
-**From AI headlines to action — curated, scored, and explained by AI agents.**
-
-[Live Demo](https://www.dailyai.site) · [API Docs](https://www.dailyai.site/api/docs/guide) · [Report Bug](.github/ISSUE_TEMPLATE/bug_report.yml) · [Request Feature](.github/ISSUE_TEMPLATE/feature_request.yml)
-
+  <img src="/static/icons/icon-192x192.png" alt="DailyAI Logo" width="100"/>
+  <h1>DailyAI v2 (LangGraph Edition)</h1>
+  <p><strong>A startup-grade AI News Intelligence Platform powered by LangGraph, FastAPI, and NiceGUI.</strong></p>
+  <p>
+    <a href="#features">Features</a> •
+    <a href="#architecture">Architecture</a> •
+    <a href="#quickstart">Quickstart</a> •
+    <a href="#developer-api">Developer API</a>
+  </p>
 </div>
 
 ---
 
-## What is DailyAI?
+DailyAI is a professional intelligence platform that aggregates, curates, and ranks the most important AI news daily. Version 2 is completely rebuilt around a **LangGraph agentic pipeline** and a **Python-only NiceGUI frontend**, managed entirely by `uv`.
 
-DailyAI is an **AI-powered news intelligence platform** that curates the most important AI industry news, scores source trustworthiness, analyzes sentiment, and groups related stories into threads — so busy professionals can make informed decisions in 60 seconds.
+## 🚀 Features
 
-**Not just another aggregator.** DailyAI tells you:
-- 📰 **What happened** — AI-curated from 50+ sources hourly
-- ✅ **How trustworthy** — Source trust scoring (Verified / Known / Unrated)
-- 📈 **Market sentiment** — Bullish / Bearish / Neutral per story
-- 🧵 **Story threads** — Related articles grouped by event
-- 💡 **Why it matters** — One-sentence professional relevance
-- 🎯 **What to do next** — Role-based action items
+- **Agentic Pipeline (LangGraph)**: Modular, observable pipeline that collects, deduplicates, curates (via LLM), scores trust, tags sentiment, and threads stories.
+- **Cascading LLM Fallbacks**: Uses LangChain `with_fallbacks()` to seamlessly switch between Gemini, Groq, NVIDIA, HuggingFace, and Ollama to ensure near 100% uptime.
+- **Python-Only UI (NiceGUI)**: Premium glassmorphism design, fully responsive (mobile/desktop), and PWA-ready without a single line of JavaScript or HTML.
+- **Intelligence Signals**: Includes Source Trust Scoring (Verified/Known/Unrated), Sentiment Analysis (Bullish/Bearish/Neutral), and Story Threading.
+- **Privacy-First Personalization**: Generates anonymous "Sync Codes" (e.g. `Swift-Falcon-42`) to track topics and implicit signals without requiring intrusive logins.
+- **Zero-Config DB**: Powered by async SQLite for fast local persistence, ready for Supabase cloud sync.
+- **Developer API**: Open REST API (`/api/v1/feed`) for integration into external apps.
 
-## Features
-
-| Feature | Description |
-|---|---|
-| 🤖 **AI Curation** | Agentic pipeline with multi-LLM fallback (Gemini, NVIDIA, Groq, HuggingFace) |
-| ✅ **Source Trust** | 3-tier trust scoring: Verified, Known, Unrated |
-| 📈 **Sentiment** | Per-article market sentiment analysis |
-| 🧵 **Story Threads** | Automatic grouping of related coverage |
-| 🌍 **Multilingual** | English, German, Hindi with native translations |
-| 🇩🇪 **Germany-first** | DACH sources (Heise, Golem, t3n, Handelsblatt), DSGVO compliant |
-| 📱 **PWA** | Installable, works offline, no app store needed |
-| 🔐 **Privacy-first** | No login, no tracking cookies, local-first storage |
-| 📬 **Email Digest** | Daily AI brief delivered to your inbox |
-| 🔌 **Developer API** | REST API with free/pro tiers for building on DailyAI data |
-| 🎨 **Dark/Light** | Premium dark mode with light theme option |
-
-## Quick Start
-
-```bash
-# Clone
-git clone https://github.com/shivangsinha/DailyAInews.git
-cd DailyAInews
-
-# Setup
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env  # Add your API keys
-
-# Run
-python -m uvicorn app:app --reload --port 8000
-```
-
-Open [http://localhost:8000](http://localhost:8000) 🚀
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `GOOGLE_AI_KEY` | ✅ | Google Gemini API key (primary LLM) |
-| `GROQ_API_KEY` | Optional | Groq API key (fallback LLM) |
-| `NVIDIA_API_KEY` | Optional | NVIDIA API key (fallback LLM) |
-| `LLM7AI_KEY` | Optional | llm7.io API key (OpenAI-compatible fallback LLM) |
-| `LLM7_API_URL` | Optional | Override llm7 endpoint (default: `https://api.llm7.io/v1/chat/completions`) |
-| `LLM7_MODEL` | Optional | llm7 model name override (default: `gpt-4o-mini`) |
-| `HF_API_TOKEN` | Optional | HuggingFace API token |
-| `BYTEZ_API_KEY` | Optional | Bytez API key |
-| `RESEND_API_KEY` | Optional | Resend API key for email digest |
-| `SUPABASE_URL` | Optional | Supabase URL for cloud sync |
-| `SUPABASE_KEY` | Optional | Supabase anon key |
-
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
-graph TB
-    subgraph Frontend
-        PWA[PWA Web App]
-        JS[Vanilla JS + CSS]
-    end
-    
-    subgraph Backend
-        API[FastAPI Server]
-        Agent[AI Agent Pipeline]
-        Scheduler[APScheduler]
-    end
-    
-    subgraph Intelligence
-        LLM[Multi-LLM Fallback]
-        Trust[Source Trust Engine]
-        Sentiment[Sentiment Analysis]
-        Threads[Story Threading]
-    end
-    
-    subgraph Data
-        RSS[50+ RSS Sources]
-        Cache[In-Memory + JSON Cache]
-        Supabase[Cloud Sync]
-    end
-    
-    PWA --> API
-    API --> Agent
-    Scheduler --> Agent
-    Agent --> LLM
-    Agent --> Trust
-    Agent --> Sentiment
-    Agent --> Threads
-    Agent --> RSS
-    API --> Cache
-    API --> Supabase
+graph LR
+    START((Start)) --> COLLECT[Collect News (RSS)]
+    COLLECT --> DEDUPE[Deduplicate]
+    DEDUPE --> CURATE[LLM Curate & Summarize]
+    CURATE --> TRUST[Source Trust Scoring]
+    TRUST --> SENTIMENT[Sentiment Analysis]
+    SENTIMENT --> THREAD[Story Threading]
+    THREAD --> PERSONALIZE{User Profile?}
+    PERSONALIZE -->|Yes| RANK_PERSONAL[Personalize Rank]
+    PERSONALIZE -->|No| RANK_DEFAULT[Quality Rank]
+    RANK_PERSONAL --> FORMAT[Format for UI]
+    RANK_DEFAULT --> FORMAT
+    FORMAT --> END((End))
 ```
 
-## Developer API
+The system is split into distinct layers:
+1. **Frontend (NiceGUI)**: `src/dailyai/ui/`
+2. **REST API (FastAPI)**: `src/dailyai/api/`
+3. **Core Pipeline (LangGraph)**: `src/dailyai/graph/`
+4. **LLM Abstraction (LangChain)**: `src/dailyai/llm/`
+5. **Storage (SQLite/Supabase)**: `src/dailyai/storage/`
 
-Get curated AI news data for your apps, bots, and workflows.
+## 🛠️ Quickstart
+
+DailyAI v2 uses [uv](https://github.com/astral-sh/uv) for lightning-fast Python package management.
+
+### 1. Prerequisites
+- Python 3.11+
+- `uv` installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+
+### 2. Setup
+Clone the repository, configure your API keys, and run.
 
 ```bash
-# Get a free API key
-curl -X POST https://www.dailyai.site/api/v1/keys \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My App", "email": "you@example.com"}'
+git clone https://github.com/shivang/DailyAInews.git
+cd DailyAInews
 
-# Fetch AI news
-curl https://www.dailyai.site/api/v1/feed \
-  -H "X-API-Key: dai_your_key_here"
+# Copy the example environment variables
+cp .env.example .env
+
+# Edit .env and add at least one LLM key (e.g. GOOGLE_AI_KEY or GROQ_API_KEY)
+nano .env
+
+# Run the app (uv will auto-install dependencies and start the Uvicorn server)
+uv run dailyai
 ```
 
-| Tier | Price | Requests/Day | Features |
-|---|---|---|---|
-| **Free** | €0 | 100 | Basic fields, all topics |
-| **Pro** | €7.99/mo | 10,000 | + sentiment, trust, threads |
-| **Enterprise** | Custom | 50,000+ | + white-label, SLA |
+The application will start on `http://localhost:8000`.
 
-📖 **[Full API Documentation →](https://www.dailyai.site/api/docs/guide)**
+## 🌐 Developer API
 
-## Tech Stack
+The platform exposes a public Developer API for fetching the curated feed.
 
-- **Backend**: Python 3.11+ · FastAPI · APScheduler · Pydantic
-- **Frontend**: Vanilla JS · CSS3 · PWA
-- **AI**: Gemini · NVIDIA DeepSeek · Groq · HuggingFace (multi-provider fallback)
-- **Storage**: In-memory + JSON persistence · Supabase cloud sync
-- **Email**: Resend API
-- **CI**: GitHub Actions · Ruff · mypy · pytest
+**Endpoint**:
+`GET /api/v1/feed?topic=all&country=GLOBAL&language=en&limit=15`
 
-## Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
-
-```bash
-# Run tests
-pytest tests/ -v
-
-# Lint
-ruff check .
+**Response format**:
+```json
+{
+  "total": 15,
+  "articles": [
+    {
+      "id": "GLOBAL-en-0",
+      "headline": "OpenAI announces GPT-5 development schedule",
+      "summary": "The next generation foundation model targets Q4 release...",
+      "why_it_matters": "Will reset the benchmark for all major AI applications.",
+      "importance": 9,
+      "topic": "AI Models",
+      "source_name": "Reuters",
+      "source_trust": "high",
+      "sentiment": "bullish",
+      "story_thread": "GPT-5 Launch",
+      "thread_count": 3
+    }
+  ]
+}
 ```
 
-## Roadmap
+## 📜 Roadmap
+- **v2.1**: Smart Alerts & Topic Deep-Dives
+- **v2.2**: Pro Tier (Stripe) & Slack/Discord Integration
+- **v3.0**: Custom Source Plugins & Advanced Recommendations
 
-| Feature | Status | FutureScope |
-|---|---|---|
-| Multi-LLM fallback pipeline | Done | Add provider health scoring and adaptive prompt shrinking for 413/429 handling. |
-| Source trust scoring | Done | Expand source registry with region-specific confidence tuning. |
-| Sentiment analysis | Done | Add confidence score and domain-aware sentiment calibration. |
-| Story thread grouping | Done | Improve clustering across multilingual duplicates. |
-| Developer API v1 | Done | Add API v2 with thread-centric and delta-feed endpoints. |
-| German market compliance (Impressum, DSGVO) | Done | Add automated policy/version changelog in release notes. |
-| CI pipeline | Done | Add browser E2E tests for card interactions and sheet behavior. |
-| Related stories mini-cards (tap-to-open) | In Progress | Add semantic embeddings to guarantee 5 strong related cards even in sparse regional feeds. |
-| Browser extension | Planned | Build read-later capture to DailyAI saved list. |
-| Slack/Discord bot | Planned | Post digest + thread updates with topic subscriptions. |
-| Custom alert rules | Planned | User-defined triggers by topic, sentiment, and source trust. |
-| AI model comparison tracker | Planned | Track model releases with benchmark deltas over time. |
-| Pro tier billing integration | Planned | Stripe-based usage metering and subscription lifecycle sync. |
-
-## Legal
-
-- 📄 [Impressum](https://www.dailyai.site/impressum) (German legal notice)
-- 🔒 [Datenschutz](https://www.dailyai.site/datenschutz) (Privacy Policy / DSGVO)
-- 📋 [Terms of Service](https://www.dailyai.site/terms)
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
-The core platform is open-source. The Developer API monetization layer (`services/api_keys.py`) is operational but follows a separate commercial model.
-
----
-
-<div align="center">
-
-**Built with ❤️ for the AI community**
-
-[⭐ Star this repo](https://github.com/shivangsinha/DailyAInews) if DailyAI helps you stay informed!
-
-</div>
+## 📄 License
+MIT License

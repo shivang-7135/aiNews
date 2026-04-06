@@ -3,10 +3,15 @@
     "short_name": "DailyAI",
     "description": "AI-powered news aggregator — Breaking AI news updated every hour",
     "start_url": "/",
+    "display_override": [
+        "window-controls-overlay",
+        "standalone",
+        "browser"
+    ],
     "display": "standalone",
     "theme_color": "#06061a",
     "background_color": "#06061a",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "icons": [
         {
             "src": "/static/icon-192.png",
