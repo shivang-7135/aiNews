@@ -24,6 +24,33 @@ async def home_page():
     ui.page_title('DailyAI — AI News Intelligence')
     ui.dark_mode(True)
 
+    # ── Kill Quasar's inline min-height (it re-applies via Vue reactivity) ──
+    ui.run_javascript('''
+        function fixQuasarSpacing() {
+            document.querySelectorAll('.q-layout, .q-page, .q-page-container').forEach(function(el) {
+                el.style.minHeight = '0px';
+                el.style.padding = '0px';
+            });
+        }
+        fixQuasarSpacing();
+        // Quasar re-applies inline styles on resize/update — watch for it
+        var _qObs = new MutationObserver(function(mutations) {
+            mutations.forEach(function(m) {
+                if (m.type === 'attributes' && m.attributeName === 'style') {
+                    var t = m.target;
+                    if (t.classList.contains('q-layout') || t.classList.contains('q-page') || t.classList.contains('q-page-container')) {
+                        if (parseInt(t.style.minHeight) > 10) {
+                            t.style.minHeight = '0px';
+                        }
+                    }
+                }
+            });
+        });
+        _qObs.observe(document.getElementById('app') || document.body, {
+            attributes: true, attributeFilter: ['style'], subtree: true
+        });
+    ''')
+
     # ── State ──
     app_state = {
         "topic": "Top Stories",
@@ -57,8 +84,8 @@ async def home_page():
     # ── Main Container ──
     main_col = ui.column().classes(
         'w-full max-w-screen-lg xl:max-w-screen-xl mx-auto'
-        ' min-h-screen pb-24 relative z-10'
-    ).style('gap: 0;')
+        ' pb-16 relative z-10'
+    ).style('gap: 0; padding-top: 0;')
 
     # ── Callbacks ──
     async def _set_country(country: str):

@@ -57,26 +57,30 @@ CURATION_PROMPT = ChatPromptTemplate.from_messages([
 
 # ── Article Brief Prompt ────────────────────────────────────────────
 
-BRIEF_SYSTEM = """You are an expert AI news analyst.
-Write a concise summary in {output_language}.
+BRIEF_SYSTEM = """You are an expert AI news analyst writing for a mobile news app.
+Write a clear, informative summary in {output_language} that helps readers fully understand the story.
 
 RULES:
-1. Output EXACTLY 3 to 5 bullet points.
-2. Each bullet starts with • and is 1-2 sentences max.
-3. Cover: what happened, who is involved, why it matters, and what to watch next.
-4. Stay factual — no hype or speculation.
-5. Keep it short so readers want to click the original link for more.
-6. Output plain text bullet points only. No headings, no markdown."""
+1. Output EXACTLY 5 bullet points, approximately 100 words total.
+2. Each bullet starts with • and is a complete, informative sentence of 15 to 20 words.
+3. Bullet 1: What happened — the core news event explained clearly with key details.
+4. Bullet 2: Who is involved — name the companies, people, or organizations and their roles.
+5. Bullet 3: Key technical or business details — numbers, features, capabilities, or deal terms.
+6. Bullet 4: Why it matters — the broader impact for the AI industry and professionals.
+7. Bullet 5: What to watch next — upcoming developments, timeline, or potential consequences.
+8. Stay factual — no hype, no speculation, no generic filler sentences like "Stay informed" or "Read more".
+9. Do NOT repeat the headline verbatim. Each bullet must add new information.
+10. Use ONLY the • character to start each bullet, one bullet per line. No intro sentence, no headings, no labels, no other symbols."""
 
-BRIEF_HUMAN = """Article data:
+BRIEF_HUMAN = """Summarize this AI news article in detail:
 Title: {title}
 Source: {source}
 Topic: {topic}
-Link: {link}
-Short summary: {summary}
-Why it matters: {why_it_matters}
+URL: {link}
+Existing summary: {summary}
+Context: {why_it_matters}
 
-Write the detailed brief now in 100 words."""
+Write exactly 5 informative bullet points (15-20 words each, ~100 words total). Each bullet should help the reader fully understand the story:"""
 
 BRIEF_PROMPT = ChatPromptTemplate.from_messages([
     ("system", BRIEF_SYSTEM),
@@ -98,10 +102,10 @@ PROMPT_LEAK_MARKERS: list[str] = [
     "respond ONLY with a valid JSON",
     "You are an expert AI news analyst",
     "You are an AI news curator agent",
-    "Article data:",
-    "Write the detailed brief now.",
-    "Short summary:",
-    "Why it matters:",
+    "Summarize this AI news article",
+    "Write exactly 5 informative bullet points",
+    "Existing summary:",
+    "Context:",
 ]
 
 

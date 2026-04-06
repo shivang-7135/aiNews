@@ -39,13 +39,21 @@ def _format_time_ago(iso_date: str) -> str:
 
 
 def _short_summary(article: dict) -> str:
+    import re
     summary = str(article.get("summary", "") or "").strip()
-    if summary:
+    # Skip generic fallback summaries
+    if summary and not re.match(
+        r'^Reported by .+\.\s*(Tap to read|Click to read)', summary, re.IGNORECASE
+    ):
         return summary
     why = str(article.get("why_it_matters", "") or "").strip()
-    if why:
+    # Skip generic why_it_matters too
+    if why and "Stay informed" not in why:
         return why
+    headline = str(article.get("headline", "") or "").strip()
     source = str(article.get("source_name", "") or "Unknown source").strip()
+    if headline:
+        return f"{headline}. Reported by {source}."
     return f"Reported by {source}. Tap to read the full story."
 
 
@@ -93,16 +101,79 @@ def _js_str(text: str) -> str:
     )
 
 
-def _make_bullets(summary: str) -> list[str]:
-    """Split summary into bullet points for the detail view."""
-    text = summary.strip()
-    if not text:
-        return []
-    for sep in [". ", ".\n", "\n", "; "]:
-        parts = [p.strip() for p in text.split(sep) if p.strip()]
-        if len(parts) >= 2:
-            return [p.rstrip(".") + "." for p in parts[:5]]
-    return [text]
+def _make_bullets(raw_summary: str, headline: str = "", why: str = "") -> list[str]:
+    """Build informative bullet points (5 bullets, ~15-20 words each) for the detail view.
+    
+    Uses the raw summary field (not the fallback). When summary is empty,
+    constructs bullets from headline + why_it_matters.
+    """
+    import re
+    text = (raw_summary or "").strip()
+    why = (why or "").strip()
+    headline = (headline or "").strip()
+
+    # Detect and discard generic fallback summaries
+    if re.match(r'^Reported by .+\.\s*(Tap to read|Click to read)', text, re.IGNORECASE):
+        text = ""
+    # Detect and discard generic why_it_matters
+    if why and "Stay informed" in why:
+        why = ""
+
+    bullets: list[str] = []
+
+    if text:
+        # Have actual summary — split into sentence-level bullets
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+
+        if len(sentences) >= 2:
+            bullets = sentences[:5]
+        else:
+            words = text.split()
+            if len(words) > 20:
+                # Try splitting on semicolons/commas for compound sentences
+                chunks = re.split(r'[;,]\s*', text)
+                chunks = [c.strip() for c in chunks if len(c.strip()) > 10]
+                if len(chunks) >= 2:
+                    bullets = chunks[:5]
+                else:
+                    # Split long single sentence into ~3 roughly equal parts
+                    third = len(words) // 3
+                    bullets = [
+                        ' '.join(words[:third]),
+                        ' '.join(words[third:2*third]),
+                        ' '.join(words[2*third:]),
+                    ]
+            else:
+                bullets = [text]
+
+        # Pad to 5 bullets using headline and why_it_matters
+        if why and why.lower() not in text.lower() and len(bullets) < 5:
+            bullets.append(why)
+        if headline and headline.lower() not in text.lower() and len(bullets) < 5:
+            bullets.insert(0, headline)
+    else:
+        # No summary at all — build bullets from headline + why
+        if headline:
+            bullets.append(headline)
+        if why:
+            bullets.append(why)
+        if not bullets:
+            bullets = ["Tap to read the full story for more details on this topic."]
+
+    # Enforce total ~120 word limit & punctuation
+    final: list[str] = []
+    word_count = 0
+    for b in bullets:
+        b_words = b.split()
+        if word_count + len(b_words) > 120 and final:
+            break
+        if b and b[-1] not in '.!?':
+            b += '.'
+        final.append(b)
+        word_count += len(b_words)
+
+    return final if final else [headline or "Tap to read the full story for more details on this topic."]
 
 
 def _card_uid(article: dict) -> str:
@@ -111,11 +182,48 @@ def _card_uid(article: dict) -> str:
 
 
 def _inject_detail_overlay_once():
-    """Inject the single, reusable full-screen detail overlay + JS into the page (once)."""
+    """Inject the single, reusable full-screen detail overlay + JS into the page.
+    Called once per NiceGUI client (page load). The JS-side window.__dailyaiDetailInit
+    guard handles browser-level deduplication within a single tab/session.
+    Do NOT add a Python module-level guard here — module-level state persists across
+    all page loads (all clients), which would prevent any client after the first from
+    ever receiving the run_javascript call and having openDetail defined.
+    """
+    # <style> in add_head_html is fine — CSS applies even from dynamically injected style tags.
+    # <script> in add_head_html is NOT executed (HTML5 spec: scripts injected via innerHTML/
+    # insertAdjacentHTML are silently discarded). Use run_javascript instead for JS.
     ui.add_head_html('''
-    <script>
+    <style>
+    /* Shimmer loading animation for brief fetch */
+    .brief-loading { padding: 8px 0; }
+    .shimmer-line {
+        height: 14px; border-radius: 7px; margin-bottom: 12px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s ease-in-out infinite;
+    }
+    .shimmer-line:nth-child(1) { width: 95%; }
+    .shimmer-line:nth-child(2) { width: 88%; }
+    .shimmer-line:nth-child(3) { width: 78%; }
+    .shimmer-line:nth-child(4) { width: 65%; }
+    .shimmer-line:nth-child(5) { width: 72%; }
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    .brief-error {
+        color: var(--text-secondary, #999); font-size: 13px;
+        padding: 8px 0; font-style: italic;
+    }
+    </style>
+    ''')
+
+    ui.run_javascript('''
     if (!window.__dailyaiDetailInit) {
         window.__dailyaiDetailInit = true;
+
+        /* ── Brief cache ── */
+        window.__articleBriefs = window.__articleBriefs || {};
 
         /* ── Share helper ── */
         window.shareArticle = function(headline, url) {
@@ -135,20 +243,158 @@ def _inject_detail_overlay_once():
         window._savedArticles = window._savedArticles || {};
         window.toggleSaveArticle = function(uid) {
             window._savedArticles[uid] = !window._savedArticles[uid];
-            // Update card-level icon
             var cardBtn = document.getElementById('card-save-' + uid);
             if (cardBtn) {
                 var icon = cardBtn.querySelector('.material-icons');
                 if (icon) icon.textContent = window._savedArticles[uid] ? 'bookmark' : 'bookmark_border';
                 cardBtn.classList.toggle('saved', window._savedArticles[uid]);
             }
-            // Update detail-level icon
             var detailBtn = document.getElementById('detail-save-btn');
             if (detailBtn) {
                 var dicon = detailBtn.querySelector('.material-icons');
                 if (dicon) dicon.textContent = window._savedArticles[uid] ? 'bookmark' : 'bookmark_border';
                 detailBtn.classList.toggle('saved', window._savedArticles[uid]);
             }
+        };
+
+        /* ── Render bullet points from text ── */
+        window._renderBullets = function(bulletsEl, bulletTexts) {
+            bulletsEl.innerHTML = '';
+            bulletTexts.forEach(function(b) {
+                var div = document.createElement('div');
+                div.className = 'detail-bullet';
+                div.innerHTML = '<div class="detail-bullet-dot"></div><div class="detail-bullet-text">' + b + '</div>';
+                bulletsEl.appendChild(div);
+            });
+        };
+
+        /* ── Show loading shimmer ── */
+        window._showBriefLoading = function(bulletsEl) {
+            bulletsEl.innerHTML = '<div class="brief-loading">' +
+                '<div class="shimmer-line"></div>' +
+                '<div class="shimmer-line"></div>' +
+                '<div class="shimmer-line"></div>' +
+                '<div class="shimmer-line"></div>' +
+                '<div class="shimmer-line"></div>' +
+                '</div>';
+        };
+
+        /* ── Parse brief text into bullet array ── */
+        window._parseBriefBullets = function(briefText) {
+            if (!briefText) return [];
+            var lines = briefText.split(/\\n/).map(function(l) { return l.trim(); }).filter(Boolean);
+            var bullets = [];
+
+            /* Pass 1: only lines that start with an explicit bullet marker (•, -, *, 1.) */
+            lines.forEach(function(line) {
+                if (/^[•\-\*]/.test(line) || /^\d+[\.\)\:]/.test(line)) {
+                    var cleaned = line.replace(/^[•\-\*\s]+/, '').replace(/^\d+[\.\)\:]\s*/, '').trim();
+                    if (cleaned.length > 8) bullets.push(cleaned);
+                }
+            });
+
+            /* Pass 2: no explicit markers — treat every non-empty line as a bullet (LLM used plain lines) */
+            if (bullets.length < 2) {
+                bullets = lines.filter(function(l) { return l.length > 8; });
+            }
+
+            /* Pass 3: single blob of text — split by sentences (no lookbehind for compatibility) */
+            if (bullets.length < 2) {
+                var sentences = briefText.replace(/([.!?])\\s+/g, '$1\\n').split('\\n');
+                bullets = sentences.map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 8; });
+            }
+
+            return bullets.slice(0, 5);
+        };
+
+        /* ── Fetch LLM brief on demand ── */
+        window._fetchBrief = function(uid, data) {
+            var bulletsEl = document.getElementById('detailBullets');
+            var whyBox = document.getElementById('detailWhyBox');
+            if (!bulletsEl) return;
+
+            /* Check cache first */
+            if (window.__articleBriefs[uid]) {
+                var cached = window.__articleBriefs[uid];
+                window._renderBullets(bulletsEl, cached.bullets);
+                if (cached.why) {
+                    whyBox.style.display = 'block';
+                    document.getElementById('detailWhyText').textContent = cached.why;
+                }
+                return;
+            }
+
+            /* Change 2: Delay shimmer by 600ms — initial bullets stay visible for fast responses */
+            var shimmerTimeout = setTimeout(function() {
+                window._showBriefLoading(bulletsEl);
+            }, 600);
+
+            /* Change 1: AbortController with 15s timeout to prevent infinite shimmer */
+            var controller = new AbortController();
+            var fetchTimeout = setTimeout(function() { controller.abort(); }, 15000);
+
+            /* Call the Brief API */
+            fetch('/api/articles/brief', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    title: data.headline || '',
+                    source: data.source || '',
+                    link: data.articleUrl || data.link || '',
+                    summary: data.rawSummary || '',
+                    why_it_matters: data.rawWhy || '',
+                    topic: data.topic || 'general',
+                    language: 'en'
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(json) {
+                clearTimeout(shimmerTimeout);
+                clearTimeout(fetchTimeout);
+
+                /* Verify overlay is still open for this uid */
+                var overlay = document.getElementById('detailOverlay');
+                if (!overlay || overlay.dataset.uid !== uid) return;
+
+                var briefText = (json.brief || '').trim();
+                if (!briefText || briefText === 'No additional details available yet.') {
+                    /* LLM returned nothing useful — show original bullets */
+                    window._renderBullets(bulletsEl, data.bullets);
+                    return;
+                }
+
+                /* Change 3: Skip re-parsing if brief echoes back the raw summary or why text */
+                if (briefText === (data.rawSummary || '').trim() || briefText === (data.rawWhy || '').trim()) {
+                    window._renderBullets(bulletsEl, data.bullets);
+                    return;
+                }
+
+                var parsed = window._parseBriefBullets(briefText);
+                if (parsed.length < 1) {
+                    window._renderBullets(bulletsEl, data.bullets);
+                    return;
+                }
+
+                /* Cache and render */
+                window.__articleBriefs[uid] = { bullets: parsed, why: '' };
+                window._renderBullets(bulletsEl, parsed);
+
+                /* If we got a good brief, hide the generic WHY box (the brief covers it) */
+                if (parsed.length >= 3) {
+                    whyBox.style.display = 'none';
+                }
+            })
+            .catch(function(err) {
+                clearTimeout(shimmerTimeout);
+                clearTimeout(fetchTimeout);
+                console.warn('Brief fetch failed:', err);
+                /* Show original bullets on error (including timeout abort) */
+                var overlay = document.getElementById('detailOverlay');
+                if (overlay && overlay.dataset.uid === uid) {
+                    window._renderBullets(bulletsEl, data.bullets);
+                }
+            });
         };
 
         /* ── Open detail overlay ── */
@@ -159,7 +405,7 @@ def _inject_detail_overlay_once():
             var overlay = document.getElementById('detailOverlay');
             if (!overlay) return;
 
-            // Populate
+            // Populate static content
             document.getElementById('detailCover').src = data.coverImg;
             document.getElementById('detailCover').alt = data.topic;
             document.getElementById('detailTopicPill').textContent = data.topic;
@@ -170,20 +416,13 @@ def _inject_detail_overlay_once():
             document.getElementById('detailSourceTime').textContent = data.published;
 
             // Badges
-            var badgesEl = document.getElementById('detailBadges');
-            badgesEl.innerHTML = data.badgesHtml;
+            document.getElementById('detailBadges').innerHTML = data.badgesHtml;
 
-            // Bullets
+            // Show original bullets first (instant), then fetch better ones
             var bulletsEl = document.getElementById('detailBullets');
-            bulletsEl.innerHTML = '';
-            data.bullets.forEach(function(b) {
-                var div = document.createElement('div');
-                div.className = 'detail-bullet';
-                div.innerHTML = '<div class="detail-bullet-dot"></div><div class="detail-bullet-text">' + b + '</div>';
-                bulletsEl.appendChild(div);
-            });
+            window._renderBullets(bulletsEl, data.bullets);
 
-            // Why it matters
+            // Why it matters (initial)
             var whyBox = document.getElementById('detailWhyBox');
             if (data.why) {
                 whyBox.style.display = 'block';
@@ -195,7 +434,7 @@ def _inject_detail_overlay_once():
             // CTA link
             document.getElementById('detailCTA').href = data.articleUrl || data.link;
 
-            // Share/Save in detail bar
+            // Share/Save
             document.getElementById('detailShareBtn').onclick = function() {
                 shareArticle(data.headline, data.articleUrl || data.link);
             };
@@ -207,13 +446,14 @@ def _inject_detail_overlay_once():
             if (saveIcon) saveIcon.textContent = isSaved ? 'bookmark' : 'bookmark_border';
             document.getElementById('detail-save-btn').classList.toggle('saved', isSaved);
 
-            // Store current uid for reference
+            // Store uid and open
             overlay.dataset.uid = uid;
-
-            // Open
             overlay.classList.add('open');
             document.body.style.overflow = 'hidden';
             overlay.scrollTop = 0;
+
+            // Fetch LLM-powered brief (always — replaces static bullets with AI summary)
+            window._fetchBrief(uid, data);
         };
 
         /* ── Close detail overlay ── */
@@ -253,7 +493,6 @@ def _inject_detail_overlay_once():
         /* ── Article data store ── */
         window.__articleData = window.__articleData || {};
     }
-    </script>
     ''')
 
     # Inject the single shared overlay element (hidden by default)
@@ -340,7 +579,12 @@ def news_card(article: dict, index: int = 0):
     link = _build_article_link(article)
     article_url = article.get("article_url", link)
     uid = _card_uid(article)
-    bullets = _make_bullets(summary_text)
+    # Use RAW summary for bullets (not the fallback text)
+    raw_summary = str(article.get("summary", "") or "").strip()
+    bullets = _make_bullets(raw_summary, headline=headline, why=why)
+
+    # If why is already in bullets, don't duplicate it in the WHY IT MATTERS box
+    why_in_bullets = any(why.lower() in b.lower() for b in bullets) if why else False
     delay = min(index * 0.07, 0.5)
 
     # Build badges HTML for detail view
@@ -357,14 +601,17 @@ def news_card(article: dict, index: int = 0):
         <span class="material-icons" style="font-size:12px;">{sent_icon}</span>{sentiment.capitalize()}
     </span>'''
 
-    # Register article data for JS
+    # Register article data for JS (include raw fields for on-demand brief fetching)
     bullets_js = "[" + ",".join(f"'{_js_str(_esc(b))}'" for b in bullets) + "]"
+    clean_why = why if (not why_in_bullets and "Stay informed" not in why) else ""
     ui.run_javascript(f'''
         window.__articleData = window.__articleData || {{}};
         window.__articleData['{uid}'] = {{
             headline: '{_js_str(headline)}',
             summary: '{_js_str(summary_text)}',
-            why: '{_js_str(why)}',
+            rawSummary: '{_js_str(raw_summary)}',
+            rawWhy: '{_js_str(why)}',
+            why: '{_js_str(clean_why)}',
             topic: '{_js_str(topic_label)}',
             source: '{_js_str(source)}',
             sourceInitial: '{_js_str(source[:1].upper())}',

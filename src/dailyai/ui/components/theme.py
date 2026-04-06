@@ -151,8 +151,23 @@ body {
     overflow-x: hidden;
 }
 
+/* Kill ALL Quasar/NiceGUI wrapper spacing — they inject inline min-height + padding */
 .q-header, .q-footer { display: none !important; }
-.q-page-container { padding-top: 0 !important; }
+.q-layout, .nicegui-layout {
+    min-height: 0 !important; padding: 0 !important; margin: 0 !important;
+}
+.q-page-container {
+    padding: 0 !important; margin: 0 !important; min-height: 0 !important;
+}
+.q-page {
+    padding: 0 !important; margin: 0 !important;
+    min-height: 0 !important; /* Override Quasar's inline style="min-height: 844px" */
+}
+.nicegui-content {
+    padding: 0 !important; margin: 0 !important;
+}
+.q-page-container > div { padding: 0 !important; }
+#app, #app > div { min-height: 0 !important; }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -259,11 +274,12 @@ body {
     border: none !important;
     color: var(--text-secondary) !important;
     border-radius: 999px !important;
-    padding: 8px 18px !important;
+    padding: 8px 16px !important;
     font-size: 13px !important; font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.25s ease !important;
     white-space: nowrap !important; user-select: none;
+    flex-shrink: 0;
 }
 .topic-chip:hover { background: var(--bg-highest) !important; color: var(--text-primary) !important; }
 .topic-chip:active { transform: scale(0.95) !important; }
@@ -278,37 +294,40 @@ body {
     position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
     display: flex !important; align-items: center !important; justify-content: center !important;
     z-index: 900 !important;
-    padding: 0 16px env(safe-area-inset-bottom, 12px) !important;
+    padding: 0 12px 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 8px) !important;
     background: none !important; pointer-events: none;
     transition: transform 0.3s ease !important;
 }
 .bottom-nav-inner {
-    display: flex; align-items: center; justify-content: center; gap: 4px;
+    display: flex; align-items: center; justify-content: center; gap: 2px;
     padding: 6px 8px;
-    background: rgba(21, 24, 32, 0.92);
+    background: rgba(21, 24, 32, 0.94);
     backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     border-radius: 22px;
     border-top: 0.5px solid rgba(255,255,255,0.05);
     box-shadow: 0 -4px 40px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04);
     pointer-events: auto;
+    width: auto; max-width: 360px;
 }
 .nav-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 8px 20px; border-radius: 16px; border: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 8px 16px; border-radius: 16px; border: none;
     background: transparent; color: var(--text-muted);
     font-size: 10px; font-weight: 600; font-family: var(--font);
     cursor: pointer; transition: all 0.2s ease;
     user-select: none; -webkit-tap-highlight-color: transparent;
+    min-height: 44px; min-width: 44px;
 }
 .nav-btn:hover { color: var(--text-secondary); }
 .nav-btn.active { color: var(--accent); background: rgba(255,184,0,0.08); }
 .nav-btn:active { transform: scale(0.92); }
 .nav-btn-fab {
-    padding: 12px 24px;
+    padding: 10px 20px;
     background: linear-gradient(135deg, #e6a600, #FFB800);
-    color: #0d0f14; border-radius: 18px;
+    color: #0d0f14; border-radius: 16px;
     box-shadow: 0 6px 24px rgba(255,184,0,0.3);
-    font-weight: 700; margin: 0 4px;
+    font-weight: 700; margin: 0 2px;
 }
 .nav-btn-fab:hover { box-shadow: 0 8px 32px rgba(255,184,0,0.4); }
 
@@ -717,28 +736,78 @@ body {
 @media (max-width: 768px) {
     .desktop-only { display: none !important; }
 
+    /* Kill ALL NiceGUI/Quasar wrapper spacing on mobile */
+    .q-page, .nicegui-content, .q-page-container {
+        padding: 0 !important; margin: 0 !important;
+    }
+
+    /* Compact sticky top bar — sits at the very top */
+    .top-bar {
+        padding: 6px 14px 4px;
+        position: sticky; top: 0; z-index: 50;
+        background: rgba(13, 15, 20, 0.94);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-bottom: 0.5px solid rgba(255,255,255,0.04);
+        /* Respect notch / status bar on iOS */
+        padding-top: max(6px, env(safe-area-inset-top, 6px));
+    }
+    .top-bar-logo { font-size: 20px; }
+    .top-bar-title { font-size: 17px; }
+    .top-bar-right { gap: 6px; }
+
+    /* Trust signal — compact single line */
+    .trust-signal { padding: 4px 14px; font-size: 10px; }
+
+    /* Topic chips — tighter row */
+    .topic-chip { padding: 5px 12px !important; font-size: 11px !important; }
+
     .feed-container {
         scroll-snap-type: y mandatory;
         overflow-y: auto;
-        height: calc(100vh - 70px);
+        /* Leave room for bottom nav (56px) + safe area */
+        height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
     }
     .news-card-premium {
         scroll-snap-align: start;
-        min-height: calc(100vh - 80px);
+        min-height: calc(100dvh - 66px - env(safe-area-inset-bottom, 0px));
         border-radius: 0 !important;
         margin-bottom: 0 !important;
         box-shadow: none !important;
         border-bottom: 1px solid var(--border-ghost) !important;
     }
-    .card-image-area { height: 42vh; }
-    .card-body-area { flex: 1; padding: 14px 16px 8px; }
-    .card-headline-text { font-size: 19px; -webkit-line-clamp: 4; }
-    .card-summary-text { -webkit-line-clamp: 3; }
+    .card-image-area { height: 34vh; }
+    .card-body-area { flex: 1; padding: 10px 14px 8px; }
+    .card-headline-text { font-size: 17px; -webkit-line-clamp: 3; }
+    .card-summary-text { -webkit-line-clamp: 3; font-size: 13px; }
 
-    .top-bar { padding: 12px 16px 8px; }
-    .top-bar-title { font-size: 20px; }
+    /* Bottom nav — full-width pill, proper safe-area, larger touch targets */
+    .bottom-nav {
+        padding: 0 10px 0 !important;
+        padding-bottom: max(env(safe-area-inset-bottom, 6px), 6px) !important;
+    }
+    .bottom-nav-inner {
+        padding: 3px 6px; border-radius: 18px;
+        max-width: calc(100vw - 20px); width: 100%;
+    }
+    .nav-btn {
+        padding: 6px 0; font-size: 9px;
+        min-height: 42px; min-width: 0; flex: 1;
+    }
+    .nav-btn .material-icons { font-size: 20px !important; }
+    .nav-btn-fab { padding: 8px 14px; border-radius: 14px; flex: 1.4; }
+
+    /* Detail overlay mobile fixes */
+    .detail-cover { height: 200px; }
+    .detail-headline { font-size: 20px; }
+    .detail-body { padding: 0 16px calc(80px + env(safe-area-inset-bottom, 0px)); }
+    .detail-bullet-text { font-size: 14px; }
+    .detail-close-bar {
+        padding: 8px 12px;
+        padding-top: max(8px, env(safe-area-inset-top, 8px));
+    }
+    .detail-cta { padding: 12px 20px; font-size: 14px; margin-top: 20px; border-radius: 12px; }
 }
 
 @media (min-width: 769px) {
