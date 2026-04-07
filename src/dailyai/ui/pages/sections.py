@@ -10,6 +10,10 @@ from dailyai.ui.components.theme import GLOBAL_CSS
 
 def _coming_soon_page(title: str, active_route: str):
     ui.add_head_html(f'<style>{GLOBAL_CSS}</style>')
+    ui.add_head_html(
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0,'
+        ' maximum-scale=1.0, user-scalable=no, viewport-fit=cover">'
+    )
     ui.page_title(f'DailyAI — {title}')
     ui.dark_mode(True)
 

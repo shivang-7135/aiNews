@@ -11,7 +11,7 @@ from pathlib import Path
 
 import aiosqlite
 
-from dailyai.config import DB_PATH
+from dailyai.config import CACHE_MAX_ARTICLES, CACHE_MIN_PER_KEY, DB_PATH
 
 logger = logging.getLogger("dailyai.storage")
 
@@ -141,8 +141,95 @@ async def save_articles(store_key: str, articles: list[dict]) -> None:
                 a.get("fetched_at", datetime.now(UTC).isoformat()),
             ),
         )
+
+    await _prune_articles_cache(db)
     await db.commit()
     logger.info(f"Saved {len(articles)} articles for key={store_key}")
+
+
+async def _prune_articles_cache(db: aiosqlite.Connection) -> None:
+    """Keep the articles table bounded as a rotating cache.
+
+    Preserves a small minimum per store key when possible so one popular
+    key does not evict all other country/language caches.
+    """
+    cursor = await db.execute("SELECT COUNT(*) AS cnt FROM articles")
+    row = await cursor.fetchone()
+    total = int(row["cnt"] if row else 0)
+
+    if total <= CACHE_MAX_ARTICLES:
+        return
+
+    deleted_this_run = 0
+
+    while total > CACHE_MAX_ARTICLES:
+        # Prefer deleting from keys that are above the per-key floor.
+        cursor = await db.execute(
+            """
+            SELECT a.id
+            FROM articles a
+            JOIN (
+              SELECT store_key, COUNT(*) AS cnt
+              FROM articles
+              GROUP BY store_key
+            ) c ON c.store_key = a.store_key
+            WHERE c.cnt > ?
+            ORDER BY
+              CASE WHEN a.fetched_at IS NULL OR a.fetched_at = '' THEN a.created_at ELSE a.fetched_at END ASC,
+              a.id ASC
+            LIMIT 1
+            """,
+            (CACHE_MIN_PER_KEY,),
+        )
+        victim = await cursor.fetchone()
+
+        # If every key is already at floor, fall back to oldest overall row.
+        if not victim:
+            cursor = await db.execute(
+                """
+                SELECT id
+                FROM articles
+                ORDER BY
+                  CASE WHEN fetched_at IS NULL OR fetched_at = '' THEN created_at ELSE fetched_at END ASC,
+                  id ASC
+                LIMIT 1
+                """
+            )
+            victim = await cursor.fetchone()
+
+        if not victim:
+            break
+
+        await db.execute("DELETE FROM articles WHERE id = ?", (victim["id"],))
+        total -= 1
+        deleted_this_run += 1
+
+    if deleted_this_run > 0:
+        now_iso = datetime.now(UTC).isoformat()
+
+        await db.execute(
+            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+            ("cache_prune_last_at", now_iso),
+        )
+        await db.execute(
+            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+            ("cache_prune_last_deleted", str(deleted_this_run)),
+        )
+
+        # Increment cumulative prune counters.
+        for counter_key in ("cache_prune_total_deleted", "cache_prune_runs"):
+            cursor = await db.execute("SELECT value FROM metadata WHERE key = ?", (counter_key,))
+            row = await cursor.fetchone()
+            try:
+                current = int((row["value"] if row else "0") or "0")
+            except ValueError:
+                current = 0
+
+            increment = deleted_this_run if counter_key == "cache_prune_total_deleted" else 1
+            await db.execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+                (counter_key, str(current + increment)),
+            )
 
 
 async def get_articles(store_key: str) -> list[dict]:
@@ -310,3 +397,91 @@ async def get_metadata(key: str) -> str | None:
     cursor = await db.execute("SELECT value FROM metadata WHERE key = ?", (key,))
     row = await cursor.fetchone()
     return row["value"] if row else None
+
+
+async def get_cache_health() -> dict:
+    """Return cache health metrics for admin/debug endpoints."""
+    db = await get_db()
+
+    cursor = await db.execute("SELECT COUNT(*) AS cnt FROM articles")
+    row = await cursor.fetchone()
+    total_articles = int(row["cnt"] if row else 0)
+
+    cursor = await db.execute(
+        """
+        SELECT
+          store_key,
+          COUNT(*) AS article_count,
+          MAX(importance) AS max_importance,
+          MAX(CASE WHEN fetched_at IS NULL OR fetched_at = '' THEN created_at ELSE fetched_at END) AS last_cached_at
+        FROM articles
+        GROUP BY store_key
+        ORDER BY store_key
+        """
+    )
+    rows = await cursor.fetchall()
+
+    per_key: list[dict] = []
+    per_country: dict[str, int] = {}
+    for r in rows:
+        key = str(r["store_key"])
+        country = key.split("::", 1)[0] if "::" in key else key
+        count = int(r["article_count"] or 0)
+
+        per_key.append({
+            "store_key": key,
+            "article_count": count,
+            "max_importance": int(r["max_importance"] or 0),
+            "last_cached_at": r["last_cached_at"] or "",
+        })
+
+        per_country[country] = per_country.get(country, 0) + count
+
+    cursor = await db.execute(
+        "SELECT key, value FROM metadata WHERE key LIKE 'last_updated:%' OR key LIKE 'cache_prune_%'"
+    )
+    meta_rows = await cursor.fetchall()
+
+    last_refresh_by_key: dict[str, str] = {}
+    prune_stats = {
+        "last_at": "",
+        "last_deleted": 0,
+        "total_deleted": 0,
+        "runs": 0,
+    }
+
+    for m in meta_rows:
+        key = str(m["key"])
+        value = str(m["value"] or "")
+
+        if key.startswith("last_updated:"):
+            last_refresh_by_key[key.replace("last_updated:", "", 1)] = value
+            continue
+
+        if key == "cache_prune_last_at":
+            prune_stats["last_at"] = value
+        elif key == "cache_prune_last_deleted":
+            try:
+                prune_stats["last_deleted"] = int(value or "0")
+            except ValueError:
+                prune_stats["last_deleted"] = 0
+        elif key == "cache_prune_total_deleted":
+            try:
+                prune_stats["total_deleted"] = int(value or "0")
+            except ValueError:
+                prune_stats["total_deleted"] = 0
+        elif key == "cache_prune_runs":
+            try:
+                prune_stats["runs"] = int(value or "0")
+            except ValueError:
+                prune_stats["runs"] = 0
+
+    return {
+        "cache_limit": CACHE_MAX_ARTICLES,
+        "total_articles": total_articles,
+        "total_store_keys": len(per_key),
+        "per_store_key": per_key,
+        "per_country": per_country,
+        "prune": prune_stats,
+        "last_refresh_by_store_key": last_refresh_by_key,
+    }

@@ -17,7 +17,7 @@ DailyAI is a professional intelligence platform that aggregates, curates, and ra
 ## 🚀 Features
 
 - **Agentic Pipeline (LangGraph)**: Modular, observable pipeline that collects, deduplicates, curates (via LLM), scores trust, tags sentiment, and threads stories.
-- **Cascading LLM Fallbacks**: Uses LangChain `with_fallbacks()` to seamlessly switch between Gemini, Groq, NVIDIA, HuggingFace, and Ollama to ensure near 100% uptime.
+- **Cascading LLM Fallbacks**: Uses LangChain `with_fallbacks()` with a Gemini-first chain (`Gemini -> ARLIAI -> NVIDIA -> HuggingFace -> Groq -> Ollama`) for stable latency and fewer free-tier 429 interruptions.
 - **Python-Only UI (NiceGUI)**: Premium glassmorphism design, fully responsive (mobile/desktop), and PWA-ready without a single line of JavaScript or HTML.
 - **Intelligence Signals**: Includes Source Trust Scoring (Verified/Known/Unrated), Sentiment Analysis (Bullish/Bearish/Neutral), and Story Threading.
 - **Privacy-First Personalization**: Generates anonymous "Sync Codes" (e.g. `Swift-Falcon-42`) to track topics and implicit signals without requiring intrusive logins.
@@ -67,7 +67,7 @@ cd DailyAInews
 # Copy the example environment variables
 cp .env.example .env
 
-# Edit .env and add at least one LLM key (e.g. GOOGLE_AI_KEY or GROQ_API_KEY)
+# Edit .env and add at least one LLM key (GOOGLE_AI_KEY or ARLIAI_API_KEY)
 nano .env
 
 # Run the app (uv will auto-install dependencies and start the Uvicorn server)
@@ -75,6 +75,19 @@ uv run dailyai
 ```
 
 The application will start on `http://localhost:8000`.
+
+## 🔑 LLM Provider Priority
+
+Current provider order (when keys are configured):
+
+1. Gemini (`GOOGLE_AI_KEY`)
+2. ARLIAI (`ARLIAI_API_KEY`)
+3. NVIDIA (`NVIDIA_API_KEY`)
+4. HuggingFace (`HF_API_TOKEN`)
+5. Groq (`GROQ_API_KEY`)
+6. Ollama (`OLLAMA_BASE_URL`)
+
+Groq is intentionally a late fallback to reduce free-tier 429 noise.
 
 ## 🌐 Developer API
 
@@ -104,6 +117,43 @@ The platform exposes a public Developer API for fetching the curated feed.
   ]
 }
 ```
+
+## 🧪 Function Testing
+
+Use this focused suite to see which helper/core functions are healthy and which ones need modification:
+
+```bash
+uv run pytest tests/test_function_health.py -v --tb=short
+```
+
+Each test case maps to one function and prints function-level pass/fail names in the output.
+
+## ⚡ Startup Cache Strategy
+
+DailyAI now uses a DB-backed rotating cache to reduce repeated per-user LLM work:
+
+- On server startup, it prefetches news for Global plus each configured country/language key.
+- User feed requests are served from DB first; if a filtered topic is missing, one forced refresh is triggered and cached.
+- A daily scheduler refreshes cache entries (UTC cron schedule).
+- DB article cache is bounded and rotates automatically (`CACHE_MAX_ARTICLES`, default `100`).
+- Topic tabs (`AI Models`, `Business`, `Research`, `Tools`) use keyword-scored fallback so feeds do not appear empty when tags are sparse.
+- Category cover images are downloaded once (3 variants per category, topic-aware queries) and reused from local `static/topic-covers/` files.
+
+Cache health endpoint:
+
+```bash
+GET /api/admin/cache-health
+```
+
+It reports cache totals, per-country/per-key counts, prune rotation stats, and per-key last refresh times.
+
+Hidden mobile-friendly admin screen:
+
+```bash
+GET /_admin/cache
+```
+
+This view polls `/api/admin/cache-health` every 30 seconds and renders cache stats as compact cards.
 
 ## 📜 Roadmap
 - **v2.1**: Smart Alerts & Topic Deep-Dives

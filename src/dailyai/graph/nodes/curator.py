@@ -131,7 +131,7 @@ async def run(state: dict) -> dict:
     try:
         import asyncio
         llm = get_llm()
-        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=10.0)
+        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=45.0)
         response_text = response.content if hasattr(response, "content") else str(response)
     except asyncio.TimeoutError:
         logger.warning("[Curator] LLM call timed out (likely rate limited), using fallback")

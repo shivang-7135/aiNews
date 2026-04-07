@@ -12,10 +12,10 @@ from nicegui import ui
 
 from dailyai.ui.components.theme import (
     CATEGORY_COLORS,
-    CATEGORY_IMAGES,
     COLORS,
     SENTIMENT_ICONS,
     TRUST_LABELS,
+    get_category_image,
 )
 
 
@@ -324,14 +324,14 @@ def _inject_detail_overlay_once():
                 return;
             }
 
-            /* Change 2: Delay shimmer by 600ms — initial bullets stay visible for fast responses */
+            /* Change 2: Delay shimmer by 300ms — initial bullets stay visible for fast responses */
             var shimmerTimeout = setTimeout(function() {
                 window._showBriefLoading(bulletsEl);
-            }, 600);
+            }, 300);
 
-            /* Change 1: AbortController with 15s timeout to prevent infinite shimmer */
+            /* Change 1: AbortController with 10s timeout to prevent infinite shimmer */
             var controller = new AbortController();
-            var fetchTimeout = setTimeout(function() { controller.abort(); }, 15000);
+            var fetchTimeout = setTimeout(function() { controller.abort(); }, 10000);
 
             /* Call the Brief API */
             fetch('/api/articles/brief', {
@@ -575,7 +575,8 @@ def news_card(article: dict, index: int = 0):
     summary_text = _short_summary(article)
     why = article.get("why_it_matters", "")
 
-    cover_img = CATEGORY_IMAGES.get(cat, CATEGORY_IMAGES["general"])
+    image_key = topic_label if cat == "general" else cat
+    cover_img = get_category_image(image_key, article.get("id", headline))
     link = _build_article_link(article)
     article_url = article.get("article_url", link)
     uid = _card_uid(article)

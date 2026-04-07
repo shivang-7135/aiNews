@@ -82,12 +82,22 @@ async def run(state: dict) -> dict:
         if len(selected) >= MAX_TILES_PER_FETCH:
             break
 
-    # Backfill if we have room
+    # Backfill if we have room while still respecting topic diversity caps.
     if len(selected) < min(MAX_TILES_PER_FETCH, len(articles)):
         existing_titles = {a.get("title") for a in selected}
         for article in articles:
-            if article.get("title") not in existing_titles:
-                selected.append(article)
+            title = article.get("title")
+            if title in existing_titles:
+                continue
+
+            topic = str(article.get("topic", "general"))
+            cap = 3 if len(selected) < 12 else 4
+            if topic_counts.get(topic, 0) >= cap:
+                continue
+
+            selected.append(article)
+            existing_titles.add(title)
+            topic_counts[topic] = topic_counts.get(topic, 0) + 1
             if len(selected) >= MAX_TILES_PER_FETCH:
                 break
 

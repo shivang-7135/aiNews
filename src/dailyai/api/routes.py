@@ -80,6 +80,14 @@ async def languages():
     return {"languages": SUPPORTED_LANGUAGES}
 
 
+@router.get("/api/admin/cache-health")
+async def cache_health():
+    """Admin/debug endpoint for DB cache health and rotation stats."""
+    from dailyai.storage.sqlite import get_cache_health
+
+    return await get_cache_health()
+
+
 # ── Subscribe ───────────────────────────────────────────────────────
 
 @router.post("/api/subscribe")

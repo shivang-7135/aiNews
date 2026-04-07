@@ -21,27 +21,33 @@ logger = logging.getLogger("dailyai.home")
 @ui.page('/')
 async def home_page():
     ui.add_head_html(f'<style>{GLOBAL_CSS}</style>')
+    # Ensure iOS safe-area-inset env vars work (needed for notch + home bar)
+    ui.add_head_html(
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0,'
+        ' maximum-scale=1.0, user-scalable=no, viewport-fit=cover">'
+    )
     ui.page_title('DailyAI — AI News Intelligence')
     ui.dark_mode(True)
 
-    # ── Kill Quasar's inline min-height (it re-applies via Vue reactivity) ──
+    # ── Kill Quasar's inline min-height AND padding-top (header offset) ──
     ui.run_javascript('''
         function fixQuasarSpacing() {
             document.querySelectorAll('.q-layout, .q-page, .q-page-container').forEach(function(el) {
                 el.style.minHeight = '0px';
                 el.style.padding = '0px';
+                el.style.paddingTop = '0px';
             });
         }
         fixQuasarSpacing();
-        // Quasar re-applies inline styles on resize/update — watch for it
+        // Quasar re-applies inline styles on resize/update — watch & kill
         var _qObs = new MutationObserver(function(mutations) {
             mutations.forEach(function(m) {
                 if (m.type === 'attributes' && m.attributeName === 'style') {
                     var t = m.target;
                     if (t.classList.contains('q-layout') || t.classList.contains('q-page') || t.classList.contains('q-page-container')) {
-                        if (parseInt(t.style.minHeight) > 10) {
-                            t.style.minHeight = '0px';
-                        }
+                        if (parseInt(t.style.minHeight) > 10) t.style.minHeight = '0px';
+                        if (parseInt(t.style.paddingTop) > 0) t.style.paddingTop = '0px';
+                        if (parseInt(t.style.padding) > 0) t.style.padding = '0px';
                     }
                 }
             });
@@ -88,8 +94,10 @@ async def home_page():
     ).style('gap: 0; padding-top: 0;')
 
     # ── Callbacks ──
-    async def _set_country(country: str):
-        app_state["country"] = (country or "GLOBAL").upper()
+    async def _set_country(country):
+        if isinstance(country, dict):
+            country = country.get('value', 'GLOBAL')
+        app_state["country"] = (str(country) or "GLOBAL").upper()
         ui.run_javascript('closeSidebar()')
         ui.notify(
             f'Region: {COUNTRIES.get(app_state["country"], app_state["country"])}',
@@ -97,8 +105,10 @@ async def home_page():
         )
         await _load_feed(app_state["topic"])
 
-    async def _set_language(language: str):
-        app_state["language"] = (language or "en").lower()
+    async def _set_language(language):
+        if isinstance(language, dict):
+            language = language.get('value', 'en')
+        app_state["language"] = (str(language) or "en").lower()
         ui.run_javascript('closeSidebar()')
         lang_name = SUPPORTED_LANGUAGES.get(app_state["language"], app_state["language"])
         ui.notify(f'Language: {lang_name}', type='info', position='bottom')
@@ -131,7 +141,7 @@ async def home_page():
             # ── Top Bar (scrolls with content, NOT sticky) ──
             with ui.element('div').classes('top-bar'):
                 with ui.element('div').classes('top-bar-brand'):
-                    ui.label('⚡').classes('top-bar-logo')
+                    ui.html('<img src="/static/logo.png" class="top-bar-logo-img" alt="DailyAI">')
                     ui.label('DailyAI').classes('top-bar-title')
                 with ui.element('div').classes('top-bar-right'):
                     mode = app_state["country"]
@@ -202,21 +212,6 @@ async def home_page():
                     for i, a in enumerate(articles):
                         news_card(a, index=i)
 
-            # ── Sidebar ──
-            sidebar(
-                app_state=app_state,
-                on_country_change=_set_country,
-                on_language_change=_set_language,
-                on_sort_change=_set_sort,
-                on_refresh=_refresh_news,
-            )
-
-            # ── Bottom Nav ──
-            nav_bar(
-                active_route='/',
-                on_settings=_open_sidebar,
-            )
-
         # ── Dismiss boot loader ──
         ui.run_javascript('''
             setTimeout(function() {
@@ -224,6 +219,20 @@ async def home_page():
                 if (bl) bl.classList.add('hidden');
             }, 400);
         ''')
+
+    # ── Sidebar & Nav (created once, outside main_col so they survive feed reloads) ──
+    sidebar(
+        app_state=app_state,
+        on_country_change=_set_country,
+        on_language_change=_set_language,
+        on_sort_change=_set_sort,
+        on_refresh=_refresh_news,
+    )
+
+    nav_bar(
+        active_route='/',
+        on_settings=_open_sidebar,
+    )
 
     # ── Initial Load ──
     await _load_feed()

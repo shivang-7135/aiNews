@@ -24,7 +24,8 @@ async def run(state: dict) -> dict:
     for article in articles:
         sentiment = str(article.get("sentiment", "neutral")).lower().strip()
         if sentiment not in VALID_SENTIMENTS:
-            article["sentiment"] = "neutral"
+            sentiment = "neutral"
+        article["sentiment"] = sentiment
 
     elapsed = time.time() - start
     timings = state.get("node_timings", {})

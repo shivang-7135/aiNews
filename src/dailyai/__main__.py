@@ -47,26 +47,21 @@ def main():
         await get_db()
         start_scheduler()
 
-        # Fire off an initial background refresh if the DB is empty
-        asyncio.create_task(_initial_refresh_if_needed())
+        # Pre-warm HuggingFace model to avoid cold start on first request
+        from dailyai.llm.provider import warmup_hf_model
+        from dailyai.services.media_cache import ensure_category_images_cached
+        from dailyai.services.news import prefetch_cache_on_startup
+        asyncio.create_task(warmup_hf_model())
+        asyncio.create_task(ensure_category_images_cached())
+
+        # Warm the DB cache at startup to reduce per-user LLM latency.
+        asyncio.create_task(prefetch_cache_on_startup(force=True))
 
     @app.on_event("shutdown")
     async def on_shutdown():
         logger.info("Shutting down services...")
         stop_scheduler()
         await close_db()
-
-    async def _initial_refresh_if_needed():
-        """Fetch feed on first boot if DB is totally empty."""
-        try:
-            from dailyai.storage.sqlite import get_all_store_keys
-            from dailyai.services.news import refresh_news
-            keys = await get_all_store_keys()
-            if not keys:
-                logger.info("Database empty, triggering initial feed fetch...")
-                await refresh_news("GLOBAL", "en")
-        except Exception as e:
-            logger.error(f"Initial refresh failed: {e}")
 
     # Run server
     port = int(os.getenv("PORT", 8000))

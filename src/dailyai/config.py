@@ -129,7 +129,7 @@ MEDIUM_TRUST_SOURCES: set[str] = {
 }
 
 # ── Pipeline Limits ─────────────────────────────────────────────────
-MAX_TILES_PER_FETCH = 20
+MAX_TILES_PER_FETCH = 30
 MAX_FEED_SIZE = 30
 MIN_FEED_SIZE = 15
 RSS_MAX_ITEMS_PER_FEED = 15
@@ -138,6 +138,14 @@ LLM_TIMEOUT_SECONDS = 90
 REFRESH_INTERVAL_HOURS = int(os.getenv("REFRESH_INTERVAL_HOURS", "1"))
 REFRESH_INTERVAL_MINUTES = int(os.getenv("REFRESH_INTERVAL_MINUTES", "15"))
 REFRESH_COOLDOWN_SECONDS = 45
+
+# Cache / prefetch behavior
+CACHE_MAX_ARTICLES = int(os.getenv("CACHE_MAX_ARTICLES", "100"))
+CACHE_MIN_PER_KEY = int(os.getenv("CACHE_MIN_PER_KEY", "8"))
+STARTUP_PREFETCH_GLOBAL_LIMIT = int(os.getenv("STARTUP_PREFETCH_GLOBAL_LIMIT", "30"))
+STARTUP_PREFETCH_OTHER_LIMIT = int(os.getenv("STARTUP_PREFETCH_OTHER_LIMIT", "18"))
+DAILY_REFRESH_HOUR_UTC = int(os.getenv("DAILY_REFRESH_HOUR_UTC", "6"))
+DAILY_REFRESH_MINUTE_UTC = int(os.getenv("DAILY_REFRESH_MINUTE_UTC", "0"))
 
 # ── Email ───────────────────────────────────────────────────────────
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")

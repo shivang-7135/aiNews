@@ -4,6 +4,8 @@ Dark base + warm vibrant accents for an inviting, happy, professional experience
 Inshorts-style mobile snap-scroll cards, expandable summaries, share/save actions.
 """
 
+from pathlib import Path
+
 # ── Color Palette ───────────────────────────────────────────────────
 
 COLORS = {
@@ -67,6 +69,16 @@ CATEGORY_COLORS = {
 
 # Map categories to cover images
 CATEGORY_IMAGES = {
+    "breakthrough": "/static/topic-covers/breakthrough-1.jpg",
+    "product": "/static/topic-covers/product-1.jpg",
+    "regulation": "/static/topic-covers/regulation-1.jpg",
+    "funding": "/static/topic-covers/funding-1.jpg",
+    "research": "/static/topic-covers/research-1.jpg",
+    "industry": "/static/topic-covers/industry-1.jpg",
+    "general": "/static/topic-covers/general-1.jpg",
+}
+
+CATEGORY_FALLBACK_IMAGES = {
     "breakthrough": "/static/topic-covers/ai-models.png",
     "product": "/static/topic-covers/tools.png",
     "regulation": "/static/topic-covers/regulation.png",
@@ -75,6 +87,88 @@ CATEGORY_IMAGES = {
     "industry": "/static/topic-covers/business.png",
     "general": "/static/topic-covers/general.png",
 }
+
+CATEGORY_IMAGE_SETS = {
+    "breakthrough": [
+        "/static/topic-covers/breakthrough-1.jpg",
+        "/static/topic-covers/breakthrough-2.jpg",
+        "/static/topic-covers/breakthrough-3.jpg",
+    ],
+    "product": [
+        "/static/topic-covers/product-1.jpg",
+        "/static/topic-covers/product-2.jpg",
+        "/static/topic-covers/product-3.jpg",
+    ],
+    "regulation": [
+        "/static/topic-covers/regulation-1.jpg",
+        "/static/topic-covers/regulation-2.jpg",
+        "/static/topic-covers/regulation-3.jpg",
+    ],
+    "funding": [
+        "/static/topic-covers/funding-1.jpg",
+        "/static/topic-covers/funding-2.jpg",
+        "/static/topic-covers/funding-3.jpg",
+    ],
+    "research": [
+        "/static/topic-covers/research-1.jpg",
+        "/static/topic-covers/research-2.jpg",
+        "/static/topic-covers/research-3.jpg",
+    ],
+    "industry": [
+        "/static/topic-covers/industry-1.jpg",
+        "/static/topic-covers/industry-2.jpg",
+        "/static/topic-covers/industry-3.jpg",
+    ],
+    "general": [
+        "/static/topic-covers/general-1.jpg",
+        "/static/topic-covers/general-2.jpg",
+        "/static/topic-covers/general-3.jpg",
+    ],
+}
+
+
+def _normalize_category_key(category: str) -> str:
+    """Map UI and data labels to known internal category keys."""
+    raw = (category or "").strip().lower().replace("_", " ").replace("-", " ")
+    if not raw:
+        return "general"
+
+    aliases = {
+        "ai models": "breakthrough",
+        "models": "breakthrough",
+        "model": "breakthrough",
+        "business": "industry",
+        "industry": "industry",
+        "research": "research",
+        "tools": "product",
+        "product": "product",
+        "products": "product",
+        "regulation": "regulation",
+        "funding": "funding",
+        "top stories": "general",
+        "general": "general",
+    }
+    return aliases.get(raw, raw if raw in CATEGORY_IMAGE_SETS else "general")
+
+
+def get_category_image(category: str, seed: str = "") -> str:
+    """Select one of three cached cover images per category."""
+    key = _normalize_category_key(category)
+    options = CATEGORY_IMAGE_SETS.get(key, CATEGORY_IMAGE_SETS["general"])
+    idx = 0 if not seed else sum(ord(c) for c in seed) % len(options)
+    preferred = options[idx]
+
+    project_root = Path(__file__).resolve().parents[4]
+    preferred_path = project_root / preferred.lstrip("/")
+    if preferred_path.exists() and preferred_path.stat().st_size > 1024:
+        return preferred
+
+    for candidate in options:
+        candidate_path = project_root / candidate.lstrip("/")
+        if candidate_path.exists() and candidate_path.stat().st_size > 1024:
+            return candidate
+
+    return CATEGORY_FALLBACK_IMAGES.get(key, CATEGORY_FALLBACK_IMAGES["general"])
 
 SENTIMENT_ICONS = {
     "bullish": "trending_up",
@@ -158,16 +252,22 @@ body {
 }
 .q-page-container {
     padding: 0 !important; margin: 0 !important; min-height: 0 !important;
+    padding-top: 0 !important; /* Kill Quasar header offset */
 }
 .q-page {
     padding: 0 !important; margin: 0 !important;
-    min-height: 0 !important; /* Override Quasar's inline style="min-height: 844px" */
+    min-height: 0 !important;
+    padding-top: 0 !important;
 }
 .nicegui-content {
     padding: 0 !important; margin: 0 !important;
+    gap: 0 !important;
 }
 .q-page-container > div { padding: 0 !important; }
-#app, #app > div { min-height: 0 !important; }
+#app, #app > div { min-height: 0 !important; padding-top: 0 !important; }
+/* Force layout to start at viewport top — Quasar reserves header space via inline padding */
+.q-layout__section--marginal { display: none !important; height: 0 !important; }
+body, html { padding: 0 !important; margin: 0 !important; }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -421,6 +521,11 @@ body {
 }
 .top-bar-brand { display: flex; align-items: center; gap: 8px; }
 .top-bar-logo { font-size: 26px; }
+.top-bar-logo-img {
+    height: 28px; width: 28px;
+    border-radius: 6px; object-fit: contain;
+    flex-shrink: 0;
+}
 .top-bar-title {
     font-size: 22px; font-weight: 900;
     letter-spacing: -0.03em; color: var(--text-primary);
@@ -741,17 +846,18 @@ body {
         padding: 0 !important; margin: 0 !important;
     }
 
-    /* Compact sticky top bar — sits at the very top */
+    /* Compact sticky top bar — flush at very top, only safe-area offset */
     .top-bar {
-        padding: 6px 14px 4px;
+        padding: 0 14px 3px;
         position: sticky; top: 0; z-index: 50;
         background: rgba(13, 15, 20, 0.94);
         backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border-bottom: 0.5px solid rgba(255,255,255,0.04);
-        /* Respect notch / status bar on iOS */
-        padding-top: max(6px, env(safe-area-inset-top, 6px));
+        /* Only add space for iOS notch / Dynamic Island */
+        padding-top: env(safe-area-inset-top, 0px);
     }
     .top-bar-logo { font-size: 20px; }
+    .top-bar-logo-img { height: 22px; width: 22px; }
     .top-bar-title { font-size: 17px; }
     .top-bar-right { gap: 6px; }
 
@@ -771,32 +877,40 @@ body {
     }
     .news-card-premium {
         scroll-snap-align: start;
-        min-height: calc(100dvh - 66px - env(safe-area-inset-bottom, 0px));
+        /* Fixed height = viewport minus top-bar/trust/chips (~110px) minus bottom-nav (~68px) */
+        height: calc(100dvh - 178px - env(safe-area-inset-bottom, 0px));
+        max-height: calc(100dvh - 178px - env(safe-area-inset-bottom, 0px));
+        overflow: hidden;
         border-radius: 0 !important;
         margin-bottom: 0 !important;
         box-shadow: none !important;
         border-bottom: 1px solid var(--border-ghost) !important;
     }
-    .card-image-area { height: 34vh; }
-    .card-body-area { flex: 1; padding: 10px 14px 8px; }
-    .card-headline-text { font-size: 17px; -webkit-line-clamp: 3; }
-    .card-summary-text { -webkit-line-clamp: 3; font-size: 13px; }
+    .card-image-area { height: 26vh; }
+    .card-body-area { flex: 1; padding: 8px 14px 4px; overflow: hidden; }
+    .card-headline-text { font-size: 16px; -webkit-line-clamp: 2; }
+    .card-summary-text { -webkit-line-clamp: 2; font-size: 12px; }
 
-    /* Bottom nav — full-width pill, proper safe-area, larger touch targets */
+    /* Bottom nav — always visible, proper safe-area for iPhones */
     .bottom-nav {
-        padding: 0 10px 0 !important;
-        padding-bottom: max(env(safe-area-inset-bottom, 6px), 6px) !important;
+        padding: 0 !important;
+        padding-bottom: max(env(safe-area-inset-bottom, 12px), 12px) !important;
+        transform: translateY(0) !important; /* Never hide */
+        background: rgba(13, 15, 20, 0.95) !important;
+        pointer-events: auto !important;
     }
     .bottom-nav-inner {
-        padding: 3px 6px; border-radius: 18px;
-        max-width: calc(100vw - 20px); width: 100%;
+        padding: 4px 6px; border-radius: 0;
+        max-width: 100%; width: 100%;
+        background: transparent;
+        backdrop-filter: none; -webkit-backdrop-filter: none;
+        border: none; box-shadow: none;
     }
     .nav-btn {
-        padding: 6px 0; font-size: 9px;
-        min-height: 42px; min-width: 0; flex: 1;
+        padding: 8px 0; font-size: 9px;
+        min-height: 44px; min-width: 0; flex: 1;
     }
-    .nav-btn .material-icons { font-size: 20px !important; }
-    .nav-btn-fab { padding: 8px 14px; border-radius: 14px; flex: 1.4; }
+    .nav-btn .material-icons { font-size: 22px !important; }
 
     /* Detail overlay mobile fixes */
     .detail-cover { height: 200px; }
