@@ -44,17 +44,18 @@ def _short_summary(article: dict) -> str:
     # Skip generic fallback summaries
     if summary and not re.match(
         r'^Reported by .+\.\s*(Tap to read|Click to read)', summary, re.IGNORECASE
-    ):
+    ) and len(summary) > 20:
         return summary
     why = str(article.get("why_it_matters", "") or "").strip()
-    # Skip generic why_it_matters too
-    if why and "Stay informed" not in why:
+    if why and len(why) > 20:
         return why
     headline = str(article.get("headline", "") or "").strip()
-    source = str(article.get("source_name", "") or "Unknown source").strip()
+    source = str(article.get("source_name", "") or "").strip()
+    if headline and source:
+        return f"{headline}. Source: {source}."
     if headline:
-        return f"{headline}. Reported by {source}."
-    return f"Reported by {source}. Tap to read the full story."
+        return headline
+    return f"Latest AI news from {source}." if source else "Tap to read the full story."
 
 
 def _build_article_link(article: dict) -> str:
@@ -156,10 +157,25 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "") -> list[s
         # No summary at all — build bullets from headline + why
         if headline:
             bullets.append(headline)
-        if why:
+        if why and "Stay informed" not in why:
             bullets.append(why)
-        if not bullets:
-            bullets = ["Tap to read the full story for more details on this topic."]
+            
+    # Remove bullets that are just truncations/duplicates of the headline
+    if headline:
+        hl_lower = headline.lower()
+        cleaned_bullets = []
+        for b in bullets:
+            b_lower = b.lower()
+            # If bullet is >80% identical to the headline, consider it a duplicate
+            if b_lower in hl_lower or hl_lower in b_lower:
+                continue
+            cleaned_bullets.append(b)
+        
+        bullets = cleaned_bullets
+        bullets.insert(0, headline)
+
+    if len(bullets) <= 1:
+        bullets.append("Our AI models are experiencing high traffic right now. Please tap 'Read Original' to view the full story on the publisher's website.")
 
     # Enforce total ~120 word limit & punctuation
     final: list[str] = []
@@ -324,14 +340,12 @@ def _inject_detail_overlay_once():
                 return;
             }
 
-            /* Change 2: Delay shimmer by 300ms — initial bullets stay visible for fast responses */
-            var shimmerTimeout = setTimeout(function() {
-                window._showBriefLoading(bulletsEl);
-            }, 300);
+            /* Show shimmer immediately to improve perceived load speed */
+            window._showBriefLoading(bulletsEl);
 
-            /* Change 1: AbortController with 10s timeout to prevent infinite shimmer */
+            /* Change 1: AbortController with 22s timeout to prevent infinite shimmer */
             var controller = new AbortController();
-            var fetchTimeout = setTimeout(function() { controller.abort(); }, 10000);
+            var fetchTimeout = setTimeout(function() { controller.abort(); }, 22000);
 
             /* Call the Brief API */
             fetch('/api/articles/brief', {
@@ -345,20 +359,43 @@ def _inject_detail_overlay_once():
                     summary: data.rawSummary || '',
                     why_it_matters: data.rawWhy || '',
                     topic: data.topic || 'general',
-                    language: 'en'
+                    language: data.language || 'en'
                 })
             })
-            .then(function(r) { return r.json(); })
-            .then(function(json) {
-                clearTimeout(shimmerTimeout);
+            .then(async function(r) {
                 clearTimeout(fetchTimeout);
 
                 /* Verify overlay is still open for this uid */
                 var overlay = document.getElementById('detailOverlay');
                 if (!overlay || overlay.dataset.uid !== uid) return;
 
-                var briefText = (json.brief || '').trim();
-                if (!briefText || briefText === 'No additional details available yet.') {
+                const reader = r.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let briefText = '';
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        var currentOverlay = document.getElementById('detailOverlay');
+                        if (!currentOverlay || currentOverlay.dataset.uid !== uid) break;
+                        
+                        briefText += decoder.decode(value, {stream: true});
+                        if (briefText.trim().length > 10) {
+                            var parsedChunk = window._parseBriefBullets(briefText);
+                            if (parsedChunk.length > 0) {
+                                window._renderBullets(bulletsEl, parsedChunk);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Stream read error:", e);
+                }
+
+                briefText = briefText.trim();
+                
+                if (!briefText || briefText.includes('No additional details available yet.')) {
                     /* LLM returned nothing useful — show original bullets */
                     window._renderBullets(bulletsEl, data.bullets);
                     return;
@@ -386,7 +423,6 @@ def _inject_detail_overlay_once():
                 }
             })
             .catch(function(err) {
-                clearTimeout(shimmerTimeout);
                 clearTimeout(fetchTimeout);
                 console.warn('Brief fetch failed:', err);
                 /* Show original bullets on error (including timeout abort) */
@@ -555,7 +591,7 @@ def _inject_detail_overlay_once():
     ''')
 
 
-def news_card(article: dict, index: int = 0):
+def news_card(article: dict, index: int = 0, position_chip: str = ""):
     """Render a compact feed card. Clicking opens a full-screen detail view."""
     cat = article.get("category", "general")
     color = CATEGORY_COLORS.get(cat, COLORS["cat_general"])
@@ -586,6 +622,8 @@ def news_card(article: dict, index: int = 0):
 
     # If why is already in bullets, don't duplicate it in the WHY IT MATTERS box
     why_in_bullets = any(why.lower() in b.lower() for b in bullets) if why else False
+    # Always show WHY IT MATTERS if we have meaningful content
+    clean_why = why if (not why_in_bullets and why and len(why) > 15) else ""
     delay = min(index * 0.07, 0.5)
 
     # Build badges HTML for detail view
@@ -604,7 +642,7 @@ def news_card(article: dict, index: int = 0):
 
     # Register article data for JS (include raw fields for on-demand brief fetching)
     bullets_js = "[" + ",".join(f"'{_js_str(_esc(b))}'" for b in bullets) + "]"
-    clean_why = why if (not why_in_bullets and "Stay informed" not in why) else ""
+    # clean_why already computed above (line 591)
     ui.run_javascript(f'''
         window.__articleData = window.__articleData || {{}};
         window.__articleData['{uid}'] = {{
@@ -621,6 +659,7 @@ def news_card(article: dict, index: int = 0):
             coverImg: '{cover_img}',
             link: '{_js_str(link)}',
             articleUrl: '{_js_str(article_url)}',
+            language: '{_js_str(str(article.get("language", "en") or "en"))}',
             bullets: {bullets_js},
             badgesHtml: '{_js_str(badges_html)}',
         }};
@@ -642,6 +681,7 @@ def news_card(article: dict, index: int = 0):
                      onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, {color}22, var(--bg-card))';" />
                 <div class="card-image-gradient"></div>
                 <div class="card-topic-tag">{_esc(topic_label)}</div>
+                 {f'<div class="card-position-chip">{_esc(position_chip)}</div>' if position_chip else ''}
             ''')
 
         # Card body (compact preview — no inline expand)

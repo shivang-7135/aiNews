@@ -113,8 +113,8 @@ async def run(state: dict) -> dict:
         timings["curator"] = 0.0
         return {"curated": [], "errors": errors, "node_timings": timings}
 
-    # Cap at 32 articles to stay within token limits
-    capped = articles[:32]
+    # Cap at 50 articles to stay within token limits
+    capped = articles[:50]
     articles_text = "\n".join(
         f"- [{i+1}] {a['title']} (Source: {a.get('source', 'Unknown')}, Link: {a.get('link', '')})"
         for i, a in enumerate(capped)
@@ -131,7 +131,7 @@ async def run(state: dict) -> dict:
     try:
         import asyncio
         llm = get_llm()
-        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=45.0)
+        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=60.0)
         response_text = response.content if hasattr(response, "content") else str(response)
     except asyncio.TimeoutError:
         logger.warning("[Curator] LLM call timed out (likely rate limited), using fallback")
@@ -264,7 +264,7 @@ def _fallback_curate(articles: list[dict], language: str = "en") -> list[dict]:
     tiles: list[dict] = []
     lang = language if language in fallback_why else "en"
 
-    for i, a in enumerate(articles[:20]):
+    for i, a in enumerate(articles[:30]):
         title_lower = a.get("title", "").lower()
         topic, category = "general", "general"
         importance = max(7 - i // 2, 4)
@@ -275,7 +275,14 @@ def _fallback_curate(articles: list[dict], language: str = "en") -> list[dict]:
                 break
 
         source = a.get("source", "")
-        summary = f"Reported by {source}. Tap to read the full story." if source else "Tap to read the full story."
+        raw_feed_summary = str(a.get("summary", "")).strip()[:500]
+        # Clean HTML completely for the fallback summary
+        import re as regex
+        raw_feed_summary = regex.sub(r'<[^>]+>', '', raw_feed_summary).strip()
+        
+        summary = raw_feed_summary if raw_feed_summary and len(raw_feed_summary) > 20 else (
+            f"Reported by {source}. Tap to read the full story." if source else "Tap to read the full story."
+        )
 
         tiles.append({
             "title": a.get("title", "")[:150],

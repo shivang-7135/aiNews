@@ -113,7 +113,7 @@ async def send_digest():
         import resend
         resend.api_key = RESEND_API_KEY
         from dailyai.config import store_key
-        from dailyai.storage.sqlite import get_articles, get_all_subscribers
+        from dailyai.storage.backend import get_all_subscribers, get_articles
 
         tiles = await get_articles(store_key("GLOBAL", "en"))
         if not tiles:

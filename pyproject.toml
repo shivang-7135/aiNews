@@ -39,6 +39,7 @@ dependencies = [
 
 [project.scripts]
 dailyai = "dailyai.__main__:main"
+dailyai-migrate-supabase = "dailyai.storage.supabase_migrate:main"
 
 [build-system]
 requires = ["hatchling"]

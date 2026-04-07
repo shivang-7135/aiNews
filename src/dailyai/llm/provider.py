@@ -256,6 +256,38 @@ async def invoke_llm(
         return ""
 
 
+async def stream_llm(
+    system_prompt: str,
+    user_prompt: str,
+    fast: bool = False,
+):
+    """Invoke the LLM with system + user messages and stream the response back.
+
+    Args:
+        system_prompt: The system instruction.
+        user_prompt: The user query.
+        fast: If True, use the fast LLM path (for briefs).
+
+    Yields:
+        String chunks of the LLM response as they are generated.
+    """
+    path = "fast" if fast else "main"
+    try:
+        import asyncio
+        llm = get_fast_llm() if fast else get_llm()
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+        
+        async for chunk in llm.astream(messages):
+            yield chunk.content if hasattr(chunk, "content") else str(chunk)
+
+    except Exception as e:
+        logger.error(f"[{path.capitalize()}-stream] LLM failed: {e}")
+        yield "Our AI models are experiencing high traffic right now. Please tap 'Read Original' to view the full story on the publisher's website."
+
+
 async def warmup_hf_model() -> None:
     """Pre-warm HuggingFace serverless model to avoid cold start on first user request.
 

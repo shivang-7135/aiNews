@@ -57,6 +57,7 @@ async def _fetch_rss_feed(
                 entry.get("source", {}).get("title", "")
                 if hasattr(entry, "source") else ""
             ),
+            "summary": entry.get("summary", entry.get("description", "")),
             "published": published.isoformat() if published else "",
         })
 

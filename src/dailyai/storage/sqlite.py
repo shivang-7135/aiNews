@@ -399,6 +399,14 @@ async def get_metadata(key: str) -> str | None:
     return row["value"] if row else None
 
 
+async def get_all_metadata() -> dict[str, str]:
+    """Get all metadata key/value pairs."""
+    db = await get_db()
+    cursor = await db.execute("SELECT key, value FROM metadata")
+    rows = await cursor.fetchall()
+    return {str(row["key"]): str(row["value"] or "") for row in rows}
+
+
 async def get_cache_health() -> dict:
     """Return cache health metrics for admin/debug endpoints."""
     db = await get_db()

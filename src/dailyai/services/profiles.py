@@ -8,7 +8,7 @@ import logging
 import random
 from datetime import UTC, datetime
 
-from dailyai.storage import sqlite as db
+from dailyai.storage import backend as db
 
 logger = logging.getLogger("dailyai.services.profiles")
 

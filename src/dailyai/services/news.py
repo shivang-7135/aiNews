@@ -15,15 +15,17 @@ from dailyai.config import (
     LANG_MAP,
     MAX_FEED_SIZE,
     MIN_FEED_SIZE,
+    UI_FEED_TOPICS,
     STARTUP_PREFETCH_GLOBAL_LIMIT,
     STARTUP_PREFETCH_OTHER_LIMIT,
+    STARTUP_PREFETCH_TIMEOUT,
     REFRESH_COOLDOWN_SECONDS,
     normalize_language,
     store_key,
 )
 from dailyai.graph.pipeline import run_pipeline
 from dailyai.llm.prompts import BRIEF_PROMPT, sanitize_llm_response
-from dailyai.storage import sqlite as db
+from dailyai.storage import backend as db
 
 logger = logging.getLogger("dailyai.services.news")
 
@@ -77,14 +79,27 @@ def _match_ui_topic(requested_topic: str, ui_topic: str, category: str, internal
     category = category.lower()
     internal_topic = internal_topic.lower()
 
-    if requested_topic == "AI Models":
+    # Strip emoji prefix for matching (e.g. "🤖 AI Models" -> "AI Models")
+    stripped_request = requested_topic.split(" ", 1)[-1] if requested_topic and requested_topic[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' else requested_topic
+    stripped_ui = ui_topic.split(" ", 1)[-1] if ui_topic and ui_topic[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' else ui_topic
+    if stripped_ui == stripped_request:
+        return True
+
+    # Match by core name
+    if stripped_request == "AI Models":
         return internal_topic == "llms" or category in {"product", "breakthrough"}
-    if requested_topic == "Business":
+    if stripped_request == "Business":
         return category in {"industry", "funding"} or internal_topic in {"startups", "funding", "big_tech"}
-    if requested_topic == "Research":
+    if stripped_request == "Research":
         return internal_topic in {"research", "robotics", "healthcare", "autonomous"} or category in {"research", "breakthrough"}
-    if requested_topic == "Tools":
+    if stripped_request == "Tools":
         return internal_topic in {"open_source", "product"} or category == "product"
+    if stripped_request == "Regulation":
+        return internal_topic in {"regulation", "ai_safety"} or category == "regulation"
+    if stripped_request == "Funding":
+        return internal_topic in {"funding", "startups"} or category == "funding"
+    if stripped_request == "Top Stories":
+        return True  # Show everything in Top Stories
 
     return False
 
@@ -96,9 +111,26 @@ def _topic_keyword_score(requested_topic: str, article: dict) -> int:
         "Business": ("funding", "revenue", "startup", "enterprise", "valuation", "acquisition", "market"),
         "Research": ("research", "study", "paper", "benchmark", "arxiv", "lab", "scientist"),
         "Tools": ("tool", "api", "sdk", "framework", "open source", "github", "agent"),
+        "Regulation": ("regulation", "policy", "governance", "law", "compliance", "act", "safety"),
+        "Funding": ("funding", "raised", "valuation", "seed", "series a", "series b", "investment"),
     }
     keywords = topic_keywords.get(requested_topic, ())
     return sum(1 for k in keywords if k in text)
+
+
+def _build_topic_counts(all_formatted: list[dict]) -> list[dict]:
+    """Build stable topic counts so all feed categories are always available in the UI."""
+    counts: dict[str, int] = {topic: 0 for topic in UI_FEED_TOPICS if topic != "For You"}
+
+    for article in all_formatted:
+        ui_topic = str(article.get("topic", "🔥 Top Stories") or "🔥 Top Stories")
+        if ui_topic not in counts:
+            counts[ui_topic] = 0
+        counts[ui_topic] += 1
+
+    counts["For You"] = len(all_formatted)
+
+    return [{"name": topic, "count": int(counts.get(topic, 0))} for topic in UI_FEED_TOPICS]
 
 
 def get_prefetch_pairs() -> list[tuple[str, str]]:
@@ -126,9 +158,19 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
         pairs = get_prefetch_pairs()
         logger.info(f"Startup prefetch started for {len(pairs)} country/language keys")
 
-        for country, language in pairs:
+        for i, (country, language) in enumerate(pairs, 1):
             target = STARTUP_PREFETCH_GLOBAL_LIMIT if country == "GLOBAL" else STARTUP_PREFETCH_OTHER_LIMIT
-            await refresh_news(country, language, force=force, target_size=target)
+            try:
+                logger.info(f"Prefetching [{i}/{len(pairs)}] {country}/{language} (target={target})...")
+                await asyncio.wait_for(
+                    refresh_news(country, language, force=force, target_size=target),
+                    timeout=STARTUP_PREFETCH_TIMEOUT / len(pairs),  # per-region timeout
+                )
+                logger.info(f"  ✅ Prefetch [{i}/{len(pairs)}] {country}/{language} complete")
+            except asyncio.TimeoutError:
+                logger.warning(f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping")
+            except Exception as e:
+                logger.error(f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}")
 
         _startup_prefetch_done = True
         logger.info("Startup prefetch completed")
@@ -233,7 +275,6 @@ async def get_feed(
     sync_code: str = "",
     offset: int = 0,
     limit: int = 15,
-    _allow_topic_refetch: bool = True,
 ) -> dict:
     """Get the formatted news feed with pagination and optional personalization."""
     country = country.upper()
@@ -243,20 +284,14 @@ async def get_feed(
 
     key = store_key(country, language)
 
-    # Ensure we have articles
-    count = await db.get_articles_count(key)
-    if count == 0:
-        await refresh_news(country, language)
-
+    # Frontend NEVER triggers pipeline — only reads from DB.
+    # If cache is empty, the startup prefetch hasn't finished yet.
     articles = await db.get_articles(key)
 
-    # Fallback chain if insufficient articles
+    # Fallback chain if insufficient articles (try global, then english global)
     if len(articles) < MIN_FEED_SIZE:
         global_key = store_key("GLOBAL", language)
         if global_key != key:
-            global_count = await db.get_articles_count(global_key)
-            if global_count == 0:
-                await refresh_news("GLOBAL", language)
             global_articles = await db.get_articles(global_key)
             existing_titles = {a.get("title", "") for a in articles}
             for a in global_articles:
@@ -267,9 +302,6 @@ async def get_feed(
 
     if len(articles) < MIN_FEED_SIZE and language != "en":
         en_key = store_key("GLOBAL", "en")
-        en_count = await db.get_articles_count(en_key)
-        if en_count == 0:
-            await refresh_news("GLOBAL", "en")
         en_articles = await db.get_articles(en_key)
         existing_titles = {a.get("title", "") for a in articles}
         for a in en_articles:
@@ -309,7 +341,7 @@ async def get_feed(
             if category in ("", "general"):
                 category = inferred_category
 
-        ui_topic = UI_TOPIC_MAP.get(internal_topic, "Top Stories")
+        ui_topic = UI_TOPIC_MAP.get(internal_topic, "🔥 Top Stories")
 
         # Thread count
         story_thread = str(a.get("story_thread", "")).strip()
@@ -345,6 +377,8 @@ async def get_feed(
             "article_url": a.get("link", "#"),
             "published_at": a.get("published", ""),
             "updated_at": a.get("fetched_at", ""),
+            "country": country,
+            "language": language,
         }
         all_formatted.append(formatted)
 
@@ -361,21 +395,8 @@ async def get_feed(
         reverse=True,
     )
 
-    # If a specific topic has no cached rows, force-refresh once and retry.
-    if topic not in ("all", "For You") and not feed_articles and _allow_topic_refetch:
-        logger.info(f"Topic cache miss for {key} topic={topic}; forcing one refresh")
-        await refresh_news(country, language, force=True)
-        return await get_feed(
-            country=country,
-            language=language,
-            topic=topic,
-            sync_code=sync_code,
-            offset=offset,
-            limit=limit,
-            _allow_topic_refetch=False,
-        )
-
-    # Final non-empty fallback for category tabs after one forced refresh attempt.
+    # If a specific topic has no cached rows, try keyword scoring as fallback.
+    # DO NOT trigger refresh_news here — that's the server's startup job.
     if topic not in ("all", "For You") and not feed_articles and all_formatted:
         scored = sorted(
             all_formatted,
@@ -387,6 +408,7 @@ async def get_feed(
             feed_articles = [a for a in scored if _topic_keyword_score(topic, a) > 0][:20]
         else:
             feed_articles = scored[:10]
+
 
     # Personalization
     if sync_code:
@@ -400,7 +422,7 @@ async def get_feed(
 
                 def rank(a: dict) -> float:
                     cat = a.get("category", "general")
-                    t = a.get("topic", "Top Stories")
+                    t = a.get("topic", "🔥 Top Stories")
                     s = float(scores.get(cat, 0)) + float(scores.get(t, 0))
                     return s * 2.0 + float(a.get("importance", 5))
 
@@ -413,6 +435,7 @@ async def get_feed(
     total = len(feed_articles)
     has_more = offset + limit < total
     page = feed_articles[offset:offset + limit]
+    topic_counts = _build_topic_counts(all_formatted)
 
     last_updated = await db.get_metadata(f"last_updated:{key}") or "-"
 
@@ -422,16 +445,28 @@ async def get_feed(
         "offset": offset,
         "limit": limit,
         "has_more": has_more,
+        "next_offset": (offset + len(page)) if has_more else None,
+        "page_count": len(page),
+        "visible_start": (offset + 1) if page else 0,
+        "visible_end": offset + len(page),
         "country": country,
         "country_name": COUNTRIES.get(country, country),
         "language": language,
         "last_updated": last_updated,
+        "categories": topic_counts,
     }
 
 
 # ── Brief cache (prevents repeated LLM calls for same article) ──
 _brief_cache: dict[str, str] = {}
 _BRIEF_CACHE_MAX = 200
+
+
+def _set_brief_cache(cache_key: str, value: str) -> None:
+    if len(_brief_cache) >= _BRIEF_CACHE_MAX and cache_key not in _brief_cache:
+        oldest = next(iter(_brief_cache))
+        del _brief_cache[oldest]
+    _brief_cache[cache_key] = value
 
 
 async def get_article_brief(
@@ -448,12 +483,20 @@ async def get_article_brief(
     Uses an in-memory cache to avoid repeated LLM calls for the same article.
     Falls back to existing summary/why_it_matters if LLM is slow or fails.
     """
-    # Cache key based on title (same article = same brief)
-    cache_key = hashlib.md5(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
+    normalized_language = normalize_language(language)
+
+    # Cache key keeps language-localized variants isolated.
+    cache_key = hashlib.md5(
+        f"{normalized_language}::{title}".encode("utf-8", errors="ignore")
+    ).hexdigest()[:16]
+    legacy_cache_key = hashlib.md5(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
 
     if cache_key in _brief_cache:
         logger.debug(f"Brief cache hit: {title[:40]}")
         return _brief_cache[cache_key]
+    if legacy_cache_key in _brief_cache:
+        logger.debug(f"Brief legacy cache hit: {title[:40]}")
+        return _brief_cache[legacy_cache_key]
 
     # If we already have a good summary + why_it_matters, use them directly
     # instead of waiting for the LLM (speed optimization for mobile)
@@ -465,10 +508,16 @@ async def get_article_brief(
         and "Stay informed" not in why_it_matters
     )
 
+    if has_good_content:
+        quick_brief = f"• {summary.strip()}\n• {why_it_matters.strip()}"
+        result = quick_brief[:1200]
+        _set_brief_cache(cache_key, result)
+        return result
+
     from dailyai.config import SUPPORTED_LANGUAGES
     from dailyai.llm.provider import invoke_llm
 
-    output_language = SUPPORTED_LANGUAGES.get(language, "English")
+    output_language = SUPPORTED_LANGUAGES.get(normalized_language, "English")
 
     prompt = BRIEF_PROMPT.format_messages(
         output_language=output_language,
@@ -484,37 +533,102 @@ async def get_article_brief(
     human_msg = prompt[1].content
 
     try:
-        # 30-second timeout — allows the fallback chain to cascade
-        # through multiple providers (8-25s per-provider timeout each)
-        response = await asyncio.wait_for(
-            invoke_llm(system_msg, human_msg, fast=True),
-            timeout=30.0,
-        )
+        # invoke_llm handles the LLM_FAST_TIMEOUT_SECONDS timeout internally.
+        response = await invoke_llm(system_msg, human_msg, fast=True)
         cleaned = (response or "").strip()
-    except asyncio.TimeoutError:
-        logger.warning(f"Brief LLM timed out for: {title[:40]}")
-        cleaned = ""
     except Exception as e:
         logger.error(f"Brief LLM error: {e}")
         cleaned = ""
 
     if not cleaned:
         fallback = summary or why_it_matters or "No additional details available yet."
-        _brief_cache[cache_key] = fallback
+        _set_brief_cache(cache_key, fallback)
         return fallback
 
     sanitized = sanitize_llm_response(cleaned)
     if not sanitized:
         fallback = summary or why_it_matters or "No additional details available yet."
-        _brief_cache[cache_key] = fallback
+        _set_brief_cache(cache_key, fallback)
         return fallback
 
     result = sanitized[:1200]
-
-    # Store in cache (evict oldest if full)
-    if len(_brief_cache) >= _BRIEF_CACHE_MAX:
-        oldest = next(iter(_brief_cache))
-        del _brief_cache[oldest]
-    _brief_cache[cache_key] = result
+    _set_brief_cache(cache_key, result)
 
     return result
+
+
+async def stream_article_brief(
+    title: str,
+    source: str = "",
+    link: str = "",
+    summary: str = "",
+    why_it_matters: str = "",
+    topic: str = "general",
+    language: str = "en",
+):
+    """Generate a detailed brief for one article and stream it back.
+    
+    If cached, yields the cached version immediately.
+    """
+    normalized_language = normalize_language(language)
+
+    cache_key = hashlib.md5(
+        f"{normalized_language}::{title}".encode("utf-8", errors="ignore")
+    ).hexdigest()[:16]
+    legacy_cache_key = hashlib.md5(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
+
+    if cache_key in _brief_cache:
+        logger.debug(f"Brief cache hit: {title[:40]}")
+        yield _brief_cache[cache_key]
+        return
+    if legacy_cache_key in _brief_cache:
+        logger.debug(f"Brief legacy cache hit: {title[:40]}")
+        yield _brief_cache[legacy_cache_key]
+        return
+
+    has_good_content = (
+        summary
+        and len(summary) > 60
+        and "Reported by" not in summary
+        and why_it_matters
+        and "Stay informed" not in why_it_matters
+    )
+
+    if has_good_content:
+        quick_brief = f"• {summary.strip()}\n• {why_it_matters.strip()}"
+        result = quick_brief[:1200]
+        _set_brief_cache(cache_key, result)
+        yield result
+        return
+
+    from dailyai.config import SUPPORTED_LANGUAGES
+    from dailyai.llm.provider import stream_llm
+
+    output_language = SUPPORTED_LANGUAGES.get(normalized_language, "English")
+
+    prompt = BRIEF_PROMPT.format_messages(
+        output_language=output_language,
+        title=title,
+        source=source,
+        topic=topic,
+        link=link,
+        summary=summary,
+        why_it_matters=why_it_matters,
+    )
+
+    system_msg = prompt[0].content
+    human_msg = prompt[1].content
+
+    full_output = ""
+    try:
+        async for chunk in stream_llm(system_msg, human_msg, fast=True):
+            full_output += chunk
+            yield chunk
+            
+        # At the end of the stream, cache the full output
+        if full_output.strip() and "Our AI models are experiencing high traffic" not in full_output:
+            _set_brief_cache(cache_key, full_output.strip()[:1200])
+    except Exception as e:
+        logger.error(f"Brief stream error: {e}")
+        fallback = summary or why_it_matters or "No additional details available yet."
+        yield fallback

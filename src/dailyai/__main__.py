@@ -12,7 +12,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from dailyai.services.scheduler import start_scheduler, stop_scheduler
-from dailyai.storage.sqlite import close_db, get_db
+from dailyai.storage.backend import close_db, get_db
 from dailyai.ui.app import create_app
 
 # Setup logging

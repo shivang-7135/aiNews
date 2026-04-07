@@ -26,6 +26,10 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 DB_PATH = os.getenv("DB_PATH", "dailyai.db")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "sqlite").strip().lower()
+if STORAGE_BACKEND not in {"sqlite", "supabase"}:
+    STORAGE_BACKEND = "sqlite"
+SUPABASE_TIMEOUT_SECONDS = float(os.getenv("SUPABASE_TIMEOUT_SECONDS", "10"))
 
 # ── Countries & Languages ──────────────────────────────────────────
 COUNTRIES: dict[str, str] = {
@@ -40,6 +44,12 @@ SUPPORTED_LANGUAGES: dict[str, str] = {
     "en": "English",
     "de": "German",
     "hi": "Hindi",
+}
+
+# Current product launch language set for UI and public API language picker.
+UI_LANGUAGES: dict[str, str] = {
+    "en": "English",
+    "de": "German",
 }
 
 LANG_MAP: dict[str, tuple[str, str]] = {
@@ -70,22 +80,34 @@ TOPICS: dict[str, str] = {
 }
 
 UI_TOPIC_MAP: dict[str, str] = {
-    "llms": "AI Models",
-    "big_tech": "Top Stories",
-    "startups": "Business",
-    "research": "Research",
-    "funding": "Business",
-    "regulation": "Top Stories",
-    "open_source": "Tools",
-    "ai_safety": "Top Stories",
-    "robotics": "Tech & Science",
-    "healthcare": "Tech & Science",
-    "autonomous": "Tech & Science",
-    "breakthrough": "Top Stories",
-    "product": "Tools",
-    "industry": "Business",
-    "general": "Top Stories",
+    "llms": "🤖 AI Models",
+    "big_tech": "🔥 Top Stories",
+    "startups": "💼 Business",
+    "research": "🔬 Research",
+    "funding": "💰 Funding",
+    "regulation": "⚖️ Regulation",
+    "open_source": "🛠 Tools",
+    "ai_safety": "⚖️ Regulation",
+    "robotics": "🔬 Research",
+    "healthcare": "🔬 Research",
+    "autonomous": "🔬 Research",
+    "breakthrough": "🔥 Top Stories",
+    "product": "🛠 Tools",
+    "industry": "💼 Business",
+    "general": "🔥 Top Stories",
 }
+
+# UI topic rail order for feed/category metadata.
+UI_FEED_TOPICS: list[str] = [
+    "For You",
+    "🔥 Top Stories",
+    "🤖 AI Models",
+    "💼 Business",
+    "🔬 Research",
+    "🛠 Tools",
+    "⚖️ Regulation",
+    "💰 Funding",
+]
 
 # ── RSS Feed Queries ────────────────────────────────────────────────
 GOOGLE_NEWS_RSS = (
@@ -131,19 +153,21 @@ MEDIUM_TRUST_SOURCES: set[str] = {
 # ── Pipeline Limits ─────────────────────────────────────────────────
 MAX_TILES_PER_FETCH = 30
 MAX_FEED_SIZE = 30
-MIN_FEED_SIZE = 15
-RSS_MAX_ITEMS_PER_FEED = 15
+MIN_FEED_SIZE = 10
+RSS_MAX_ITEMS_PER_FEED = 20
 RSS_TIMEOUT_SECONDS = 15
-LLM_TIMEOUT_SECONDS = 90
+LLM_TIMEOUT_SECONDS = 45
+LLM_FAST_TIMEOUT_SECONDS = 20
+STARTUP_PREFETCH_TIMEOUT = 300  # 5 min max for full startup prefetch
 REFRESH_INTERVAL_HOURS = int(os.getenv("REFRESH_INTERVAL_HOURS", "1"))
 REFRESH_INTERVAL_MINUTES = int(os.getenv("REFRESH_INTERVAL_MINUTES", "15"))
-REFRESH_COOLDOWN_SECONDS = 45
+REFRESH_COOLDOWN_SECONDS = 120
 
 # Cache / prefetch behavior
-CACHE_MAX_ARTICLES = int(os.getenv("CACHE_MAX_ARTICLES", "100"))
+CACHE_MAX_ARTICLES = int(os.getenv("CACHE_MAX_ARTICLES", "150"))
 CACHE_MIN_PER_KEY = int(os.getenv("CACHE_MIN_PER_KEY", "8"))
 STARTUP_PREFETCH_GLOBAL_LIMIT = int(os.getenv("STARTUP_PREFETCH_GLOBAL_LIMIT", "30"))
-STARTUP_PREFETCH_OTHER_LIMIT = int(os.getenv("STARTUP_PREFETCH_OTHER_LIMIT", "18"))
+STARTUP_PREFETCH_OTHER_LIMIT = int(os.getenv("STARTUP_PREFETCH_OTHER_LIMIT", "30"))
 DAILY_REFRESH_HOUR_UTC = int(os.getenv("DAILY_REFRESH_HOUR_UTC", "6"))
 DAILY_REFRESH_MINUTE_UTC = int(os.getenv("DAILY_REFRESH_MINUTE_UTC", "0"))
 

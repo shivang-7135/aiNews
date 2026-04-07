@@ -76,6 +76,51 @@ uv run dailyai
 
 The application will start on `http://localhost:8000`.
 
+## Supabase Bootstrap & Migration
+
+DailyAI now supports a pluggable storage backend.
+
+1) Configure backend in `.env`:
+
+```bash
+STORAGE_BACKEND=supabase
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_KEY=<service-role-or-compatible-key>
+SUPABASE_TIMEOUT_SECONDS=10
+```
+
+2) Write the bootstrap SQL (if you want a local copy):
+
+```bash
+uv run dailyai-migrate-supabase --write-schema-only
+```
+
+3) Apply schema in Supabase SQL Editor using:
+
+```bash
+supabase/bootstrap.sql
+```
+
+4) Run preflight checks:
+
+```bash
+uv run dailyai-migrate-supabase --check-only
+```
+
+5) Run migration (SQLite -> Supabase):
+
+```bash
+uv run dailyai-migrate-supabase
+```
+
+6) Confirm active backend:
+
+```bash
+curl -s http://localhost:8000/api/version
+```
+
+The response now includes `storage_backend`.
+
 ## 🔑 LLM Provider Priority
 
 Current provider order (when keys are configured):

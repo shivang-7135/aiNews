@@ -33,7 +33,7 @@ async def _startup_services_for_uvicorn_app_entry() -> None:
     from dailyai.services.media_cache import ensure_category_images_cached
     from dailyai.services.news import prefetch_cache_on_startup
     from dailyai.services.scheduler import start_scheduler
-    from dailyai.storage.sqlite import get_db
+    from dailyai.storage.backend import get_db
 
     await get_db()
     start_scheduler()
@@ -49,7 +49,7 @@ async def _startup_services_for_uvicorn_app_entry() -> None:
 async def _shutdown_services_for_uvicorn_app_entry() -> None:
     """Shutdown background services for `uvicorn app:app` compatibility path."""
     from dailyai.services.scheduler import stop_scheduler
-    from dailyai.storage.sqlite import close_db
+    from dailyai.storage.backend import close_db
 
     stop_scheduler()
     await close_db()

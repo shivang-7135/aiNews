@@ -1,14 +1,14 @@
 """
-DailyAI — Navigation & Sidebar Components v3
+DailyAI — Navigation & Sidebar Components v4
 Floating glass bottom nav dock + slide-in sidebar.
-Warm vibrant golden accent design.
+Uses NiceGUI ui.select for reliable dropdown handling.
 """
 
 import asyncio
 
 from nicegui import ui
 
-from dailyai.config import COUNTRIES, SUPPORTED_LANGUAGES
+from dailyai.config import COUNTRIES, UI_FEED_TOPICS, UI_LANGUAGES
 from dailyai.ui.components.theme import COUNTRY_FLAGS
 
 
@@ -97,45 +97,49 @@ def sidebar(
                 ui.html('&#10005;')
             close_btn.on('click', lambda: ui.run_javascript('closeSidebar()'))
 
-        # Region
+        # Region — using NiceGUI ui.select for reliable event handling
         with ui.element('div').classes('sidebar-section'):
             ui.html('<div class="sidebar-section-title">🌍 Region</div>')
             country_options = {
                 code: f"{COUNTRY_FLAGS.get(code, '🏳️')} {name}"
                 for code, name in COUNTRIES.items()
             }
-            country_el = ui.element('select').classes('sidebar-select')
-            country_el.props('id=sidebarCountry')
-            with country_el:
-                for code, display in country_options.items():
-                    opt = ui.element('option')
-                    opt.props(f'value="{code}"')
-                    if code == app_state.get("country", "GLOBAL"):
-                        opt.props('selected')
-                    with opt:
-                        ui.html(display)
-            if on_country_change:
-                async def _on_country_change(e):
-                    await _handle_select_change(e, on_country_change)
-                country_el.on('change', _on_country_change)
+            current_country = app_state.get("country", "GLOBAL")
 
-        # Language
+            country_select = ui.select(
+                options=country_options,
+                value=current_country,
+                label=None,
+            ).classes('sidebar-nicegui-select w-full').props('dark dense outlined')
+
+            if on_country_change:
+                async def _on_country(e):
+                    val = e.value if hasattr(e, 'value') else str(e)
+                    if asyncio.iscoroutinefunction(on_country_change):
+                        await on_country_change(val)
+                    else:
+                        on_country_change(val)
+                country_select.on_value_change(_on_country)
+
+        # Language — using NiceGUI ui.select for reliable event handling
         with ui.element('div').classes('sidebar-section'):
             ui.html('<div class="sidebar-section-title">🌐 Language</div>')
-            lang_el = ui.element('select').classes('sidebar-select')
-            lang_el.props('id=sidebarLanguage')
-            with lang_el:
-                for code, name in SUPPORTED_LANGUAGES.items():
-                    opt = ui.element('option')
-                    opt.props(f'value="{code}"')
-                    if code == app_state.get("language", "en"):
-                        opt.props('selected')
-                    with opt:
-                        ui.html(name)
+            current_lang = app_state.get("language", "en")
+
+            lang_select = ui.select(
+                options=UI_LANGUAGES,
+                value=current_lang,
+                label=None,
+            ).classes('sidebar-nicegui-select w-full').props('dark dense outlined')
+
             if on_language_change:
-                async def _on_language_change(e):
-                    await _handle_select_change(e, on_language_change)
-                lang_el.on('change', _on_language_change)
+                async def _on_language(e):
+                    val = e.value if hasattr(e, 'value') else str(e)
+                    if asyncio.iscoroutinefunction(on_language_change):
+                        await on_language_change(val)
+                    else:
+                        on_language_change(val)
+                lang_select.on_value_change(_on_language)
 
         # Sort
         with ui.element('div').classes('sidebar-section'):
@@ -192,31 +196,6 @@ def sidebar(
             ui.label('Powered by AI · Built with ❤️').style('font-size: 10px; color: var(--text-muted);')
 
 
-async def _handle_select_change(e, callback):
-    value = None
-    if hasattr(e, 'args') and e.args:
-        raw = e.args
-        # Native HTML select 'change' event: args can be a dict, list, or string
-        if isinstance(raw, dict):
-            value = raw.get('value', raw.get('target', {}).get('value', ''))
-            if isinstance(value, dict):
-                value = str(value)
-        elif isinstance(raw, list) and raw:
-            value = str(raw[0])
-        elif isinstance(raw, str):
-            value = raw
-        else:
-            value = str(raw)
-    elif hasattr(e, 'value'):
-        value = e.value
-    if value and callback:
-        value = str(value).strip()
-        if asyncio.iscoroutinefunction(callback):
-            await callback(value)
-        else:
-            callback(value)
-
-
 async def _handle_sort(sort_type, callback):
     js = f"""
     document.getElementById('sortRelevance').classList.toggle('active', '{sort_type}' === 'relevance');
@@ -229,16 +208,9 @@ async def _handle_sort(sort_type, callback):
         callback(sort_type)
 
 
-async def _wrap_async(fn):
-    if asyncio.iscoroutinefunction(fn):
-        await fn()
-    else:
-        fn()
-
-
-def topic_filter(selected: str = "Top Stories", on_change=None):
+def topic_filter(selected: str = "🔥 Top Stories", on_change=None):
     """Horizontal scroll topic chips."""
-    topics = ["For You", "Top Stories", "AI Models", "Business", "Research", "Tools", "Tech & Science"]
+    topics = UI_FEED_TOPICS
     with ui.scroll_area().classes('w-full h-14 mb-2'):
         with ui.row().classes('flex-nowrap gap-3 items-center py-2 px-1 h-full w-max'):
             for t in topics:

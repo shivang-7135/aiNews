@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 CURATION_SYSTEM = """You are an AI news curator agent. Your task is to analyze the following news articles and select the most important, impactful, and breaking news stories specifically about Artificial Intelligence, Machine Learning, LLMs, and AI companies.
 
 RULES:
-1. Select up to 20 most important and UNIQUE stories
+1. Select up to 30 most important and UNIQUE stories
 2. Focus on genuinely significant AI news (breakthroughs, major product launches, regulations, funding, research papers)
 3. Ignore duplicate or near-duplicate stories — pick the best version
 4. Ignore clickbait, opinion pieces, or vaguely AI-related stories

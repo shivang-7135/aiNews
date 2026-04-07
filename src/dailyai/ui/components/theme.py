@@ -269,11 +269,9 @@ body {
 .q-layout__section--marginal { display: none !important; height: 0 !important; }
 body, html { padding: 0 !important; margin: 0 !important; }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-/* ========== AMBIENT GRADIENT ORBS (warm) ========== */
+::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+* { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.q-scrollarea__thumb, .q-scrollarea__bar { display: none !important; opacity: 0 !important; }
 .ambient-orb {
     position: fixed; border-radius: 50%;
     filter: blur(120px); opacity: 0.08;
@@ -388,7 +386,10 @@ body, html { padding: 0 !important; margin: 0 !important; }
     color: var(--accent) !important;
     box-shadow: 0 0 14px rgba(255,184,0,0.1) !important;
 }
-
+/* Hide scrollbar on topic chips row */
+.topic-chip:first-child { margin-left: 4px; }
+.q-scrollarea__container::-webkit-scrollbar { display: none; }
+.q-scrollarea__container { scrollbar-width: none; }
 /* ========== BOTTOM NAVIGATION ========== */
 .bottom-nav {
     position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
@@ -502,6 +503,28 @@ body, html { padding: 0 !important; margin: 0 !important; }
     padding: 14px 18px; margin-top: auto;
     font-size: 11px; color: var(--text-muted); text-align: center;
 }
+/* NiceGUI select styling for sidebar dropdowns */
+.sidebar-nicegui-select {
+    margin-bottom: 8px;
+}
+.sidebar-nicegui-select .q-field__control {
+    background: var(--bg-elevated) !important;
+    border-radius: 12px !important;
+    min-height: 40px !important;
+}
+.sidebar-nicegui-select .q-field__control::before {
+    border-color: var(--border-ghost) !important;
+}
+.sidebar-nicegui-select .q-field__native,
+.sidebar-nicegui-select .q-select__selected {
+    color: var(--text-primary) !important;
+    font-family: var(--font) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+.sidebar-nicegui-select .q-field__append .q-icon {
+    color: var(--text-muted) !important;
+}
 .sort-group { display: flex; gap: 4px; background: var(--bg-primary); border-radius: 10px; padding: 3px; }
 .sort-btn {
     flex: 1; padding: 8px 12px; border-radius: 8px; border: none;
@@ -591,6 +614,14 @@ body, html { padding: 0 !important; margin: 0 !important; }
     backdrop-filter: blur(10px);
     color: #fff; font-size: 10px; font-weight: 800;
     letter-spacing: 0.06em; text-transform: uppercase;
+}
+.card-position-chip {
+    position: absolute; top: 14px; right: 14px; z-index: 5;
+    padding: 5px 10px; border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    color: #fff; font-size: 11px; font-weight: 800;
+    letter-spacing: 0.02em;
 }
 /* Category color accent line at card top */
 .card-cat-accent {
@@ -833,8 +864,12 @@ body, html { padding: 0 !important; margin: 0 !important; }
 }
 
 /* ========== EMPTY STATE ========== */
-.empty-state { text-align: center; padding: 48px 24px; }
-.empty-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.4; }
+.empty-state {
+    text-align: center; padding: 48px 24px;
+    animation: fadeIn 0.5s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.empty-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.6; }
 .empty-text { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
 
 /* ========== MOBILE — Inshorts-style snap scroll ========== */
@@ -886,10 +921,13 @@ body, html { padding: 0 !important; margin: 0 !important; }
         box-shadow: none !important;
         border-bottom: 1px solid var(--border-ghost) !important;
     }
-    .card-image-area { height: 26vh; }
+    .card-image-area { height: 22vh; min-height: 120px; }
     .card-body-area { flex: 1; padding: 8px 14px 4px; overflow: hidden; }
-    .card-headline-text { font-size: 16px; -webkit-line-clamp: 2; }
-    .card-summary-text { -webkit-line-clamp: 2; font-size: 12px; }
+    .card-headline-text { font-size: 15px; -webkit-line-clamp: 2; margin-bottom: 4px; }
+    .card-summary-text { -webkit-line-clamp: 2; font-size: 12px; margin-bottom: 4px; }
+    .card-badges { margin-bottom: 4px; }
+    .card-action-bar { padding: 4px 14px 8px; }
+    .source-name-text { max-width: 90px; }
 
     /* Bottom nav — always visible, proper safe-area for iPhones */
     .bottom-nav {

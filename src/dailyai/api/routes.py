@@ -5,13 +5,22 @@ Developer API v1 endpoints + internal API for the NiceGUI frontend.
 
 import logging
 import re
+import hashlib
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Header, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from dailyai.config import APP_VERSION, COUNTRIES, DEPLOYED_AT, SUPPORTED_LANGUAGES, normalize_language
-from dailyai.services.news import get_article_brief, get_feed, refresh_news
+from dailyai.config import (
+    APP_VERSION,
+    COUNTRIES,
+    DEPLOYED_AT,
+    UI_FEED_TOPICS,
+    UI_LANGUAGES,
+    normalize_language,
+)
+from dailyai.services.news import get_article_brief, stream_article_brief, get_feed, refresh_news
+from dailyai.storage.backend import backend_name
 from dailyai.storage.models import (
     ArticleBriefRequest,
     CreateProfileRequest,
@@ -27,11 +36,28 @@ router = APIRouter()
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
+def _feed_etag(payload: dict, topic: str) -> str:
+    signature = "|".join([
+        str(payload.get("country", "GLOBAL")),
+        str(payload.get("language", "en")),
+        str(topic),
+        str(payload.get("offset", 0)),
+        str(payload.get("limit", 0)),
+        str(payload.get("total", 0)),
+        str(payload.get("last_updated", "")),
+    ])
+    return hashlib.sha1(signature.encode("utf-8", errors="ignore")).hexdigest()
+
+
 # ── Internal API (used by NiceGUI frontend) ─────────────────────────
 
 @router.get("/api/version")
 async def get_version():
-    return {"version": APP_VERSION, "deployed_at": DEPLOYED_AT}
+    return {
+        "version": APP_VERSION,
+        "deployed_at": DEPLOYED_AT,
+        "storage_backend": backend_name(),
+    }
 
 
 @router.get("/api/news/{country_code}")
@@ -42,23 +68,51 @@ async def get_news(country_code: str, language: str = "en"):
 
 @router.get("/api/articles")
 async def get_articles(
+    response: Response,
     topic: str = "all", country: str = "GLOBAL", language: str = "en",
     sync_code: str = "", offset: int = 0, limit: int = 15,
 ):
-    return await get_feed(
+    payload = await get_feed(
         country=country, language=language, topic=topic,
         sync_code=sync_code, offset=max(0, offset), limit=max(1, min(limit, 30)),
     )
+    response.headers["Cache-Control"] = "public, max-age=120"
+    response.headers["ETag"] = _feed_etag(payload, topic)
+    return payload
+
+
+@router.get("/api/articles/categories")
+async def get_article_categories(
+    country: str = "GLOBAL", language: str = "en", sync_code: str = "",
+):
+    payload = await get_feed(
+        topic="all",
+        country=country,
+        language=language,
+        sync_code=sync_code,
+        offset=0,
+        limit=1,
+    )
+    categories = payload.get("categories") or [{"name": t, "count": 0} for t in UI_FEED_TOPICS]
+    return {
+        "categories": categories,
+        "country": payload.get("country", country.upper()),
+        "language": payload.get("language", normalize_language(language)),
+        "total": int(payload.get("total", 0)),
+        "last_updated": payload.get("last_updated", "-"),
+    }
 
 
 @router.post("/api/articles/brief")
 async def article_brief(req: ArticleBriefRequest):
-    brief = await get_article_brief(
-        title=req.title, source=req.source, link=req.link,
-        summary=req.summary, why_it_matters=req.why_it_matters,
-        topic=req.topic, language=normalize_language(req.language),
+    return StreamingResponse(
+        stream_article_brief(
+            title=req.title, source=req.source, link=req.link,
+            summary=req.summary, why_it_matters=req.why_it_matters,
+            topic=req.topic, language=normalize_language(req.language)
+        ),
+        media_type="text/plain",
     )
-    return {"brief": brief, "language": normalize_language(req.language)}
 
 
 @router.post("/api/refresh/{country_code}")
@@ -77,13 +131,13 @@ async def countries():
 
 @router.get("/api/languages")
 async def languages():
-    return {"languages": SUPPORTED_LANGUAGES}
+    return {"languages": UI_LANGUAGES}
 
 
 @router.get("/api/admin/cache-health")
 async def cache_health():
     """Admin/debug endpoint for DB cache health and rotation stats."""
-    from dailyai.storage.sqlite import get_cache_health
+    from dailyai.storage.backend import get_cache_health
 
     return await get_cache_health()
 
@@ -92,7 +146,7 @@ async def cache_health():
 
 @router.post("/api/subscribe")
 async def subscribe(req: SubscribeRequest):
-    from dailyai.storage.sqlite import get_subscriber, save_subscriber
+    from dailyai.storage.backend import get_subscriber, save_subscriber
 
     email = req.email.strip().lower()
     if not EMAIL_RE.match(email):
@@ -121,7 +175,7 @@ async def subscribe(req: SubscribeRequest):
 
 @router.get("/api/subscribers/count")
 async def subscriber_count():
-    from dailyai.storage.sqlite import get_subscriber_count
+    from dailyai.storage.backend import get_subscriber_count
     return {"count": await get_subscriber_count()}
 
 
@@ -180,6 +234,7 @@ async def profile_analytics(sync_code: str, req: RecordAnalyticsRequest):
 
 @router.get("/api/v1/feed")
 async def api_v1_feed(
+    response: Response,
     topic: str = "all", country: str = "GLOBAL", language: str = "en",
     offset: int = 0, limit: int = 15, x_api_key: str = Header(None),
 ):
@@ -191,7 +246,31 @@ async def api_v1_feed(
         offset=max(0, offset), limit=max(1, min(limit, 30)),
     )
     payload["api_version"] = "v1"
+    response.headers["Cache-Control"] = "public, max-age=120"
+    response.headers["ETag"] = _feed_etag(payload, topic)
     return payload
+
+
+@router.get("/api/v1/categories")
+async def api_v1_categories(
+    country: str = "GLOBAL",
+    language: str = "en",
+    x_api_key: str = Header(None),
+):
+    payload = await get_feed(
+        topic="all",
+        country=country.upper(),
+        language=normalize_language(language),
+        offset=0,
+        limit=1,
+    )
+    return {
+        "categories": payload.get("categories", [{"name": t, "count": 0} for t in UI_FEED_TOPICS]),
+        "country": payload.get("country", country.upper()),
+        "language": payload.get("language", normalize_language(language)),
+        "last_updated": payload.get("last_updated", "-"),
+        "api_version": "v1",
+    }
 
 
 @router.get("/api/v1/trending")
