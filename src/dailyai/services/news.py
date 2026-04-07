@@ -15,16 +15,18 @@ from dailyai.config import (
     LANG_MAP,
     MAX_FEED_SIZE,
     MIN_FEED_SIZE,
+    SUPPORTED_LANGUAGES,
     UI_FEED_TOPICS,
     STARTUP_PREFETCH_GLOBAL_LIMIT,
     STARTUP_PREFETCH_OTHER_LIMIT,
+    STARTUP_PREFETCH_CONCURRENCY,
     STARTUP_PREFETCH_TIMEOUT,
     REFRESH_COOLDOWN_SECONDS,
     normalize_language,
     store_key,
 )
 from dailyai.graph.pipeline import run_pipeline
-from dailyai.llm.prompts import BRIEF_PROMPT, sanitize_llm_response
+from dailyai.llm.prompts import BRIEF_HUMAN, BRIEF_SYSTEM, sanitize_llm_response
 from dailyai.storage import backend as db
 
 logger = logging.getLogger("dailyai.services.news")
@@ -157,20 +159,28 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
 
         pairs = get_prefetch_pairs()
         logger.info(f"Startup prefetch started for {len(pairs)} country/language keys")
-
-        for i, (country, language) in enumerate(pairs, 1):
+        
+        concurrency = max(1, min(5, int(STARTUP_PREFETCH_CONCURRENCY)))
+        sem = asyncio.Semaphore(concurrency)  # Avoid overwhelming LLM/API providers during startup.
+        
+        async def fetch_pair(i: int, country: str, language: str):
             target = STARTUP_PREFETCH_GLOBAL_LIMIT if country == "GLOBAL" else STARTUP_PREFETCH_OTHER_LIMIT
-            try:
-                logger.info(f"Prefetching [{i}/{len(pairs)}] {country}/{language} (target={target})...")
-                await asyncio.wait_for(
-                    refresh_news(country, language, force=force, target_size=target),
-                    timeout=STARTUP_PREFETCH_TIMEOUT / len(pairs),  # per-region timeout
-                )
-                logger.info(f"  ✅ Prefetch [{i}/{len(pairs)}] {country}/{language} complete")
-            except asyncio.TimeoutError:
-                logger.warning(f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping")
-            except Exception as e:
-                logger.error(f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}")
+            async with sem:
+                try:
+                    logger.info(f"Prefetching [{i}/{len(pairs)}] {country}/{language} (target={target})...")
+                    await asyncio.wait_for(
+                        refresh_news(country, language, force=force, target_size=target),
+                        timeout=STARTUP_PREFETCH_TIMEOUT,
+                    )
+                    logger.info(f"  ✅ Prefetch [{i}/{len(pairs)}] {country}/{language} complete")
+                except asyncio.TimeoutError:
+                    logger.warning(f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping")
+                except Exception as e:
+                    logger.error(f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}")
+
+        # Run all fetches concurrently
+        tasks = [fetch_pair(i, c, l) for i, (c, l) in enumerate(pairs, 1)]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         _startup_prefetch_done = True
         logger.info("Startup prefetch completed")
@@ -457,178 +467,68 @@ async def get_feed(
     }
 
 
-# ── Brief cache (prevents repeated LLM calls for same article) ──
-_brief_cache: dict[str, str] = {}
-_BRIEF_CACHE_MAX = 200
-
-
-def _set_brief_cache(cache_key: str, value: str) -> None:
-    if len(_brief_cache) >= _BRIEF_CACHE_MAX and cache_key not in _brief_cache:
-        oldest = next(iter(_brief_cache))
-        del _brief_cache[oldest]
-    _brief_cache[cache_key] = value
-
-
-async def get_article_brief(
-    title: str,
-    source: str = "",
-    link: str = "",
-    summary: str = "",
-    why_it_matters: str = "",
-    topic: str = "general",
-    language: str = "en",
-) -> str:
-    """Generate a detailed brief for one article using the fast LLM.
-
-    Uses an in-memory cache to avoid repeated LLM calls for the same article.
-    Falls back to existing summary/why_it_matters if LLM is slow or fails.
+async def stream_article_brief(article: dict, language: str = "en"):
     """
-    normalized_language = normalize_language(language)
+    Generate an article brief dynamically and yield text chunks in real-time.
+    Caches the final output to SQLite metadata to avoid re-summarizing.
+    """
+    article_hash = hashlib.md5((article.get('source', '') + article.get('title', '')).encode()).hexdigest()
+    cache_key = f"{article_hash}_{language}"
 
-    # Cache key keeps language-localized variants isolated.
-    cache_key = hashlib.md5(
-        f"{normalized_language}::{title}".encode("utf-8", errors="ignore")
-    ).hexdigest()[:16]
-    legacy_cache_key = hashlib.md5(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
+    from dailyai.llm.provider import SUMMARY_FALLBACK_MESSAGE, stream_llm
 
-    if cache_key in _brief_cache:
-        logger.debug(f"Brief cache hit: {title[:40]}")
-        return _brief_cache[cache_key]
-    if legacy_cache_key in _brief_cache:
-        logger.debug(f"Brief legacy cache hit: {title[:40]}")
-        return _brief_cache[legacy_cache_key]
+    # Return cached brief sequentially if it exists
+    cached = await db.get_metadata(f"brief:{cache_key}")
+    if cached:
+        cached_text = str(cached).strip()
+        if SUMMARY_FALLBACK_MESSAGE.lower() not in cached_text.lower():
+            # Simulate quick streaming for the cached content
+            chunk_size = max(5, len(cached_text) // 10)
+            for i in range(0, len(cached_text), chunk_size):
+                yield cached_text[i:i+chunk_size]
+                await asyncio.sleep(0.01)
+            return
+        logger.info(f"Skipping stale fallback brief cache for key={cache_key}")
 
-    # If we already have a good summary + why_it_matters, use them directly
-    # instead of waiting for the LLM (speed optimization for mobile)
-    has_good_content = (
-        summary
-        and len(summary) > 60
-        and "Reported by" not in summary
-        and why_it_matters
-        and "Stay informed" not in why_it_matters
-    )
+    language = normalize_language(language)
+    output_language = SUPPORTED_LANGUAGES.get(language, "English")
 
-    if has_good_content:
-        quick_brief = f"• {summary.strip()}\n• {why_it_matters.strip()}"
-        result = quick_brief[:1200]
-        _set_brief_cache(cache_key, result)
-        return result
+    # Fallback structure logic...
+    raw_summary = str(article.get("summary", "") or "").strip()
+    headline = str(article.get("title", "") or "").strip()
+    why = str(article.get("why_it_matters", "") or "").strip()
+    source = str(article.get("source", "") or "").strip()
+    topic = str(article.get("topic", "general") or "general").strip()
+    link = str(article.get("link", "") or "").strip()
 
-    from dailyai.config import SUPPORTED_LANGUAGES
-    from dailyai.llm.provider import invoke_llm
-
-    output_language = SUPPORTED_LANGUAGES.get(normalized_language, "English")
-
-    prompt = BRIEF_PROMPT.format_messages(
-        output_language=output_language,
-        title=title,
-        source=source,
+    system_msg = BRIEF_SYSTEM.format(output_language=output_language)
+    human_msg = BRIEF_HUMAN.format(
+        title=headline or "Untitled",
+        source=source or "Unknown",
         topic=topic,
         link=link,
-        summary=summary,
-        why_it_matters=why_it_matters,
+        summary=raw_summary or "Not available",
+        why_it_matters=why or "Not available",
     )
-
-    system_msg = prompt[0].content
-    human_msg = prompt[1].content
-
-    try:
-        # invoke_llm handles the LLM_FAST_TIMEOUT_SECONDS timeout internally.
-        response = await invoke_llm(system_msg, human_msg, fast=True)
-        cleaned = (response or "").strip()
-    except Exception as e:
-        logger.error(f"Brief LLM error: {e}")
-        cleaned = ""
-
-    if not cleaned:
-        fallback = summary or why_it_matters or "No additional details available yet."
-        _set_brief_cache(cache_key, fallback)
-        return fallback
-
-    sanitized = sanitize_llm_response(cleaned)
-    if not sanitized:
-        fallback = summary or why_it_matters or "No additional details available yet."
-        _set_brief_cache(cache_key, fallback)
-        return fallback
-
-    result = sanitized[:1200]
-    _set_brief_cache(cache_key, result)
-
-    return result
-
-
-async def stream_article_brief(
-    title: str,
-    source: str = "",
-    link: str = "",
-    summary: str = "",
-    why_it_matters: str = "",
-    topic: str = "general",
-    language: str = "en",
-):
-    """Generate a detailed brief for one article and stream it back.
-    
-    If cached, yields the cached version immediately.
-    """
-    normalized_language = normalize_language(language)
-
-    cache_key = hashlib.md5(
-        f"{normalized_language}::{title}".encode("utf-8", errors="ignore")
-    ).hexdigest()[:16]
-    legacy_cache_key = hashlib.md5(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
-
-    if cache_key in _brief_cache:
-        logger.debug(f"Brief cache hit: {title[:40]}")
-        yield _brief_cache[cache_key]
-        return
-    if legacy_cache_key in _brief_cache:
-        logger.debug(f"Brief legacy cache hit: {title[:40]}")
-        yield _brief_cache[legacy_cache_key]
-        return
-
-    has_good_content = (
-        summary
-        and len(summary) > 60
-        and "Reported by" not in summary
-        and why_it_matters
-        and "Stay informed" not in why_it_matters
-    )
-
-    if has_good_content:
-        quick_brief = f"• {summary.strip()}\n• {why_it_matters.strip()}"
-        result = quick_brief[:1200]
-        _set_brief_cache(cache_key, result)
-        yield result
-        return
-
-    from dailyai.config import SUPPORTED_LANGUAGES
-    from dailyai.llm.provider import stream_llm
-
-    output_language = SUPPORTED_LANGUAGES.get(normalized_language, "English")
-
-    prompt = BRIEF_PROMPT.format_messages(
-        output_language=output_language,
-        title=title,
-        source=source,
-        topic=topic,
-        link=link,
-        summary=summary,
-        why_it_matters=why_it_matters,
-    )
-
-    system_msg = prompt[0].content
-    human_msg = prompt[1].content
 
     full_output = ""
     try:
-        async for chunk in stream_llm(system_msg, human_msg, fast=True):
+        async for chunk in stream_llm(system_msg, human_msg):
             full_output += chunk
             yield chunk
             
-        # At the end of the stream, cache the full output
-        if full_output.strip() and "Our AI models are experiencing high traffic" not in full_output:
-            _set_brief_cache(cache_key, full_output.strip()[:1200])
+        # Background cache the finalized response
+        if full_output:
+            try:
+                cleaned_output = sanitize_llm_response(full_output).strip()
+                if SUMMARY_FALLBACK_MESSAGE.lower() in cleaned_output.lower():
+                    logger.info(f"Not caching fallback brief for key={cache_key}")
+                    return
+                # Store in SQLite key-value metadata store
+                await db.set_metadata(f"brief:{cache_key}", cleaned_output)
+            except Exception as e:
+                logger.error(f"Failed to cache generated brief: {e}")
+
     except Exception as e:
-        logger.error(f"Brief stream error: {e}")
-        fallback = summary or why_it_matters or "No additional details available yet."
-        yield fallback
+        logger.error(f"Streaming brief failed: {e}", exc_info=True)
+        yield SUMMARY_FALLBACK_MESSAGE

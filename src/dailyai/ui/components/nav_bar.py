@@ -5,32 +5,46 @@ Uses NiceGUI ui.select for reliable dropdown handling.
 """
 
 import asyncio
+from urllib.parse import urlencode
 
 from nicegui import ui
 
 from dailyai.config import COUNTRIES, UI_FEED_TOPICS, UI_LANGUAGES
+from dailyai.ui.i18n import normalize_ui_language, tr
 from dailyai.ui.components.theme import COUNTRY_FLAGS
 
 
-def nav_bar(active_route: str = "/", on_settings: callable = None, on_saved: callable = None):
+def nav_bar(
+    active_route: str = "/",
+    on_settings: callable = None,
+    on_saved: callable = None,
+    language: str = "en",
+    country: str = "GLOBAL",
+):
     """Floating glass bottom navigation dock — always visible."""
+
+    lang = normalize_ui_language(language)
+    query = urlencode({"country": country, "language": lang})
+    discover_route = f'/?{query}'
+    saved_route = f'/saved?{query}'
+    settings_route = f'/settings?{query}'
 
     with ui.row().classes('bottom-nav'):
         with ui.element('div').classes('bottom-nav-inner'):
             _nav_btn(
-                icon='explore', label='Discover',
+                icon='explore', label=tr(lang, 'discover'),
                 active=active_route == '/',
-                on_click=lambda: ui.navigate.to('/'),
+                on_click=lambda: ui.navigate.to(discover_route),
             )
             _nav_btn(
-                icon='bookmark', label='Saved',
+                icon='bookmark', label=tr(lang, 'saved'),
                 active=active_route == '/saved',
-                on_click=on_saved or (lambda: ui.navigate.to('/saved')),
+                on_click=on_saved or (lambda: ui.navigate.to(saved_route)),
             )
             _nav_btn(
-                icon='tune', label='Settings',
+                icon='tune', label=tr(lang, 'settings'),
                 active=active_route == '/settings',
-                on_click=on_settings,
+                on_click=on_settings or (lambda: ui.navigate.to(settings_route)),
             )
 
 
@@ -55,8 +69,10 @@ def sidebar(
     on_sort_change=None,
     on_refresh=None,
     on_close=None,
+    language: str = "en",
 ):
     """Slide-in settings sidebar."""
+    lang = normalize_ui_language(language)
     ui.add_head_html('''
     <script>
     function openSidebar() {
@@ -88,7 +104,7 @@ def sidebar(
                         'font-size: 18px; font-weight: 800; letter-spacing: -0.02em;'
                         ' color: var(--text-primary); line-height: 1;'
                     )
-                    ui.label('AI News Intelligence').style(
+                    ui.label(tr(lang, 'ai_news_intelligence')).style(
                         'font-size: 10px; font-weight: 600; color: var(--text-muted);'
                         ' letter-spacing: 0.06em; text-transform: uppercase;'
                     )
@@ -99,7 +115,7 @@ def sidebar(
 
         # Region — using NiceGUI ui.select for reliable event handling
         with ui.element('div').classes('sidebar-section'):
-            ui.html('<div class="sidebar-section-title">🌍 Region</div>')
+            ui.html(f'<div class="sidebar-section-title">🌍 {tr(lang, "region")}</div>')
             country_options = {
                 code: f"{COUNTRY_FLAGS.get(code, '🏳️')} {name}"
                 for code, name in COUNTRIES.items()
@@ -123,11 +139,16 @@ def sidebar(
 
         # Language — using NiceGUI ui.select for reliable event handling
         with ui.element('div').classes('sidebar-section'):
-            ui.html('<div class="sidebar-section-title">🌐 Language</div>')
+            ui.html(f'<div class="sidebar-section-title">🌐 {tr(lang, "language")}</div>')
             current_lang = app_state.get("language", "en")
+            language_options = (
+                {"en": "Englisch", "de": "Deutsch"}
+                if lang == "de"
+                else UI_LANGUAGES
+            )
 
             lang_select = ui.select(
-                options=UI_LANGUAGES,
+                options=language_options,
                 value=current_lang,
                 label=None,
             ).classes('sidebar-nicegui-select w-full').props('dark dense outlined')
@@ -143,20 +164,20 @@ def sidebar(
 
         # Sort
         with ui.element('div').classes('sidebar-section'):
-            ui.html('<div class="sidebar-section-title">📊 Sort by</div>')
+            ui.html(f'<div class="sidebar-section-title">📊 {tr(lang, "sort_by")}</div>')
             current_sort = app_state.get("sort", "relevance")
             with ui.element('div').classes('sort-group'):
                 rel_btn = ui.element('button').classes(
                     f'sort-btn {"active" if current_sort == "relevance" else ""}'
                 )
                 with rel_btn:
-                    ui.html('Relevance')
+                    ui.html(tr(lang, 'relevance'))
                 rel_btn.props('id=sortRelevance')
                 lat_btn = ui.element('button').classes(
                     f'sort-btn {"active" if current_sort == "latest" else ""}'
                 )
                 with lat_btn:
-                    ui.html('Latest')
+                    ui.html(tr(lang, 'latest'))
                 lat_btn.props('id=sortLatest')
             if on_sort_change:
                 async def _sort_relevance(e):
@@ -178,7 +199,7 @@ def sidebar(
                 refresh_btn.on('click', _on_refresh)
                 with refresh_btn:
                     ui.icon('refresh', size='18px')
-                    ui.label('Refresh News')
+                    ui.label(tr(lang, 'refresh_news'))
 
         # Footer
         with ui.element('div').classes('sidebar-footer'):
@@ -208,13 +229,24 @@ async def _handle_sort(sort_type, callback):
         callback(sort_type)
 
 
-def topic_filter(selected: str = "🔥 Top Stories", on_change=None):
+def topic_filter(selected: str = "🔥 Top Stories", on_change=None, language: str = "en"):
     """Horizontal scroll topic chips."""
+    lang = normalize_ui_language(language)
     topics = UI_FEED_TOPICS
+    label_map = {
+        "For You": tr(lang, 'topic_for_you'),
+        "🔥 Top Stories": tr(lang, 'topic_top_stories'),
+        "🤖 AI Models": tr(lang, 'topic_ai_models'),
+        "💼 Business": tr(lang, 'topic_business'),
+        "🔬 Research": tr(lang, 'topic_research'),
+        "🛠 Tools": tr(lang, 'topic_tools'),
+        "⚖️ Regulation": tr(lang, 'topic_regulation'),
+        "💰 Funding": tr(lang, 'topic_funding'),
+    }
     with ui.scroll_area().classes('w-full h-14 mb-2'):
         with ui.row().classes('flex-nowrap gap-3 items-center py-2 px-1 h-full w-max'):
             for t in topics:
                 active_class = "topic-chip-active" if t == selected else ""
-                chip = ui.label(t).classes(f'topic-chip {active_class}')
+                chip = ui.label(label_map.get(t, t)).classes(f'topic-chip {active_class}')
                 if on_change:
                     chip.on('click', lambda _, t_=t: on_change(t_))

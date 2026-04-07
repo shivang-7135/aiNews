@@ -6,6 +6,7 @@ share/save actions, and a "Read Full Article" CTA.
 """
 
 import hashlib
+import html
 from urllib.parse import urlencode
 
 from nicegui import ui
@@ -17,6 +18,12 @@ from dailyai.ui.components.theme import (
     TRUST_LABELS,
     get_category_image,
 )
+from dailyai.ui.i18n import normalize_ui_language, tr
+
+
+def _clean_text(value: str) -> str:
+    text = html.unescape(str(value or "")).replace("\xa0", " ")
+    return " ".join(text.split()).strip()
 
 
 def _format_time_ago(iso_date: str) -> str:
@@ -40,17 +47,17 @@ def _format_time_ago(iso_date: str) -> str:
 
 def _short_summary(article: dict) -> str:
     import re
-    summary = str(article.get("summary", "") or "").strip()
+    summary = _clean_text(str(article.get("summary", "") or ""))
     # Skip generic fallback summaries
     if summary and not re.match(
         r'^Reported by .+\.\s*(Tap to read|Click to read)', summary, re.IGNORECASE
     ) and len(summary) > 20:
         return summary
-    why = str(article.get("why_it_matters", "") or "").strip()
+    why = _clean_text(str(article.get("why_it_matters", "") or ""))
     if why and len(why) > 20:
         return why
-    headline = str(article.get("headline", "") or "").strip()
-    source = str(article.get("source_name", "") or "").strip()
+    headline = _clean_text(str(article.get("headline", "") or ""))
+    source = _clean_text(str(article.get("source_name", "") or ""))
     if headline and source:
         return f"{headline}. Source: {source}."
     if headline:
@@ -197,7 +204,7 @@ def _card_uid(article: dict) -> str:
     return "c" + hashlib.md5(identity.encode()).hexdigest()[:8]
 
 
-def _inject_detail_overlay_once():
+def _inject_detail_overlay_once(language: str = "en"):
     """Inject the single, reusable full-screen detail overlay + JS into the page.
     Called once per NiceGUI client (page load). The JS-side window.__dailyaiDetailInit
     guard handles browser-level deduplication within a single tab/session.
@@ -234,12 +241,41 @@ def _inject_detail_overlay_once():
     </style>
     ''')
 
-    ui.run_javascript('''
+    lang = normalize_ui_language(language)
+    link_copied_text = _js_str(tr(lang, 'link_copied'))
+    back_to_feed_text = tr(lang, 'back_to_feed')
+    key_takeaways_text = tr(lang, 'key_takeaways')
+    why_it_matters_text = tr(lang, 'why_it_matters')
+    read_full_article_text = tr(lang, 'read_full_article')
+
+    overlay_script = '''
     if (!window.__dailyaiDetailInit) {
         window.__dailyaiDetailInit = true;
 
         /* ── Brief cache ── */
         window.__articleBriefs = window.__articleBriefs || {};
+
+        /* ── Saved state cache (persists across routes) ── */
+        window._savedArticles = window._savedArticles || {};
+        window._savedPayloads = window._savedPayloads || {};
+        try {
+            window._savedArticles = JSON.parse(localStorage.getItem('dailyai_saved_articles') || '{}') || {};
+        } catch (e) {
+            window._savedArticles = {};
+        }
+        try {
+            window._savedPayloads = JSON.parse(localStorage.getItem('dailyai_saved_payloads') || '{}') || {};
+        } catch (e) {
+            window._savedPayloads = {};
+        }
+
+        window._persistSavedState = function() {
+            localStorage.setItem('dailyai_saved_articles', JSON.stringify(window._savedArticles || {}));
+            localStorage.setItem('dailyai_saved_payloads', JSON.stringify(window._savedPayloads || {}));
+            window.dispatchEvent(new CustomEvent('dailyai:saved-updated', {
+                detail: { count: Object.keys(window._savedPayloads || {}).length },
+            }));
+        };
 
         /* ── Share helper ── */
         window.shareArticle = function(headline, url) {
@@ -248,7 +284,7 @@ def _inject_detail_overlay_once():
             } else {
                 navigator.clipboard.writeText(url).then(function() {
                     if (window.Quasar) Quasar.Notify.create({
-                        message: 'Link copied!', position: 'bottom', timeout: 1500,
+                        message: '__LINK_COPIED__', position: 'bottom', timeout: 1500,
                         classes: 'text-body1'
                     });
                 });
@@ -256,21 +292,32 @@ def _inject_detail_overlay_once():
         };
 
         /* ── Save toggle ── */
-        window._savedArticles = window._savedArticles || {};
         window.toggleSaveArticle = function(uid) {
             window._savedArticles[uid] = !window._savedArticles[uid];
+            var articleData = window.__articleData && window.__articleData[uid];
+            if (window._savedArticles[uid]) {
+                if (articleData) {
+                    window._savedPayloads[uid] = Object.assign({ uid: uid, savedAt: Date.now() }, articleData);
+                }
+            } else {
+                delete window._savedArticles[uid];
+                delete window._savedPayloads[uid];
+            }
+
             var cardBtn = document.getElementById('card-save-' + uid);
             if (cardBtn) {
-                var icon = cardBtn.querySelector('.material-icons');
-                if (icon) icon.textContent = window._savedArticles[uid] ? 'bookmark' : 'bookmark_border';
                 cardBtn.classList.toggle('saved', window._savedArticles[uid]);
+                cardBtn.setAttribute('aria-pressed', window._savedArticles[uid] ? 'true' : 'false');
             }
             var detailBtn = document.getElementById('detail-save-btn');
             if (detailBtn) {
                 var dicon = detailBtn.querySelector('.material-icons');
                 if (dicon) dicon.textContent = window._savedArticles[uid] ? 'bookmark' : 'bookmark_border';
                 detailBtn.classList.toggle('saved', window._savedArticles[uid]);
+                detailBtn.setAttribute('aria-pressed', window._savedArticles[uid] ? 'true' : 'false');
             }
+
+            window._persistSavedState();
         };
 
         /* ── Render bullet points from text ── */
@@ -481,6 +528,7 @@ def _inject_detail_overlay_once():
             var saveIcon = document.querySelector('#detail-save-btn .material-icons');
             if (saveIcon) saveIcon.textContent = isSaved ? 'bookmark' : 'bookmark_border';
             document.getElementById('detail-save-btn').classList.toggle('saved', isSaved);
+            document.getElementById('detail-save-btn').setAttribute('aria-pressed', isSaved ? 'true' : 'false');
 
             // Store uid and open
             overlay.dataset.uid = uid;
@@ -529,16 +577,17 @@ def _inject_detail_overlay_once():
         /* ── Article data store ── */
         window.__articleData = window.__articleData || {};
     }
-    ''')
+    '''
+    ui.run_javascript(overlay_script.replace('__LINK_COPIED__', link_copied_text))
 
     # Inject the single shared overlay element (hidden by default)
-    ui.html('''
+    ui.html(f'''
     <div class="detail-overlay" id="detailOverlay">
         <!-- Close bar -->
         <div class="detail-close-bar">
             <button class="detail-back-btn" id="detailBackBtn">
                 <span class="material-icons" style="font-size:20px;">arrow_back</span>
-                Back
+                {back_to_feed_text}
             </button>
             <div class="detail-actions-row">
                 <button class="action-btn" id="detailShareBtn" title="Share">
@@ -570,20 +619,20 @@ def _inject_detail_overlay_once():
 
             <div class="detail-section-label">
                 <span class="material-icons" style="font-size:14px;">summarize</span>
-                Key Takeaways
+                {key_takeaways_text}
             </div>
             <div id="detailBullets"></div>
 
             <div class="detail-why-box" id="detailWhyBox" style="display:none;">
                 <div class="detail-why-label">
                     <span class="material-icons" style="font-size:14px;">lightbulb</span>
-                    Why It Matters
+                    {why_it_matters_text}
                 </div>
                 <div class="detail-why-text" id="detailWhyText"></div>
             </div>
 
             <a class="detail-cta" id="detailCTA" href="#" target="_blank" rel="noopener">
-                Read Full Article
+                {read_full_article_text}
                 <span class="material-icons" style="font-size:18px;">open_in_new</span>
             </a>
         </div>
@@ -605,11 +654,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
 
     importance = article.get("importance", 5)
     published = _format_time_ago(article.get("published_at", ""))
-    source = article.get("source_name", "Unknown")
+    source = _clean_text(str(article.get("source_name", "Unknown") or "Unknown"))
     topic_label = article.get("topic", cat).upper()
-    headline = article.get("headline", "")
+    headline = _clean_text(str(article.get("headline", "") or ""))
     summary_text = _short_summary(article)
-    why = article.get("why_it_matters", "")
+    why = _clean_text(str(article.get("why_it_matters", "") or ""))
 
     image_key = topic_label if cat == "general" else cat
     cover_img = get_category_image(image_key, article.get("id", headline))
@@ -617,7 +666,7 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
     article_url = article.get("article_url", link)
     uid = _card_uid(article)
     # Use RAW summary for bullets (not the fallback text)
-    raw_summary = str(article.get("summary", "") or "").strip()
+    raw_summary = _clean_text(str(article.get("summary", "") or ""))
     bullets = _make_bullets(raw_summary, headline=headline, why=why)
 
     # If why is already in bullets, don't duplicate it in the WHY IT MATTERS box
@@ -666,7 +715,7 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
     ''')
 
     # ── Render the compact card ──
-    with ui.card().classes('news-card-premium w-full p-0 mb-5 card-animate').style(
+    with ui.card().classes('news-card-premium w-full p-0 mb-4 card-animate').style(
         f'animation-delay: {delay}s;'
     ).on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
 
@@ -704,29 +753,33 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
             # Summary preview (2-line clamp)
             ui.label(summary_text).classes('card-summary-text')
 
-        # Action bar: source info + Share / Save
-        share_headline_js = _js_str(headline)
-        article_url_js = _js_str(article_url)
-
+        # Action bar: publisher + bookmark
+        publisher_name = "pagesandbits"
         ui.html(f'''<div class="card-action-bar">
             <div class="card-source-info">
-                <div class="source-dot" style="background:{_source_color(source)};">
-                    {_esc(source[:1].upper())}
-                </div>
-                <span class="source-name-text">{_esc(source)}</span>
-                <span class="card-time-text">{_esc(published)}</span>
+                <div class="source-avatar" aria-hidden="true"></div>
+                <span class="source-name-text">{publisher_name}</span>
             </div>
             <div class="card-actions">
-                <button class="action-btn" title="Share"
-                        onclick="event.stopPropagation(); shareArticle('{share_headline_js}', '{article_url_js}')">
-                    <span class="material-icons" style="font-size:20px;">share</span>
-                </button>
-                <button class="action-btn" id="card-save-{uid}" title="Save"
+                <button class="action-btn" id="card-save-{uid}" title="Save" aria-label="Save article" aria-pressed="false"
                         onclick="event.stopPropagation(); toggleSaveArticle('{uid}')">
-                    <span class="material-icons" style="font-size:20px;">bookmark_border</span>
+                    <svg class="bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
                 </button>
             </div>
         </div>''')
+
+        ui.run_javascript(f'''
+            (function() {{
+                var btn = document.getElementById('card-save-{uid}');
+                var isSaved = !!(window._savedArticles && window._savedArticles['{uid}']);
+                if (btn) {{
+                    btn.classList.toggle('saved', isSaved);
+                    btn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
+                }}
+            }})();
+        ''')
 
 
 def skeleton_card():

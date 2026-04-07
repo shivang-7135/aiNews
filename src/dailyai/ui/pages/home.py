@@ -14,6 +14,7 @@ from dailyai.api.routes import get_feed
 from dailyai.config import COUNTRIES, UI_FEED_TOPICS, UI_LANGUAGES
 from dailyai.ui.components.nav_bar import nav_bar, sidebar, topic_filter
 from dailyai.ui.components.news_card import _inject_detail_overlay_once, news_card, skeleton_card
+from dailyai.ui.i18n import normalize_ui_language, tr
 from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS
 
 logger = logging.getLogger("dailyai.home")
@@ -35,9 +36,8 @@ async def home_page():
     if initial_country not in COUNTRIES:
         initial_country = 'GLOBAL'
 
-    initial_language = str(params.get('language', 'en')).lower()
-    if initial_language not in UI_LANGUAGES:
-        initial_language = 'en'
+    initial_language = normalize_ui_language(str(params.get('language', 'en')))
+    ui.page_title(f"DailyAI — {tr(initial_language, 'ai_news_intelligence')}")
 
     initial_topic = str(params.get('topic', '🔥 Top Stories')).strip() or '🔥 Top Stories'
     if initial_topic not in UI_FEED_TOPICS:
@@ -96,19 +96,19 @@ async def home_page():
 
     # ── Boot Loader ──
     # ── Detail Overlay (injected once, shared by all cards) ──
-    _inject_detail_overlay_once()
+    _inject_detail_overlay_once(language=initial_language)
 
-    ui.html('''
+    ui.html(f'''
         <div class="boot-loader" id="bootLoader">
             <div class="boot-spinner"></div>
-            <div class="boot-text">Curating your AI intelligence...</div>
+            <div class="boot-text">{tr(initial_language, 'boot_loader')}</div>
         </div>
     ''')
 
     # ── Main Container ──
     main_col = ui.column().classes(
         'w-full max-w-screen-lg xl:max-w-screen-xl mx-auto'
-        ' pb-16 relative z-10'
+        ' pb-14 relative z-10'
     ).style('gap: 0; padding-top: 0;')
 
     # ── Callbacks ──
@@ -119,42 +119,70 @@ async def home_page():
             'topic': app_state["topic"],
         })
 
-    def _reload_page_with_state() -> None:
+    def _safe_run_javascript(code: str) -> None:
+        try:
+            ui.run_javascript(code)
+        except RuntimeError as e:
+            logger.debug(f"Skipped JS call on disposed page context: {e}")
+
+    def _sync_url_state() -> None:
         query = _build_reload_query()
-        ui.run_javascript(f"window.location.href='/?{query}'")
+        _safe_run_javascript(f"window.history.replaceState(null, '', '/?{query}')")
+
+    def _normalize_country_selection(country: str) -> str:
+        raw = str(country or "GLOBAL").strip()
+        raw_upper = raw.upper()
+        if raw_upper in COUNTRIES:
+            return raw_upper
+        for code, name in COUNTRIES.items():
+            name_lower = name.lower()
+            if raw.lower() == name_lower or raw.lower().endswith(name_lower):
+                return code
+        return "GLOBAL"
+
+    def _normalize_language_selection(language: str) -> str:
+        raw = str(language or "en").strip().lower()
+        if raw in UI_LANGUAGES:
+            return raw
+        for code, label in UI_LANGUAGES.items():
+            if raw == str(label).strip().lower():
+                return code
+        return "en"
 
     async def _set_country(country):
         """Handle country change — expects a plain string value from ui.select."""
-        selected_country = (str(country) or "GLOBAL").upper()
-        if selected_country not in COUNTRIES:
-            selected_country = "GLOBAL"
+        selected_country = _normalize_country_selection(str(country))
+        if selected_country == app_state["country"]:
+            _safe_run_javascript('closeSidebar()')
+            return
         app_state["country"] = selected_country
-        ui.run_javascript('closeSidebar()')
+        _safe_run_javascript('closeSidebar()')
         country_name = COUNTRIES.get(selected_country, selected_country)
         flag = COUNTRY_FLAGS.get(selected_country, "🌐")
         ui.notify(
-            f'Region: {flag} {country_name}',
+            tr(app_state["language"], 'region_notify', flag=flag, country=country_name),
             type='info', position='bottom',
         )
-        _reload_page_with_state()
+        ui.navigate.to(f'/?{_build_reload_query()}')
 
     async def _set_language(language):
         """Handle language change — expects a plain string value from ui.select."""
-        selected_language = (str(language) or "en").lower()
-        if selected_language not in UI_LANGUAGES:
-            selected_language = 'en'
+        selected_language = _normalize_language_selection(str(language))
+        if selected_language == app_state["language"]:
+            _safe_run_javascript('closeSidebar()')
+            return
         app_state["language"] = selected_language
-        ui.run_javascript('closeSidebar()')
+        _safe_run_javascript('closeSidebar()')
         lang_name = UI_LANGUAGES.get(selected_language, selected_language)
-        ui.notify(f'Language: {lang_name}', type='info', position='bottom')
-        _reload_page_with_state()
+        ui.notify(tr(selected_language, 'language_notify', language=lang_name), type='info', position='bottom')
+        ui.navigate.to(f'/?{_build_reload_query()}')
 
     async def _set_sort(sort_type: str):
         app_state["sort"] = sort_type
 
     async def _refresh_news():
-        ui.run_javascript('closeSidebar()')
-        ui.notify('Refreshing news...', type='info', position='bottom', timeout=1500)
+        _safe_run_javascript('closeSidebar()')
+        ui.notify(tr(app_state["language"], 'refreshing_news'), type='info', position='bottom', timeout=1500)
         try:
             from dailyai.services.news import refresh_news
             await refresh_news(app_state["country"], app_state["language"])
@@ -163,7 +191,7 @@ async def home_page():
         await _load_feed(app_state["topic"])
 
     def _open_sidebar():
-        ui.run_javascript('openSidebar()')
+        _safe_run_javascript('openSidebar()')
 
     async def _load_feed(topic: str = "🔥 Top Stories"):
         app_state["topic"] = topic
@@ -172,30 +200,20 @@ async def home_page():
         main_col.clear()
 
         with main_col:
-            # ── Top Bar (scrolls with content, NOT sticky) ──
-            with ui.element('div').classes('top-bar'):
-                with ui.element('div').classes('top-bar-brand'):
-                    ui.html('<img src="/static/logo.png" class="top-bar-logo-img" alt="DailyAI">')
-                    ui.label('DailyAI').classes('top-bar-title')
-                with ui.element('div').classes('top-bar-right'):
+            # ── Fixed Top Shell (title + locale + categories) ──
+            with ui.element('div').classes('top-fixed-shell w-full'):
+                with ui.element('div').classes('top-bar w-full'):
+                    ui.label(tr(app_state["language"], 'discover')).classes('top-bar-title')
+
                     country_name = COUNTRIES.get(app_state["country"], app_state["country"])
-                    flag = COUNTRY_FLAGS.get(app_state["country"], "🌐")
-                    lang_name = UI_LANGUAGES.get(app_state["language"], app_state["language"]).upper()
-                    ui.label(f'{flag} {country_name} · {lang_name}').style(
-                        'font-size: 11px; font-weight: 600; color: var(--text-muted);'
-                        ' padding: 4px 10px; border-radius: 999px;'
-                        ' background: var(--bg-elevated);'
-                    )
+                    language_display = {
+                        "en": "English",
+                        "de": "Deutsch",
+                    }.get(app_state["language"], app_state["language"])
+                    ui.label(f'{country_name}, {language_display}').classes('top-bar-subline')
 
-            # ── Trust Signal ──
-            ui.html('''
-                <div class="trust-signal">
-                    🛡️ AI-curated from 50+ sources · Updated every hour
-                </div>
-            ''')
-
-            # ── Topic Filter ──
-            topic_filter(app_state["topic"], on_change=_load_feed)
+                with ui.element('div').classes('topic-rail w-full'):
+                    topic_filter(app_state["topic"], on_change=_load_feed, language=app_state["language"])
 
             # ── Skeleton Loading ──
             skeleton_container = ui.column().classes('w-full px-3 sm:px-4 md:px-6').style('gap: 0;')
@@ -221,7 +239,7 @@ async def home_page():
             app_state["total"] = 0
             app_state["has_more"] = False
             logger.error(f"Feed load error: {e}")
-            ui.notify(f"Failed to load feed: {e}", type="negative", position="bottom")
+            ui.notify(tr(app_state["language"], 'failed_feed', error=e), type="negative", position="bottom")
 
         # ── Remove Skeleton & Render Feed ──
         skeleton_container.clear()
@@ -235,8 +253,8 @@ async def home_page():
                         <div class="empty-state">
                             <div class="empty-icon">⏳</div>
                             <div class="empty-text">
-                                News is being curated by our AI...<br>
-                                The server is warming up. Please refresh in a moment.
+                                ''' + tr(app_state["language"], 'empty_wait') + '''<br>
+                                ''' + tr(app_state["language"], 'empty_warmup') + '''
                             </div>
                         </div>
                     ''')
@@ -256,7 +274,7 @@ async def home_page():
                     app_state["loading_more"] = True
                     load_more_container.clear()
                     with load_more_container:
-                        ui.label('Loading more stories...').style('font-size: 12px; color: var(--text-muted);')
+                        ui.label(tr(app_state["language"], 'loading_more')).style('font-size: 12px; color: var(--text-muted);')
 
                     try:
                         next_feed = await get_feed(
@@ -287,7 +305,7 @@ async def home_page():
                             app_state["has_more"] = False
                     except Exception as e:
                         logger.error(f"Load more failed: {e}")
-                        ui.notify(f"Failed to load more stories: {e}", type='negative', position='bottom')
+                        ui.notify(tr(app_state["language"], 'failed_more', error=e), type='negative', position='bottom')
                     finally:
                         app_state["loading_more"] = False
                         load_more_container.clear()
@@ -295,9 +313,14 @@ async def home_page():
                         if app_state.get("has_more"):
                             with load_more_container:
                                 ui.label(
-                                    f'{len(app_state["articles"])} of {app_state["total"]} loaded'
+                                    tr(
+                                        app_state["language"],
+                                        'loaded_progress',
+                                        loaded=len(app_state["articles"]),
+                                        total=app_state["total"],
+                                    )
                                 ).style('font-size: 11px; color: var(--text-muted);')
-                                ui.button('Load More', on_click=_load_more_page).classes(
+                                ui.button(tr(app_state["language"], 'load_more'), on_click=_load_more_page).classes(
                                     'px-4 py-2 rounded-lg'
                                 ).style('background: var(--bg-elevated); color: var(--text-primary);')
 
@@ -309,14 +332,19 @@ async def home_page():
                 if app_state.get("has_more"):
                     with load_more_container:
                         ui.label(
-                            f'{len(app_state["articles"])} of {app_state["total"]} loaded'
+                            tr(
+                                app_state["language"],
+                                'loaded_progress',
+                                loaded=len(app_state["articles"]),
+                                total=app_state["total"],
+                            )
                         ).style('font-size: 11px; color: var(--text-muted);')
-                        ui.button('Load More', on_click=_load_more_page).classes(
+                        ui.button(tr(app_state["language"], 'load_more'), on_click=_load_more_page).classes(
                             'px-4 py-2 rounded-lg'
                         ).style('background: var(--bg-elevated); color: var(--text-primary);')
 
         # ── Dismiss boot loader ──
-        ui.run_javascript('''
+        _safe_run_javascript('''
             setTimeout(function() {
                 var bl = document.getElementById('bootLoader');
                 if (bl) bl.classList.add('hidden');
@@ -330,11 +358,14 @@ async def home_page():
         on_language_change=_set_language,
         on_sort_change=_set_sort,
         on_refresh=_refresh_news,
+        language=app_state["language"],
     )
 
     nav_bar(
         active_route='/',
         on_settings=_open_sidebar,
+        language=app_state["language"],
+        country=app_state["country"],
     )
 
     # ── Initial Load ──

@@ -1,0 +1,118 @@
+"""UI localization helpers for DailyAI."""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+def normalize_ui_language(language: str | None) -> str:
+    lang = (language or "en").strip().lower()
+    return "de" if lang == "de" else "en"
+
+
+_UI_TEXTS: dict[str, dict[str, str]] = {
+    "en": {
+        "discover": "Discover",
+        "saved": "Saved",
+        "settings": "Settings",
+        "region": "Region",
+        "language": "Language",
+        "sort_by": "Sort by",
+        "relevance": "Relevance",
+        "latest": "Latest",
+        "refresh_news": "Refresh News",
+        "ai_news_intelligence": "AI News Intelligence",
+        "boot_loader": "Curating your AI intelligence...",
+        "trust_signal": "AI-curated from 50+ trusted sources • Updated hourly",
+        "region_notify": "Region: {flag} {country}",
+        "language_notify": "Language: {language}",
+        "refreshing_news": "Refreshing news...",
+        "loading_more": "Loading more stories...",
+        "load_more": "Load More",
+        "loaded_progress": "{loaded} of {total} loaded",
+        "empty_wait": "News is being curated by our AI...",
+        "empty_warmup": "The server is warming up. Please refresh in a moment.",
+        "failed_feed": "Failed to load feed: {error}",
+        "failed_more": "Failed to load more stories: {error}",
+        "link_copied": "Link copied!",
+        "back_to_feed": "Back to Feed",
+        "key_takeaways": "Key Takeaways",
+        "why_it_matters": "Why It Matters",
+        "read_full_article": "Read Full Article",
+        "saved_title": "Saved",
+        "saved_subtitle": "Your bookmarked stories, synced in this browser.",
+        "saved_empty": "No saved stories yet. Tap the bookmark on any card to save it here.",
+        "saved_count": "{count} saved",
+        "remove_saved": "Remove saved article",
+        "settings_title": "Settings",
+        "settings_subtitle": "Customize your feed and apply instantly.",
+        "apply_to_feed": "Apply to Discover Feed",
+        "back_to_discover": "Back to Discover",
+        "coming_soon_discover": "This section is coming soon. Use Discover for now.",
+        "coming_soon_profile": "Profile management is coming soon.",
+        "go_discover": "Go to Discover",
+        "topic_for_you": "For You",
+        "topic_top_stories": "🔥 Top Stories",
+        "topic_ai_models": "🤖 AI Models",
+        "topic_business": "💼 Business",
+        "topic_research": "🔬 Research",
+        "topic_tools": "🛠 Tools",
+        "topic_regulation": "⚖️ Regulation",
+        "topic_funding": "💰 Funding",
+    },
+    "de": {
+        "discover": "Entdecken",
+        "saved": "Gespeichert",
+        "settings": "Einstellungen",
+        "region": "Region",
+        "language": "Sprache",
+        "sort_by": "Sortierung",
+        "relevance": "Relevanz",
+        "latest": "Neueste",
+        "refresh_news": "News aktualisieren",
+        "ai_news_intelligence": "KI-News Intelligence",
+        "boot_loader": "KI-News werden fuer dich kuratiert...",
+        "trust_signal": "KI-kuratiert aus 50+ vertrauenswuerdigen Quellen • Stuendlich aktualisiert",
+        "region_notify": "Region: {flag} {country}",
+        "language_notify": "Sprache: {language}",
+        "refreshing_news": "News werden aktualisiert...",
+        "loading_more": "Weitere Meldungen werden geladen...",
+        "load_more": "Mehr laden",
+        "loaded_progress": "{loaded} von {total} geladen",
+        "empty_wait": "News werden gerade von unserer KI kuratiert...",
+        "empty_warmup": "Der Server startet gerade. Bitte in einem Moment erneut laden.",
+        "failed_feed": "Feed konnte nicht geladen werden: {error}",
+        "failed_more": "Weitere Meldungen konnten nicht geladen werden: {error}",
+        "link_copied": "Link kopiert!",
+        "back_to_feed": "Zurueck zum Feed",
+        "key_takeaways": "Kurzueberblick",
+        "why_it_matters": "Warum das wichtig ist",
+        "read_full_article": "Vollstaendigen Artikel lesen",
+        "saved_title": "Gespeichert",
+        "saved_subtitle": "Deine gemerkten Artikel in diesem Browser.",
+        "saved_empty": "Noch keine gespeicherten Artikel. Tippe auf das Lesezeichen in einer Karte.",
+        "saved_count": "{count} gespeichert",
+        "remove_saved": "Gespeicherten Artikel entfernen",
+        "settings_title": "Einstellungen",
+        "settings_subtitle": "Passe deinen Feed an und uebernimm sofort.",
+        "apply_to_feed": "Auf Entdecken-Feed anwenden",
+        "back_to_discover": "Zurueck zu Entdecken",
+        "coming_soon_discover": "Dieser Bereich kommt bald. Nutze vorerst Entdecken.",
+        "coming_soon_profile": "Profilverwaltung kommt bald.",
+        "go_discover": "Zu Entdecken",
+        "topic_for_you": "Fuer dich",
+        "topic_top_stories": "🔥 Top-News",
+        "topic_ai_models": "🤖 KI-Modelle",
+        "topic_business": "💼 Wirtschaft",
+        "topic_research": "🔬 Forschung",
+        "topic_tools": "🛠 Tools",
+        "topic_regulation": "⚖️ Regulierung",
+        "topic_funding": "💰 Finanzierung",
+    },
+}
+
+
+def tr(language: str | None, key: str, **kwargs: Any) -> str:
+    lang = normalize_ui_language(language)
+    template = _UI_TEXTS.get(lang, _UI_TEXTS["en"]).get(key, _UI_TEXTS["en"].get(key, key))
+    return template.format(**kwargs) if kwargs else template

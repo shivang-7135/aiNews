@@ -19,7 +19,7 @@ from dailyai.config import (
     UI_LANGUAGES,
     normalize_language,
 )
-from dailyai.services.news import get_article_brief, stream_article_brief, get_feed, refresh_news
+from dailyai.services.news import stream_article_brief, get_feed, refresh_news
 from dailyai.storage.backend import backend_name
 from dailyai.storage.models import (
     ArticleBriefRequest,
@@ -107,9 +107,15 @@ async def get_article_categories(
 async def article_brief(req: ArticleBriefRequest):
     return StreamingResponse(
         stream_article_brief(
-            title=req.title, source=req.source, link=req.link,
-            summary=req.summary, why_it_matters=req.why_it_matters,
-            topic=req.topic, language=normalize_language(req.language)
+            article={
+                "title": req.title,
+                "source": req.source,
+                "link": req.link,
+                "summary": req.summary,
+                "why_it_matters": req.why_it_matters,
+                "topic": req.topic,
+            },
+            language=normalize_language(req.language)
         ),
         media_type="text/plain",
     )

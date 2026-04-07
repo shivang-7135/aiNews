@@ -13,18 +13,19 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger("dailyai.llm")
+SUMMARY_FALLBACK_MESSAGE = (
+    "Our AI models are experiencing high traffic right now. "
+    "Please tap 'Read Original' to view the full story on the publisher's website."
+)
 
 
-def _order_providers(providers: list[tuple[str, BaseChatModel]], *, prefer_gemini: bool) -> list[tuple[str, BaseChatModel]]:
+def _order_providers(providers: list[tuple[str, BaseChatModel]]) -> list[tuple[str, BaseChatModel]]:
     """Order providers by reliability/performance policy.
 
-    Fast path policy requested by product: Gemini first, then other providers.
+    OpenAI gpt-4o-mini is preferred, then cloud fallbacks.
     Groq is kept as a late fallback due frequent free-tier 429s.
     """
-    if prefer_gemini:
-        priority = ["gemini", "arliai", "nvidia", "huggingface", "groq", "ollama"]
-    else:
-        priority = ["gemini", "arliai", "nvidia", "huggingface", "groq", "ollama"]
+    priority = ["openai", "gemini", "arliai", "nvidia", "huggingface", "groq", "ollama"]
 
     rank = {name: i for i, name in enumerate(priority)}
     return sorted(providers, key=lambda p: rank.get(p[0], 999))
@@ -33,8 +34,32 @@ def _order_providers(providers: list[tuple[str, BaseChatModel]], *, prefer_gemin
 def _build_providers() -> list[tuple[str, BaseChatModel]]:
     """Build list of available LLM providers based on env vars."""
     providers: list[tuple[str, BaseChatModel]] = []
+    fallback_timeout = max(6.0, float(os.getenv("LLM_FALLBACK_TIMEOUT_SECONDS", "10")))
+    
+    # 0. OpenAI (PRIMARY)
+    openai_key = (os.getenv("OPENAI_API_KEY", "") or os.getenv("OPENAI_KEY", "")).strip()
+    if openai_key:
+        try:
+            from langchain_openai import ChatOpenAI
+            openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+            openai_timeout = max(10.0, float(os.getenv("OPENAI_TIMEOUT_SECONDS", "22")))
+            
+            providers.append((
+                "openai",
+                ChatOpenAI(
+                    model=openai_model,
+                    api_key=openai_key,
+                    temperature=0.3,
+                    max_tokens=4090,
+                    max_retries=0,
+                    timeout=openai_timeout,
+                ),
+            ))
+            logger.info(f"[LLM] ✅ OpenAI provider configured ({openai_model})")
+        except Exception as e:
+            logger.warning(f"[LLM] OpenAI setup failed: {e}")
 
-    # 1. ARLIAI (PRIMARY when configured; OpenAI-compatible endpoint)
+    # 1. ARLIAI (OpenAI-compatible endpoint)
     arliai_key = os.getenv("ARLIAI_API_KEY", "").strip()
     if arliai_key:
         try:
@@ -55,7 +80,7 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     temperature=0.3,
                     max_tokens=4096,
                     max_retries=0,
-                    timeout=12,
+                    timeout=fallback_timeout,
                 ),
             ))
             logger.info(f"[LLM] ✅ ARLIAI provider configured ({arliai_model})")
@@ -76,7 +101,7 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     temperature=0.3,
                     max_output_tokens=4096,
                     max_retries=0,  # Fail fast to trigger fallback
-                    timeout=12,  # Gemini API enforces minimum >= 10s manual deadline
+                    timeout=max(10.0, fallback_timeout),  # Gemini API requires >= 10s deadline
                 ),
             ))
             logger.info("[LLM] ✅ Gemini provider configured")
@@ -97,7 +122,7 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     temperature=0.3,
                     max_tokens=4096,
                     max_retries=0,
-                    timeout=8,
+                    timeout=max(6.0, min(8.0, fallback_timeout)),
                 ),
             ))
             logger.info("[LLM] ✅ Groq provider configured")
@@ -119,7 +144,7 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     temperature=0.3,
                     max_tokens=4096,
                     max_retries=0,
-                    timeout=15,
+                    timeout=max(10.0, fallback_timeout + 2),
                 ),
             ))
             logger.info("[LLM] ✅ NVIDIA provider configured")
@@ -140,8 +165,8 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     api_key=hf_token,
                     temperature=0.3,
                     max_tokens=2048,
-                    max_retries=1,  # Allow one retry for cold start recovery
-                    timeout=25,  # HF serverless needs 10-30s for cold starts
+                    max_retries=0,
+                    timeout=max(10.0, fallback_timeout + 2),
                 ),
             ))
             logger.info("[LLM] ✅ HuggingFace provider configured")
@@ -166,7 +191,7 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
                     temperature=0.3,
                     max_tokens=2048,
                     max_retries=0,
-                    timeout=8,
+                    timeout=max(6.0, min(8.0, fallback_timeout)),
                 ),
             ))
             logger.info(f"[LLM] ✅ Ollama provider configured ({model})")
@@ -183,11 +208,11 @@ def get_llm() -> BaseChatModel:
     Returns the first available provider with all others as fallbacks.
     Uses LangChain's with_fallbacks() for automatic cascading.
     """
-    providers = _order_providers(_build_providers(), prefer_gemini=True)
+    providers = _order_providers(_build_providers())
 
     if not providers:
         raise RuntimeError(
-            "No LLM providers configured! Set at least ARLIAI_API_KEY or GOOGLE_AI_KEY in .env"
+            "No LLM providers configured! Set at least OPENAI_API_KEY, GOOGLE_AI_KEY, or ARLIAI_API_KEY in .env"
         )
 
     primary_name, primary = providers[0]
@@ -206,10 +231,10 @@ def get_llm() -> BaseChatModel:
 def get_fast_llm() -> BaseChatModel:
     """Get a fast LLM for brief generation.
 
-    Gemini-first order for fastest stable UX. Groq is a late fallback due
+    OpenAI-first order for fastest stable UX. Groq is a late fallback due
     frequent free-tier 429 rate limits.
     """
-    providers = _order_providers(_build_providers(), prefer_gemini=True)
+    providers = _order_providers(_build_providers())
 
     if not providers:
         raise RuntimeError("No LLM providers configured!")
@@ -271,21 +296,51 @@ async def stream_llm(
     Yields:
         String chunks of the LLM response as they are generated.
     """
-    path = "fast" if fast else "main"
-    try:
-        import asyncio
-        llm = get_fast_llm() if fast else get_llm()
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-        
-        async for chunk in llm.astream(messages):
-            yield chunk.content if hasattr(chunk, "content") else str(chunk)
+    import asyncio
 
-    except Exception as e:
-        logger.error(f"[{path.capitalize()}-stream] LLM failed: {e}")
-        yield "Our AI models are experiencing high traffic right now. Please tap 'Read Original' to view the full story on the publisher's website."
+    def _to_text(value) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return "".join(str(v) for v in value)
+        return str(value or "")
+
+    path = "fast" if fast else "main"
+    llm = get_fast_llm() if fast else get_llm()
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ]
+
+    streamed_any = False
+
+    try:
+        async for chunk in llm.astream(messages):
+            text = _to_text(chunk.content if hasattr(chunk, "content") else chunk)
+            if not text:
+                continue
+            streamed_any = True
+            yield text
+        if streamed_any:
+            return
+    except Exception as stream_error:
+        logger.warning(f"[{path.capitalize()}-stream] Streaming failed, trying non-stream invoke: {stream_error}")
+        if streamed_any:
+            return
+
+    try:
+        response = await llm.ainvoke(messages)
+        text = _to_text(response.content if hasattr(response, "content") else response).strip()
+        if text:
+            chunk_size = max(60, min(220, len(text) // 10 if len(text) > 0 else 120))
+            for i in range(0, len(text), chunk_size):
+                yield text[i:i + chunk_size]
+                await asyncio.sleep(0)
+            return
+    except Exception as invoke_error:
+        logger.error(f"[{path.capitalize()}-stream] Non-stream invoke failed: {invoke_error}")
+
+    yield SUMMARY_FALLBACK_MESSAGE
 
 
 async def warmup_hf_model() -> None:
@@ -294,6 +349,9 @@ async def warmup_hf_model() -> None:
     Sends a tiny prompt so HF loads the model into memory.
     Fire-and-forget — failures are silently logged.
     """
+    if os.getenv("HF_WARMUP_ENABLED", "false").lower() != "true":
+        return
+
     hf_token = os.getenv("HF_API_TOKEN", "")
     if not hf_token:
         return
@@ -318,6 +376,6 @@ async def warmup_hf_model() -> None:
             if resp.status_code == 200:
                 logger.info("[LLM] ✅ HuggingFace model warmed up successfully")
             else:
-                logger.warning(f"[LLM] HF warmup got status {resp.status_code} (model may still be loading)")
+                logger.info(f"[LLM] HF warmup skipped (status {resp.status_code})")
     except Exception as e:
         logger.warning(f"[LLM] HF warmup failed (non-critical): {e}")

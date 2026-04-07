@@ -11,7 +11,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from dailyai.config import MAX_TILES_PER_FETCH, SUPPORTED_LANGUAGES
+from dailyai.config import LLM_TIMEOUT_SECONDS, MAX_TILES_PER_FETCH, SUPPORTED_LANGUAGES
 from dailyai.llm.prompts import CURATION_PROMPT, sanitize_llm_response
 from dailyai.llm.provider import get_llm
 
@@ -113,8 +113,8 @@ async def run(state: dict) -> dict:
         timings["curator"] = 0.0
         return {"curated": [], "errors": errors, "node_timings": timings}
 
-    # Cap at 50 articles to stay within token limits
-    capped = articles[:50]
+    # Keep curator prompts compact to reduce timeout/rate-limit pressure.
+    capped = articles[:30]
     articles_text = "\n".join(
         f"- [{i+1}] {a['title']} (Source: {a.get('source', 'Unknown')}, Link: {a.get('link', '')})"
         for i, a in enumerate(capped)
@@ -131,11 +131,11 @@ async def run(state: dict) -> dict:
     try:
         import asyncio
         llm = get_llm()
-        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=60.0)
+        timeout_s = max(15.0, min(float(LLM_TIMEOUT_SECONDS), 35.0))
+        response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=timeout_s)
         response_text = response.content if hasattr(response, "content") else str(response)
     except asyncio.TimeoutError:
-        logger.warning("[Curator] LLM call timed out (likely rate limited), using fallback")
-        errors.append("Curator: LLM timeout")
+        logger.info("[Curator] LLM call timed out; using deterministic fallback")
         timings = state.get("node_timings", {})
         timings["curator"] = round(time.time() - start, 2)
         return {
@@ -144,8 +144,12 @@ async def run(state: dict) -> dict:
             "node_timings": timings,
         }
     except Exception as e:
-        logger.error(f"[Curator] LLM call failed: {e}")
-        errors.append(f"Curator LLM failed: {e}")
+        error_text = str(e).lower()
+        if "timed out" in error_text or "timeout" in error_text or "429" in error_text or "rate limit" in error_text:
+            logger.info(f"[Curator] Provider timeout/rate-limit; using fallback: {e}")
+        else:
+            logger.error(f"[Curator] LLM call failed: {e}")
+            errors.append(f"Curator LLM failed: {e}")
         # Use fallback processing
         timings = state.get("node_timings", {})
         timings["curator"] = round(time.time() - start, 2)
