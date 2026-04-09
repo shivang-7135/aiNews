@@ -9,4 +9,5 @@ env/
 dist/
 build/
 .DS_Store
+uv.lock
 subscribers.json
