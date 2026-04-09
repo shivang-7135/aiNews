@@ -22,7 +22,10 @@ from dailyai.ui.i18n import normalize_ui_language, tr, tr_time_ago
 
 
 def _clean_text(value: str) -> str:
+    import re
     text = html.unescape(str(value or "")).replace("\xa0", " ")
+    # Strip any remaining HTML tags (like <a> links from RSS)
+    text = re.sub(r'<[^>]*>', '', text)
     return " ".join(text.split()).strip()
 
 

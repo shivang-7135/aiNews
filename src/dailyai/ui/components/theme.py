@@ -572,6 +572,7 @@ body, html {
     color: var(--text-primary);
     background: none;
     -webkit-text-fill-color: initial;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
 }
 .top-bar-subline {
     font-size: 11px;
@@ -659,6 +660,7 @@ body, html {
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 /* Card Headline & Summary (Cleaner Typography) */
 .card-headline-text {
@@ -670,6 +672,7 @@ body, html {
     letter-spacing: -0.01em;
     display: -webkit-box; -webkit-line-clamp: 3;
     -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: anywhere; word-break: break-word;
 }
 .card-summary-text {
     font-size: 14px;
@@ -679,6 +682,7 @@ body, html {
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: anywhere; word-break: break-word;
 }
 .card-badges {
     display: none;
@@ -785,6 +789,7 @@ body, html {
     line-height: 1.3; letter-spacing: -0.02em;
     color: var(--text-primary);
     margin-bottom: 16px;
+    overflow-wrap: anywhere; word-break: break-word;
 }
 .detail-source-row {
     display: flex; align-items: center; gap: 10px;
@@ -805,6 +810,7 @@ body, html {
 }
 .detail-source-name {
     font-size: 13px; font-weight: 700; color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .detail-source-time {
     font-size: 12px; font-weight: 500; color: var(--text-muted);
@@ -830,6 +836,7 @@ body, html {
 .detail-bullet-text {
     font-size: 15px; font-weight: 400;
     line-height: 1.65; color: var(--text-primary);
+    overflow-wrap: anywhere; word-break: break-word;
 }
 
 /* Why it matters */
