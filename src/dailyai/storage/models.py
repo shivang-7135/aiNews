@@ -151,3 +151,38 @@ class FeedArticle(BaseModel):
     article_url: str = "#"
     published_at: str = ""
     updated_at: str = ""
+
+
+# ── Analytics ──────────────────────────────────────────────────────
+
+class AnalyticsEvent(BaseModel):
+    """A single user interaction event."""
+    event_type: str  # impression | click | hold | detail_open | read_time | scroll_depth | share | save | unsave | external_click | skip
+    article_id: str = ""
+    topic: str = ""
+    category: str = ""
+    value: float = 0  # seconds for read_time, percentage for scroll_depth
+    metadata: dict = Field(default_factory=dict)
+
+
+class BatchEventsRequest(BaseModel):
+    """Batch of analytics events from the client."""
+    session_id: str
+    sync_code: str = ""
+    events: list[AnalyticsEvent] = Field(default_factory=list, max_length=100)
+
+
+# ── Admin ──────────────────────────────────────────────────────────
+
+class AdminRSSFeedRequest(BaseModel):
+    """Create or update an RSS feed configuration."""
+    country_code: str
+    feed_key: str
+    query: str
+    is_active: bool = True
+
+
+class AdminDeleteRSSFeedRequest(BaseModel):
+    """Delete an RSS feed configuration."""
+    country_code: str
+    feed_key: str

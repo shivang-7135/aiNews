@@ -15,7 +15,7 @@ from dailyai.config import COUNTRIES, UI_FEED_TOPICS, UI_LANGUAGES
 from dailyai.ui.components.nav_bar import nav_bar, sidebar, topic_filter
 from dailyai.ui.components.news_card import _inject_detail_overlay_once, news_card, skeleton_card
 from dailyai.ui.i18n import normalize_ui_language, tr
-from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS
+from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS, inject_boot_loader
 
 logger = logging.getLogger("dailyai.home")
 
@@ -98,12 +98,7 @@ async def home_page():
     # ── Detail Overlay (injected once, shared by all cards) ──
     _inject_detail_overlay_once(language=initial_language)
 
-    ui.html(f'''
-        <div class="boot-loader" id="bootLoader">
-            <div class="boot-spinner"></div>
-            <div class="boot-text">{tr(initial_language, 'boot_loader')}</div>
-        </div>
-    ''')
+    inject_boot_loader(initial_language)
 
     # ── Main Container ──
     main_col = ui.column().classes(
@@ -150,32 +145,54 @@ async def home_page():
         return "en"
 
     async def _set_country(country):
-        """Handle country change — expects a plain string value from ui.select."""
+        """Handle country change — hard reload to cleanly swap state."""
         selected_country = _normalize_country_selection(str(country))
         if selected_country == app_state["country"]:
             _safe_run_javascript('closeSidebar()')
             return
-        app_state["country"] = selected_country
-        _safe_run_javascript('closeSidebar()')
+        
         country_name = COUNTRIES.get(selected_country, selected_country)
         flag = COUNTRY_FLAGS.get(selected_country, "🌐")
         ui.notify(
             tr(app_state["language"], 'region_notify', flag=flag, country=country_name),
             type='info', position='bottom',
         )
-        ui.navigate.to(f'/?{_build_reload_query()}')
+        
+        app_state["country"] = selected_country
+        query = _build_reload_query()
+        _safe_run_javascript('''
+            closeSidebar();
+            var bl = document.getElementById('bootLoader');
+            if (bl) bl.classList.remove('hidden');
+        ''')
+        ui.navigate.to(f'/?{query}')
 
     async def _set_language(language):
-        """Handle language change — expects a plain string value from ui.select."""
+        """Handle language change — hard reload to cleanly swap state."""
         selected_language = _normalize_language_selection(str(language))
         if selected_language == app_state["language"]:
             _safe_run_javascript('closeSidebar()')
             return
+            
         app_state["language"] = selected_language
-        _safe_run_javascript('closeSidebar()')
         lang_name = UI_LANGUAGES.get(selected_language, selected_language)
         ui.notify(tr(selected_language, 'language_notify', language=lang_name), type='info', position='bottom')
-        ui.navigate.to(f'/?{_build_reload_query()}')
+        
+        query = _build_reload_query()
+        
+        def _js_str(text: str) -> str:
+            return str(text or "").replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+            
+        _safe_run_javascript(f'''
+            closeSidebar();
+            var bl = document.getElementById('bootLoader');
+            if (bl) {{
+                var txt = bl.querySelector('.boot-text');
+                if (txt) txt.innerText = '{_js_str(tr(selected_language, "boot_loader"))}';
+                bl.classList.remove('hidden');
+            }}
+        ''')
+        ui.navigate.to(f'/?{query}')
 
     async def _set_sort(sort_type: str):
         app_state["sort"] = sort_type
@@ -300,6 +317,7 @@ async def home_page():
                                         article,
                                         index=start_index + i,
                                         position_chip=f'{i + 1}/{batch_total}',
+                                        language=app_state["language"],
                                     )
                         else:
                             app_state["has_more"] = False
@@ -327,7 +345,7 @@ async def home_page():
                 with feed_container:
                     page_total = max(1, len(articles))
                     for i, a in enumerate(articles):
-                        news_card(a, index=i, position_chip=f'{i + 1}/{page_total}')
+                        news_card(a, index=i, position_chip=f'{i + 1}/{page_total}', language=app_state["language"])
 
                 if app_state.get("has_more"):
                     with load_more_container:
@@ -369,4 +387,29 @@ async def home_page():
     )
 
     # ── Initial Load ──
+    try:
+        await ui.context.client.connected()
+        sync_code = await ui.run_javascript('return localStorage.getItem("dailyai_sync_code") || "";', timeout=2.0)
+        
+        is_first_visit = False
+        if not sync_code:
+            # Auto-generate a sync code for anonymous personalization
+            from dailyai.services.profiles import create_profile
+            profile = await create_profile([], country=app_state["country"], language=app_state["language"])
+            sync_code = profile.get("sync_code", "")
+            if sync_code:
+                ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{sync_code}");')
+                is_first_visit = True
+                
+        if sync_code:
+            app_state["sync_code"] = str(sync_code)
+            
+        if is_first_visit:
+            from dailyai.ui.components.onboarding import onboarding_dialog
+            dialog = onboarding_dialog(app_state["language"], sync_code)
+            dialog.open()
+            
+    except Exception:
+        logger.debug("Failed to retrieve sync_code from client before initial load")
+
     await _load_feed(app_state["topic"])

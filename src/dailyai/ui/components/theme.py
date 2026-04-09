@@ -6,6 +6,17 @@ Inshorts-style mobile snap-scroll cards, expandable summaries, share/save action
 
 from pathlib import Path
 
+from nicegui import ui
+from dailyai.ui.i18n import tr
+
+def inject_boot_loader(language: str):
+    ui.html(f'''
+        <div class="boot-loader" id="bootLoader">
+            <div class="boot-spinner"></div>
+            <div class="boot-text">{tr(language, 'boot_loader')}</div>
+        </div>
+    ''')
+
 # ── Color Palette ───────────────────────────────────────────────────
 
 COLORS = {
@@ -877,6 +888,19 @@ body, html {
     background: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.2));
     border: 1px solid rgba(255,255,255,0.45);
     flex-shrink: 0;
+}
+
+@keyframes pulseDot {
+    0% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255,255,255, 0.4); }
+    70% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 0 6px rgba(255,255,255, 0); }
+    100% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255,255,255, 0); }
+}
+.blink-dot {
+    animation: pulseDot 2s infinite ease-in-out;
+    color: white;
+    font-weight: 800;
+    font-size: 12px;
+    border: none !important;
 }
 .source-name-text {
     font-size: 12px;

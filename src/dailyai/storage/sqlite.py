@@ -103,7 +103,55 @@ async def _create_tables(db: aiosqlite.Connection):
             key TEXT PRIMARY KEY,
             value TEXT DEFAULT ''
         );
+
+        CREATE TABLE IF NOT EXISTS user_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            sync_code TEXT DEFAULT '',
+            event_type TEXT NOT NULL,
+            article_id TEXT DEFAULT '',
+            topic TEXT DEFAULT '',
+            category TEXT DEFAULT '',
+            value REAL DEFAULT 0,
+            metadata TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_user_events_session ON user_events(session_id);
+        CREATE INDEX IF NOT EXISTS idx_user_events_sync ON user_events(sync_code);
+        CREATE INDEX IF NOT EXISTS idx_user_events_type ON user_events(event_type);
+        CREATE INDEX IF NOT EXISTS idx_user_events_created ON user_events(created_at);
+
+        CREATE TABLE IF NOT EXISTS user_topic_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            sync_code TEXT DEFAULT '',
+            topic TEXT NOT NULL,
+            score REAL DEFAULT 0,
+            event_count INTEGER DEFAULT 0,
+            updated_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(session_id, topic)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_topic_scores_session ON user_topic_scores(session_id);
+        CREATE INDEX IF NOT EXISTS idx_topic_scores_sync ON user_topic_scores(sync_code);
+
+        CREATE TABLE IF NOT EXISTS rss_feeds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country_code TEXT NOT NULL,
+            feed_key TEXT NOT NULL,
+            query TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(country_code, feed_key)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_rss_feeds_country ON rss_feeds(country_code);
     """)
+    # Enable WAL mode for better concurrent read/write performance
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA busy_timeout=5000")
     await db.commit()
 
 
@@ -493,3 +541,173 @@ async def get_cache_health() -> dict:
         "prune": prune_stats,
         "last_refresh_by_store_key": last_refresh_by_key,
     }
+
+
+# ── User Events (Analytics) ────────────────────────────────────────
+
+async def save_events(events: list[dict]) -> None:
+    """Batch insert analytics events."""
+    db = await get_db()
+    for e in events:
+        await db.execute(
+            """INSERT INTO user_events
+               (session_id, sync_code, event_type, article_id, topic, category, value, metadata)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                e.get("session_id", ""),
+                e.get("sync_code", ""),
+                e.get("event_type", ""),
+                e.get("article_id", ""),
+                e.get("topic", ""),
+                e.get("category", ""),
+                float(e.get("value", 0)),
+                json.dumps(e.get("metadata", {})),
+            ),
+        )
+    await db.commit()
+
+
+async def get_events(session_id: str, limit: int = 500) -> list[dict]:
+    """Get events for a session."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM user_events WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
+        (session_id, limit),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        r = dict(row)
+        try:
+            r["metadata"] = json.loads(r.get("metadata", "{}"))
+        except (json.JSONDecodeError, TypeError):
+            r["metadata"] = {}
+        result.append(r)
+    return result
+
+
+async def get_events_by_sync_code(sync_code: str, limit: int = 1000) -> list[dict]:
+    """Get events for a sync code (across sessions/devices)."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM user_events WHERE sync_code = ? ORDER BY created_at DESC LIMIT ?",
+        (sync_code, limit),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        r = dict(row)
+        try:
+            r["metadata"] = json.loads(r.get("metadata", "{}"))
+        except (json.JSONDecodeError, TypeError):
+            r["metadata"] = {}
+        result.append(r)
+    return result
+
+
+async def get_event_counts() -> dict:
+    """Get aggregate event counts for admin dashboard."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT event_type, COUNT(*) as cnt
+           FROM user_events
+           GROUP BY event_type
+           ORDER BY cnt DESC"""
+    )
+    rows = await cursor.fetchall()
+    return {row["event_type"]: row["cnt"] for row in rows}
+
+
+# ── User Topic Scores ──────────────────────────────────────────────
+
+async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]) -> None:
+    """Upsert topic scores for a session."""
+    db = await get_db()
+    for topic, score in scores.items():
+        count = event_counts.get(topic, 0)
+        await db.execute(
+            """INSERT INTO user_topic_scores (session_id, sync_code, topic, score, event_count, updated_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(session_id, topic) DO UPDATE SET
+                 score = ?, event_count = ?, sync_code = ?, updated_at = datetime('now')""",
+            (session_id, sync_code, topic, score, count, score, count, sync_code),
+        )
+    await db.commit()
+
+
+async def get_topic_scores(session_id: str) -> dict[str, float]:
+    """Get topic scores for a session."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT topic, score FROM user_topic_scores WHERE session_id = ? ORDER BY score DESC",
+        (session_id,),
+    )
+    rows = await cursor.fetchall()
+    return {row["topic"]: float(row["score"]) for row in rows}
+
+
+async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
+    """Get aggregated topic scores across all sessions for a sync code."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT topic, SUM(score) as total_score
+           FROM user_topic_scores
+           WHERE sync_code = ?
+           GROUP BY topic
+           ORDER BY total_score DESC""",
+        (sync_code,),
+    )
+    rows = await cursor.fetchall()
+    return {row["topic"]: float(row["total_score"]) for row in rows}
+
+async def get_all_events() -> list[dict]:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM user_events ORDER BY created_at ASC")
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+async def get_all_topic_scores() -> list[dict]:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM user_topic_scores")
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+# ── RSS Feeds (Admin) ──────────────────────────────────────────────
+
+async def save_rss_feed(country_code: str, feed_key: str, query: str, is_active: bool = True) -> None:
+    """Upsert an RSS feed configuration."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO rss_feeds (country_code, feed_key, query, is_active, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(country_code, feed_key) DO UPDATE SET
+             query = ?, is_active = ?, updated_at = datetime('now')""",
+        (country_code, feed_key, query, 1 if is_active else 0, query, 1 if is_active else 0),
+    )
+    await db.commit()
+
+
+async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
+    """Get RSS feed configurations, optionally filtered by country."""
+    db = await get_db()
+    if country_code:
+        cursor = await db.execute(
+            "SELECT * FROM rss_feeds WHERE country_code = ? ORDER BY feed_key",
+            (country_code,),
+        )
+    else:
+        cursor = await db.execute("SELECT * FROM rss_feeds ORDER BY country_code, feed_key")
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
+    """Delete an RSS feed configuration."""
+    db = await get_db()
+    cursor = await db.execute(
+        "DELETE FROM rss_feeds WHERE country_code = ? AND feed_key = ?",
+        (country_code, feed_key),
+    )
+    await db.commit()
+    return cursor.rowcount > 0
+

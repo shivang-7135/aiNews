@@ -18,7 +18,7 @@ from dailyai.ui.components.theme import (
     TRUST_LABELS,
     get_category_image,
 )
-from dailyai.ui.i18n import normalize_ui_language, tr
+from dailyai.ui.i18n import normalize_ui_language, tr, tr_time_ago
 
 
 def _clean_text(value: str) -> str:
@@ -26,26 +26,11 @@ def _clean_text(value: str) -> str:
     return " ".join(text.split()).strip()
 
 
-def _format_time_ago(iso_date: str) -> str:
-    if not iso_date:
-        return ""
-    try:
-        from datetime import UTC, datetime
-        dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
-        now = datetime.now(UTC)
-        diff = now - dt
-        hours = int(diff.total_seconds() / 3600)
-        if hours < 1:
-            mins = int(diff.total_seconds() / 60)
-            return f"{mins}m ago" if mins > 0 else "Just now"
-        if hours < 24:
-            return f"{hours}h ago"
-        return f"{hours // 24}d ago"
-    except Exception:
-        return ""
+def _format_time_ago(iso_date: str, language: str = "en") -> str:
+    return tr_time_ago(language, iso_date)
 
 
-def _short_summary(article: dict) -> str:
+def _short_summary(article: dict, language: str = "en") -> str:
     import re
     summary = _clean_text(str(article.get("summary", "") or ""))
     # Skip generic fallback summaries
@@ -62,7 +47,7 @@ def _short_summary(article: dict) -> str:
         return f"{headline}. Source: {source}."
     if headline:
         return headline
-    return f"Latest AI news from {source}." if source else "Tap to read the full story."
+    return tr(language, "latest_ai_news_from", source=source) if source else tr(language, "tap_to_read")
 
 
 def _build_article_link(article: dict) -> str:
@@ -109,7 +94,7 @@ def _js_str(text: str) -> str:
     )
 
 
-def _make_bullets(raw_summary: str, headline: str = "", why: str = "") -> list[str]:
+def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language: str = "en") -> list[str]:
     """Build informative bullet points (5 bullets, ~15-20 words each) for the detail view.
     
     Uses the raw summary field (not the fallback). When summary is empty,
@@ -182,7 +167,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "") -> list[s
         bullets.insert(0, headline)
 
     if len(bullets) <= 1:
-        bullets.append("Our AI models are experiencing high traffic right now. Please tap 'Read Original' to view the full story on the publisher's website.")
+        bullets.append(tr(language, "bullet_fallback"))
 
     # Enforce total ~120 word limit & punctuation
     final: list[str] = []
@@ -196,7 +181,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "") -> list[s
         final.append(b)
         word_count += len(b_words)
 
-    return final if final else [headline or "Tap to read the full story for more details on this topic."]
+    return final if final else [headline or tr(language, "tap_for_details")]
 
 
 def _card_uid(article: dict) -> str:
@@ -576,6 +561,212 @@ def _inject_detail_overlay_once(language: str = "en"):
 
         /* ── Article data store ── */
         window.__articleData = window.__articleData || {};
+
+        /* ═══════════════════════════════════════════════════════════
+         *  DailyAI Analytics Tracker
+         *  Tracks: impressions, clicks, holds, detail_open, read_time,
+         *  scroll_depth, share, save, external_click
+         * ═══════════════════════════════════════════════════════════ */
+        (function() {
+            /* Session & sync code management */
+            if (!sessionStorage.getItem('dailyai_session_id')) {
+                sessionStorage.setItem('dailyai_session_id',
+                    'ses_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8));
+            }
+            window.__dailyaiSessionId = sessionStorage.getItem('dailyai_session_id');
+            window.__dailyaiSyncCode = localStorage.getItem('dailyai_sync_code') || '';
+
+            /* Event buffer — flushed every 30s or on page unload */
+            window.__analyticsBuffer = [];
+            window.__analyticsFlushTimer = null;
+
+            window._trackEvent = function(eventType, articleId, topic, category, value, metadata) {
+                window.__analyticsBuffer.push({
+                    event_type: eventType,
+                    article_id: articleId || '',
+                    topic: topic || '',
+                    category: category || '',
+                    value: value || 0,
+                    metadata: metadata || {}
+                });
+                /* Auto-flush if buffer gets large */
+                if (window.__analyticsBuffer.length >= 50) {
+                    window._flushAnalytics();
+                }
+            };
+
+            window._flushAnalytics = function() {
+                if (!window.__analyticsBuffer.length) return;
+                var events = window.__analyticsBuffer.splice(0);
+                var payload = {
+                    session_id: window.__dailyaiSessionId,
+                    sync_code: window.__dailyaiSyncCode,
+                    events: events
+                };
+                try {
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon('/api/analytics/events',
+                            new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+                    } else {
+                        fetch('/api/analytics/events', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                            keepalive: true
+                        }).catch(function() {});
+                    }
+                } catch(e) { /* silent */ }
+            };
+
+            /* Flush every 30 seconds */
+            if (window.__analyticsFlushTimer) clearInterval(window.__analyticsFlushTimer);
+            window.__analyticsFlushTimer = setInterval(window._flushAnalytics, 30000);
+
+            /* Flush on page unload */
+            window.addEventListener('beforeunload', function() {
+                window._flushAnalytics();
+            });
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') window._flushAnalytics();
+            });
+
+            /* ── Card impression tracking (IntersectionObserver) ── */
+            window.__impressedCards = window.__impressedCards || {};
+            if (window.IntersectionObserver) {
+                window.__cardObserver = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            var card = entry.target;
+                            var uid = card.dataset.cardUid;
+                            if (uid && !window.__impressedCards[uid]) {
+                                window.__impressedCards[uid] = true;
+                                var data = window.__articleData && window.__articleData[uid];
+                                if (data) {
+                                    window._trackEvent('impression', uid, data.topic, data.category, 0);
+                                }
+                            }
+                        }
+                    });
+                }, { threshold: 0.5 });
+            }
+
+            /* ── Hold timer (long press = 3s+) ── */
+            window.__holdTimers = {};
+            document.addEventListener('pointerdown', function(e) {
+                var card = e.target.closest('.news-card-premium');
+                if (!card || !card.dataset.cardUid) return;
+                var uid = card.dataset.cardUid;
+                window.__holdTimers[uid] = { start: Date.now() };
+            });
+            document.addEventListener('pointerup', function(e) {
+                var card = e.target.closest('.news-card-premium');
+                if (!card || !card.dataset.cardUid) return;
+                var uid = card.dataset.cardUid;
+                if (window.__holdTimers[uid]) {
+                    var dur = (Date.now() - window.__holdTimers[uid].start) / 1000;
+                    if (dur >= 3) {
+                        var data = window.__articleData && window.__articleData[uid];
+                        window._trackEvent('hold', uid, data ? data.topic : '', data ? data.category : '', dur);
+                    }
+                    delete window.__holdTimers[uid];
+                }
+            });
+
+            /* ── Detail read time & scroll depth tracking ── */
+            window.__detailOpenTime = 0;
+            window.__detailMaxScroll = 0;
+            window.__detailUid = '';
+
+            /* Hook into openDetail */
+            var _origOpenDetail = window.openDetail;
+            window.openDetail = function(uid) {
+                /* Track click event */
+                var data = window.__articleData && window.__articleData[uid];
+                if (data) {
+                    window._trackEvent('click', uid, data.topic, data.category, 0);
+                    window._trackEvent('detail_open', uid, data.topic, data.category, 0);
+                }
+                window.__detailOpenTime = Date.now();
+                window.__detailMaxScroll = 0;
+                window.__detailUid = uid;
+                _origOpenDetail(uid);
+            };
+
+            /* Track scroll depth in overlay */
+            var overlay = document.getElementById('detailOverlay');
+            if (overlay) {
+                overlay.addEventListener('scroll', function() {
+                    if (!overlay.classList.contains('open')) return;
+                    var scrollPct = Math.round((overlay.scrollTop / Math.max(1, overlay.scrollHeight - overlay.clientHeight)) * 100);
+                    if (scrollPct > window.__detailMaxScroll) {
+                        window.__detailMaxScroll = scrollPct;
+                    }
+                });
+            }
+
+            /* Hook into closeDetail */
+            var _origCloseDetail = window.closeDetail;
+            window.closeDetail = function() {
+                if (window.__detailUid && window.__detailOpenTime) {
+                    var readTime = (Date.now() - window.__detailOpenTime) / 1000;
+                    var data = window.__articleData && window.__articleData[window.__detailUid];
+                    var topic = data ? data.topic : '';
+                    var cat = data ? data.category : '';
+                    window._trackEvent('read_time', window.__detailUid, topic, cat, readTime);
+                    if (window.__detailMaxScroll > 0) {
+                        window._trackEvent('scroll_depth', window.__detailUid, topic, cat, window.__detailMaxScroll);
+                    }
+                }
+                window.__detailOpenTime = 0;
+                window.__detailMaxScroll = 0;
+                window.__detailUid = '';
+                _origCloseDetail();
+            };
+
+            /* ── Track external article clicks ── */
+            document.addEventListener('click', function(e) {
+                var cta = e.target.closest('#detailCTA');
+                if (cta) {
+                    var uid = document.getElementById('detailOverlay') ?
+                        document.getElementById('detailOverlay').dataset.uid : '';
+                    var data = window.__articleData && window.__articleData[uid];
+                    if (data) {
+                        window._trackEvent('external_click', uid, data.topic, data.category, 0);
+                    }
+                }
+            });
+
+            /* ── Track share/save through existing functions ── */
+            var _origShare = window.shareArticle;
+            window.shareArticle = function(headline, url) {
+                var overlay = document.getElementById('detailOverlay');
+                var uid = overlay ? overlay.dataset.uid : '';
+                var data = window.__articleData && window.__articleData[uid];
+                if (data) {
+                    window._trackEvent('share', uid, data.topic, data.category, 0);
+                }
+                _origShare(headline, url);
+            };
+
+            var _origToggleSave = window.toggleSaveArticle;
+            window.toggleSaveArticle = function(uid) {
+                var wasSaved = window._savedArticles && window._savedArticles[uid];
+                _origToggleSave(uid);
+                var data = window.__articleData && window.__articleData[uid];
+                if (data) {
+                    window._trackEvent(wasSaved ? 'unsave' : 'save', uid, data.topic, data.category, 0);
+                }
+            };
+
+            /* ── Sync code helper ── */
+            window.setSyncCode = function(code) {
+                localStorage.setItem('dailyai_sync_code', code);
+                window.__dailyaiSyncCode = code;
+            };
+            window.getSyncCode = function() {
+                return window.__dailyaiSyncCode || '';
+            };
+        })();
     }
     '''
     ui.run_javascript(overlay_script.replace('__LINK_COPIED__', link_copied_text))
@@ -640,7 +831,7 @@ def _inject_detail_overlay_once(language: str = "en"):
     ''')
 
 
-def news_card(article: dict, index: int = 0, position_chip: str = ""):
+def news_card(article: dict, index: int = 0, position_chip: str = "", language: str = "en"):
     """Render a compact feed card. Clicking opens a full-screen detail view."""
     cat = article.get("category", "general")
     color = CATEGORY_COLORS.get(cat, COLORS["cat_general"])
@@ -653,11 +844,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
     trust_color = COLORS.get(f"trust_{trust_tier}", COLORS["trust_low"])
 
     importance = article.get("importance", 5)
-    published = _format_time_ago(article.get("published_at", ""))
+    published = _format_time_ago(article.get("published_at", ""), language=language)
     source = _clean_text(str(article.get("source_name", "Unknown") or "Unknown"))
     topic_label = article.get("topic", cat).upper()
     headline = _clean_text(str(article.get("headline", "") or ""))
-    summary_text = _short_summary(article)
+    summary_text = _short_summary(article, language=language)
     why = _clean_text(str(article.get("why_it_matters", "") or ""))
 
     image_key = topic_label if cat == "general" else cat
@@ -667,7 +858,7 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
     uid = _card_uid(article)
     # Use RAW summary for bullets (not the fallback text)
     raw_summary = _clean_text(str(article.get("summary", "") or ""))
-    bullets = _make_bullets(raw_summary, headline=headline, why=why)
+    bullets = _make_bullets(raw_summary, headline=headline, why=why, language=language)
 
     # If why is already in bullets, don't duplicate it in the WHY IT MATTERS box
     why_in_bullets = any(why.lower() in b.lower() for b in bullets) if why else False
@@ -709,21 +900,23 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
             link: '{_js_str(link)}',
             articleUrl: '{_js_str(article_url)}',
             language: '{_js_str(str(article.get("language", "en") or "en"))}',
+            topic: '{_js_str(str(article.get("topic", "general")))}',
+            category: '{_js_str(str(article.get("category", "general")))}',
             bullets: {bullets_js},
             badgesHtml: '{_js_str(badges_html)}',
         }};
     ''')
 
     # ── Render the compact card ──
-    with ui.card().classes('news-card-premium w-full p-0 mb-4 card-animate').style(
-        f'animation-delay: {delay}s;'
-    ).on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
+    card_el = ui.card().classes('news-card-premium w-full p-0 mb-4 card-animate')
+    card_el._props['data-card-uid'] = uid
+    with card_el.style(f'animation-delay: {delay}s;'):
 
         # Category accent line
         ui.html(f'<div class="card-cat-accent" style="background: {color};"></div>')
 
         # Image area
-        with ui.element('div').classes('card-image-area'):
+        with ui.element('div').classes('card-image-area cursor-pointer').on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
             ui.html(f'''
                 <img src="{cover_img}" alt="{_esc(topic_label)}"
                      loading="lazy"
@@ -734,7 +927,7 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
             ''')
 
         # Card body (compact preview — no inline expand)
-        with ui.element('div').classes('card-body-area'):
+        with ui.element('div').classes('card-body-area cursor-pointer').on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
             # Badges
             with ui.element('div').classes('card-badges'):
                 if importance >= 7:
@@ -754,15 +947,18 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
             ui.label(summary_text).classes('card-summary-text')
 
         # Action bar: publisher + bookmark
-        publisher_name = "pagesandbits"
+        publisher_name = source or "DailyAI"
+        publisher_initial = publisher_name[0].upper() if publisher_name else "D"
+        bg_hsl = f"hsl({sum(ord(c) for c in publisher_name) * 137 % 360}, 70%, 55%)"
+        
         ui.html(f'''<div class="card-action-bar">
             <div class="card-source-info">
-                <div class="source-avatar" aria-hidden="true"></div>
+                <div class="source-avatar blink-dot" aria-hidden="true" style="background: {bg_hsl};">{publisher_initial}</div>
                 <span class="source-name-text">{publisher_name}</span>
             </div>
             <div class="card-actions">
                 <button class="action-btn" id="card-save-{uid}" title="Save" aria-label="Save article" aria-pressed="false"
-                        onclick="event.stopPropagation(); toggleSaveArticle('{uid}')">
+                        onclick="event.preventDefault(); event.stopPropagation(); window.toggleSaveArticle('{uid}'); return false;">
                     <svg class="bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
@@ -778,6 +974,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = ""):
                     btn.classList.toggle('saved', isSaved);
                     btn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
                 }}
+                /* Register with IntersectionObserver for impression tracking */
+                var cards = document.querySelectorAll('[data-card-uid="{uid}"]');
+                cards.forEach(function(card) {{
+                    if (window.__cardObserver) window.__cardObserver.observe(card);
+                }});
             }})();
         ''')
 

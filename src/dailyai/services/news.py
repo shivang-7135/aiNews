@@ -186,6 +186,30 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
         logger.info("Startup prefetch completed")
 
 
+async def pregenerate_top_briefs(articles: list[dict], language: str) -> None:
+    """Pre-generate and cache LLM briefs for top articles in the background."""
+    from dailyai.llm.provider import SUMMARY_FALLBACK_MESSAGE
+    logger.info(f"Starting background brief pre-generation for {len(articles)} articles ({language}).")
+    
+    # Throttle pre-generation to respect LLM API limits
+    sem = asyncio.Semaphore(2)
+
+    async def _cache_brief(article: dict):
+        async with sem:
+            try:
+                # Check if it exists or use stream_article_brief generator
+                # We can just iterate it but not yield
+                async for _ in stream_article_brief(article, language=language):
+                    pass
+            except Exception as e:
+                logger.debug(f"Pre-generation failed for '{article.get('title')}': {e}")
+            await asyncio.sleep(1.0) # Small cooldown between briefs
+
+    tasks = [_cache_brief(a) for a in articles]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    logger.info(f"Finished background brief pre-generation ({language}).")
+
+
 async def refresh_news(
     country_code: str = "GLOBAL",
     language: str = "en",
@@ -273,6 +297,10 @@ async def refresh_news(
                 datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
             )
             logger.info(f"Saved {len(merged)} articles for {key}")
+
+            # Pre-generate LLM briefs for top articles to avoid rate limits
+            if merged:
+                asyncio.create_task(pregenerate_top_briefs(merged[:15], language))
 
         except Exception as e:
             logger.error(f"Error refreshing {key}: {e}", exc_info=True)
@@ -423,21 +451,10 @@ async def get_feed(
     # Personalization
     if sync_code:
         try:
-            from dailyai.services.profiles import get_topic_scores
-            scores = await get_topic_scores(sync_code)
+            from dailyai.services.analytics import get_personalized_scores, rank_articles_by_scores
+            scores = await get_personalized_scores(sync_code=sync_code)
             if scores:
-                # Split into common (top 5) + personalized
-                common = feed_articles[:5]
-                rest = feed_articles[5:]
-
-                def rank(a: dict) -> float:
-                    cat = a.get("category", "general")
-                    t = a.get("topic", "🔥 Top Stories")
-                    s = float(scores.get(cat, 0)) + float(scores.get(t, 0))
-                    return s * 2.0 + float(a.get("importance", 5))
-
-                rest.sort(key=rank, reverse=True)
-                feed_articles = common + rest
+                feed_articles = rank_articles_by_scores(feed_articles, scores)
         except Exception as e:
             logger.warning(f"Personalization failed: {e}")
 

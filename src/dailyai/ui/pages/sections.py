@@ -5,8 +5,8 @@ from urllib.parse import urlencode
 from nicegui import ui
 
 from dailyai.config import COUNTRIES, UI_LANGUAGES
-from dailyai.ui.components.nav_bar import nav_bar
-from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS
+from dailyai.ui.components.nav_bar import nav_bar, sidebar
+from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS, inject_boot_loader
 from dailyai.ui.i18n import normalize_ui_language, tr
 
 
@@ -203,60 +203,75 @@ async def saved_page():
     js = js.replace("__REMOVE_LABEL__", _js_str(tr(language, "remove_saved")))
     ui.run_javascript(js)
 
-    nav_bar(active_route="/saved", language=language, country=country)
+    def _open_sidebar():
+        ui.run_javascript('openSidebar()')
+
+    app_state = {"country": country, "language": language}
+
+    async def _set_country(new_country):
+        selected = str(new_country).upper()
+        if selected == country:
+            ui.run_javascript('closeSidebar()')
+            return
+        query = urlencode({"country": selected, "language": language})
+        ui.run_javascript('''
+            closeSidebar();
+            var bl = document.getElementById('bootLoader');
+            if (bl) bl.classList.remove('hidden');
+        ''')
+        ui.navigate.to(f'/saved?{query}')
+
+    async def _set_language(new_language):
+        selected = str(new_language).lower()
+        if selected == language:
+            ui.run_javascript('closeSidebar()')
+            return
+        query = urlencode({"country": country, "language": selected})
+        ui.run_javascript(f'''
+            closeSidebar();
+            var bl = document.getElementById('bootLoader');
+            if (bl) {{
+                var txt = bl.querySelector('.boot-text');
+                if (txt) txt.innerText = '{_js_str(tr(selected, "boot_loader"))}';
+                bl.classList.remove('hidden');
+            }}
+        ''')
+        ui.navigate.to(f'/saved?{query}')
+
+    inject_boot_loader(language)
+    ui.run_javascript('''
+        setTimeout(function() {
+            var bl = document.getElementById('bootLoader');
+            if (bl) bl.classList.add('hidden');
+        }, 400);
+    ''')
+
+    sidebar(
+        app_state=app_state,
+        on_country_change=_set_country,
+        on_language_change=_set_language,
+        language=language,
+    )
+
+    nav_bar(active_route="/saved", on_settings=_open_sidebar, language=language, country=country)
 
 
 @ui.page("/settings")
-async def settings_page():
-    language, country = _current_lang_country()
-    _setup_page(tr(language, "settings_title"))
-
-    language_options = (
-        {"en": "Englisch", "de": "Deutsch"}
-        if language == "de"
-        else {"en": "English", "de": "German"}
-    )
-
-    with ui.column().classes("w-full max-w-xl mx-auto min-h-screen pb-28 px-4 pt-4"):
-        ui.label(tr(language, "settings_title")).style(
-            "font-size: 24px; font-weight: 700; color: var(--text-primary);"
-        )
-        ui.label(tr(language, "settings_subtitle")).style(
-            "font-size: 12px; color: var(--text-muted); margin-bottom: 14px;"
-        )
-
-        country_select = ui.select(
-            options={code: f"{COUNTRY_FLAGS.get(code, '🏳️')} {name}" for code, name in COUNTRIES.items()},
-            value=country,
-            label=tr(language, "region"),
-        ).classes("w-full").props("dark outlined")
-
-        language_select = ui.select(
-            options=language_options,
-            value=language,
-            label=tr(language, "language"),
-        ).classes("w-full").props("dark outlined")
-
-        async def _apply_to_feed():
-            selected_country = str(country_select.value or "GLOBAL").upper()
-            selected_language = normalize_ui_language(str(language_select.value or "en"))
-            if selected_country not in COUNTRIES:
-                selected_country = "GLOBAL"
-            ui.navigate.to(f'/?{urlencode({"country": selected_country, "language": selected_language})}')
-
-        ui.button(tr(language, "apply_to_feed"), on_click=_apply_to_feed).classes("w-full").props("color=accent")
-        ui.button(
-            tr(language, "back_to_discover"),
-            on_click=lambda: ui.navigate.to(f'/?{urlencode({"country": country, "language": language})}'),
-        ).classes("w-full").props("outline")
-
-    nav_bar(active_route="/settings", language=language, country=country)
-
+def redirect_settings():
+    """Redirect legacy /settings to /saved so users see the unified views"""
+    ui.navigate.to('/saved')
 
 @ui.page("/trending")
 async def trending_page():
     language, country = _current_lang_country()
     _setup_page("Trending")
+    inject_boot_loader(language)
+    ui.run_javascript('''
+        setTimeout(function() {
+            var bl = document.getElementById('bootLoader');
+            if (bl) bl.classList.add('hidden');
+        }, 400);
+    ''')
     with ui.column().classes("w-full max-w-3xl mx-auto min-h-screen pb-24 sm:pb-28 px-4 pt-6"):
         ui.label("Trending").classes("text-3xl font-black mb-3")
         ui.label(tr(language, "coming_soon_discover")).classes("text-secondary mb-6")
@@ -271,6 +286,13 @@ async def trending_page():
 async def profile_page():
     language, country = _current_lang_country()
     _setup_page("Profile")
+    inject_boot_loader(language)
+    ui.run_javascript('''
+        setTimeout(function() {
+            var bl = document.getElementById('bootLoader');
+            if (bl) bl.classList.add('hidden');
+        }, 400);
+    ''')
     with ui.column().classes("w-full max-w-3xl mx-auto min-h-screen pb-24 sm:pb-28 px-4 pt-6"):
         ui.label("Profile").classes("text-3xl font-black mb-3")
         ui.label(tr(language, "coming_soon_profile")).classes("text-secondary mb-6")

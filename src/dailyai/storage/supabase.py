@@ -140,6 +140,7 @@ async def save_articles(store_key: str, articles: list[dict]) -> None:
         await _request(
             "POST",
             "articles",
+            params={"on_conflict": "store_key,title"},
             json_body=rows,
             prefer="resolution=merge-duplicates,return=minimal",
             expect_json=False,
@@ -495,3 +496,229 @@ async def get_cache_health() -> dict:
     except Exception as exc:
         logger.error(f"Supabase get_cache_health failed: {exc}", exc_info=True)
         return await _fallback("get_cache_health")
+
+
+# -- User Events (Analytics) -----------------------------------------
+
+async def save_events(events: list[dict]) -> None:
+    if not is_configured():
+        await _fallback("save_events", events)
+        return
+
+    try:
+        rows = []
+        for e in events:
+            rows.append({
+                "session_id": e.get("session_id", ""),
+                "sync_code": e.get("sync_code", ""),
+                "event_type": e.get("event_type", ""),
+                "article_id": e.get("article_id", ""),
+                "topic": e.get("topic", ""),
+                "category": e.get("category", ""),
+                "value": float(e.get("value", 0)),
+                "metadata": e.get("metadata", {}),
+            })
+        if rows:
+            await _request(
+                "POST", "user_events",
+                json_body=rows,
+                prefer="return=minimal",
+                expect_json=False,
+            )
+    except Exception as exc:
+        logger.error(f"Supabase save_events failed: {exc}", exc_info=True)
+        await _fallback("save_events", events)
+
+
+async def get_events(session_id: str, limit: int = 500) -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_events", session_id, limit)
+
+    try:
+        rows = await _request(
+            "GET", "user_events",
+            params={
+                "session_id": f"eq.{session_id}",
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": str(limit),
+            },
+        )
+        for row in rows or []:
+            row["metadata"] = _coerce_json_field(row.get("metadata"), {})
+        return rows or []
+    except Exception as exc:
+        logger.error(f"Supabase get_events failed: {exc}", exc_info=True)
+        return await _fallback("get_events", session_id, limit)
+
+
+async def get_events_by_sync_code(sync_code: str, limit: int = 1000) -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_events_by_sync_code", sync_code, limit)
+
+    try:
+        rows = await _request(
+            "GET", "user_events",
+            params={
+                "sync_code": f"eq.{sync_code}",
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": str(limit),
+            },
+        )
+        for row in rows or []:
+            row["metadata"] = _coerce_json_field(row.get("metadata"), {})
+        return rows or []
+    except Exception as exc:
+        logger.error(f"Supabase get_events_by_sync_code failed: {exc}", exc_info=True)
+        return await _fallback("get_events_by_sync_code", sync_code, limit)
+
+
+async def get_event_counts() -> dict:
+    if not is_configured():
+        return await _fallback("get_event_counts")
+
+    try:
+        rows = await _request(
+            "GET", "user_events",
+            params={"select": "event_type"},
+        )
+        counts: dict[str, int] = {}
+        for row in rows or []:
+            et = row.get("event_type", "")
+            counts[et] = counts.get(et, 0) + 1
+        return counts
+    except Exception as exc:
+        logger.error(f"Supabase get_event_counts failed: {exc}", exc_info=True)
+        return await _fallback("get_event_counts")
+
+
+# -- User Topic Scores -----------------------------------------------
+
+async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]) -> None:
+    if not is_configured():
+        await _fallback("save_topic_scores", session_id, sync_code, scores, event_counts)
+        return
+
+    try:
+        rows = []
+        for topic, score in scores.items():
+            rows.append({
+                "session_id": session_id,
+                "sync_code": sync_code,
+                "topic": topic,
+                "score": score,
+                "event_count": event_counts.get(topic, 0),
+            })
+        if rows:
+            await _request(
+                "POST", "user_topic_scores",
+                params={"on_conflict": "session_id,topic"},
+                json_body=rows,
+                prefer="resolution=merge-duplicates,return=minimal",
+                expect_json=False,
+            )
+    except Exception as exc:
+        logger.error(f"Supabase save_topic_scores failed: {exc}", exc_info=True)
+        await _fallback("save_topic_scores", session_id, sync_code, scores, event_counts)
+
+
+async def get_topic_scores(session_id: str) -> dict[str, float]:
+    if not is_configured():
+        return await _fallback("get_topic_scores", session_id)
+
+    try:
+        rows = await _request(
+            "GET", "user_topic_scores",
+            params={
+                "session_id": f"eq.{session_id}",
+                "select": "topic,score",
+                "order": "score.desc",
+            },
+        )
+        return {row["topic"]: float(row["score"]) for row in rows or []}
+    except Exception as exc:
+        logger.error(f"Supabase get_topic_scores failed: {exc}", exc_info=True)
+        return await _fallback("get_topic_scores", session_id)
+
+
+async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
+    if not is_configured():
+        return await _fallback("get_topic_scores_by_sync_code", sync_code)
+
+    try:
+        rows = await _request(
+            "GET", "user_topic_scores",
+            params={
+                "sync_code": f"eq.{sync_code}",
+                "select": "topic,score",
+            },
+        )
+        totals: dict[str, float] = {}
+        for row in rows or []:
+            t = row["topic"]
+            totals[t] = totals.get(t, 0) + float(row["score"])
+        return dict(sorted(totals.items(), key=lambda x: x[1], reverse=True))
+    except Exception as exc:
+        logger.error(f"Supabase get_topic_scores_by_sync_code failed: {exc}", exc_info=True)
+        return await _fallback("get_topic_scores_by_sync_code", sync_code)
+
+
+# -- RSS Feeds (Admin) ------------------------------------------------
+
+async def save_rss_feed(country_code: str, feed_key: str, query: str, is_active: bool = True) -> None:
+    if not is_configured():
+        await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
+        return
+
+    try:
+        await _request(
+            "POST", "rss_feeds",
+            params={"on_conflict": "country_code,feed_key"},
+            json_body={
+                "country_code": country_code,
+                "feed_key": feed_key,
+                "query": query,
+                "is_active": is_active,
+            },
+            prefer="resolution=merge-duplicates,return=minimal",
+            expect_json=False,
+        )
+    except Exception as exc:
+        logger.error(f"Supabase save_rss_feed failed: {exc}", exc_info=True)
+        await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
+
+
+async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_rss_feeds", country_code)
+
+    try:
+        params = {"select": "*", "order": "country_code,feed_key"}
+        if country_code:
+            params["country_code"] = f"eq.{country_code}"
+        rows = await _request("GET", "rss_feeds", params=params)
+        return rows or []
+    except Exception as exc:
+        logger.error(f"Supabase get_rss_feeds failed: {exc}", exc_info=True)
+        return await _fallback("get_rss_feeds", country_code)
+
+
+async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
+    if not is_configured():
+        return await _fallback("delete_rss_feed", country_code, feed_key)
+
+    try:
+        await _request(
+            "DELETE", "rss_feeds",
+            params={
+                "country_code": f"eq.{country_code}",
+                "feed_key": f"eq.{feed_key}",
+            },
+            prefer="return=minimal",
+            expect_json=False,
+        )
+        return True
+    except Exception as exc:
+        logger.error(f"Supabase delete_rss_feed failed: {exc}", exc_info=True)
+        return await _fallback("delete_rss_feed", country_code, feed_key)

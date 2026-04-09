@@ -187,6 +187,46 @@ def sidebar(
                 rel_btn.on('click', _sort_relevance)
                 lat_btn.on('click', _sort_latest)
 
+        # Sync Code
+        with ui.element('div').classes('sidebar-section'):
+            ui.html(f'<div class="sidebar-section-title">🔄 {tr(lang, "sync_code", fallback="Sync Code")}</div>')
+            ui.label(tr(lang, "sync_code_desc", fallback="Use this code to sync your personalization across devices.")).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
+            
+            with ui.row().classes("w-full items-center justify-between p-2 mb-4").style("background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-ghost);"):
+                current_code_label = ui.label("Loading...").style("font-size: 13px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-primary);")
+                ui.button(icon="content_copy", on_click=lambda: ui.run_javascript('navigator.clipboard.writeText(localStorage.getItem("dailyai_sync_code") || "");') or ui.notify("Copied!")).props("flat round dense color=primary").tooltip("Copy")
+
+            ui.label("Switch Sync Code").style("font-size: 12px; font-weight: bold; margin-bottom: 4px;")
+            sync_code_input = ui.input(placeholder="Enter existing code...").classes("w-full").props("dark outlined dense clearable")
+            
+            async def _apply_code():
+                new_code = str(sync_code_input.value or "").strip()
+                if new_code:
+                    ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{new_code}");')
+                    current_code_label.set_text(new_code)
+                    sync_code_input.value = ""
+                    ui.notify("Sync code updated!", type="positive")
+                    ui.run_javascript('closeSidebar()')
+                    if on_refresh:
+                        if asyncio.iscoroutinefunction(on_refresh):
+                            await on_refresh()
+                        else:
+                            on_refresh()
+                    else:
+                        ui.navigate.to(f'/?{urlencode({"country": current_country, "language": current_lang})}')
+
+            ui.button("Apply Code", on_click=_apply_code).classes("w-full mt-3").props("color=accent dense")
+
+            # Load code after UI mounts
+            async def _load_sync_code():
+                try:
+                    c = await ui.run_javascript('return localStorage.getItem("dailyai_sync_code") || "";', timeout=2.0)
+                    if c:
+                        current_code_label.set_text(c)
+                except Exception:
+                    pass
+            ui.timer(0.2, _load_sync_code, once=True)
+
         # Actions
         with ui.element('div').classes('sidebar-section'):
             if on_refresh:
@@ -204,17 +244,17 @@ def sidebar(
         # Footer
         with ui.element('div').classes('sidebar-footer'):
             with ui.row().classes('w-full flex-wrap gap-x-4 gap-y-1 justify-center mb-3'):
-                for lbl, href in [
-                    ('Impressum', '/impressum'),
-                    ('Datenschutz', '/datenschutz'),
-                    ('AGB', '/terms'),
-                    ('API Docs', '/api-docs'),
+                for lbl_key, href in [
+                    ('impressum', '/impressum'),
+                    ('datenschutz', '/datenschutz'),
+                    ('agb', '/terms'),
+                    ('api_docs', '/api-docs'),
                 ]:
-                    ui.link(lbl, href).style(
+                    ui.link(tr(lang, lbl_key), href).style(
                         'font-size: 11px; color: var(--text-muted); text-decoration: none;'
                     )
-            ui.label('v3.0 · DailyAI').style('margin-bottom: 4px;')
-            ui.label('Powered by AI · Built with ❤️').style('font-size: 10px; color: var(--text-muted);')
+            ui.label(tr(lang, 'version_label')).style('margin-bottom: 4px;')
+            ui.label(tr(lang, 'powered_by')).style('font-size: 10px; color: var(--text-muted);')
 
 
 async def _handle_sort(sort_type, callback):

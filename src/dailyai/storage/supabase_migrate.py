@@ -21,7 +21,7 @@ from dailyai.storage import sqlite
 
 logger = logging.getLogger("dailyai.storage.migrate")
 
-REQUIRED_TABLES = ("articles", "profiles", "subscribers", "metadata")
+REQUIRED_TABLES = ("articles", "profiles", "subscribers", "metadata", "user_events", "user_topic_scores")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SCHEMA_PATH = PROJECT_ROOT / "supabase" / "bootstrap.sql"
 
@@ -179,6 +179,8 @@ async def _sqlite_snapshot() -> dict:
     profiles = await sqlite.get_all_profiles()
     subscribers = await sqlite.get_all_subscribers()
     metadata = await sqlite.get_all_metadata()
+    user_events = await sqlite.get_all_events()
+    user_topic_scores = await sqlite.get_all_topic_scores()
 
     return {
         "store_keys": store_keys,
@@ -187,6 +189,8 @@ async def _sqlite_snapshot() -> dict:
         "profiles": profiles,
         "subscribers": subscribers,
         "metadata": metadata,
+        "user_events": user_events,
+        "user_topic_scores": user_topic_scores,
     }
 
 
@@ -240,6 +244,29 @@ def _metadata_rows(meta: dict[str, str]) -> list[dict]:
     return [{"key": key, "value": value} for key, value in meta.items()]
 
 
+def _user_events_row(row: dict) -> dict:
+    return {
+        "session_id": row.get("session_id", ""),
+        "sync_code": row.get("sync_code", ""),
+        "event_type": row.get("event_type", ""),
+        "article_id": row.get("article_id", ""),
+        "topic": row.get("topic", "general"),
+        "category": row.get("category", "general"),
+        "value": float(row.get("value", 0.0)),
+        "metadata": row.get("metadata", {}),
+        "created_at": row.get("created_at"),
+    }
+
+def _user_topic_scores_row(row: dict) -> dict:
+    return {
+        "session_id": row.get("session_id", ""),
+        "sync_code": row.get("sync_code", ""),
+        "topic": row.get("topic", ""),
+        "score": float(row.get("score", 0.0)),
+        "event_count": int(row.get("event_count", 0)),
+        "updated_at": row.get("updated_at"),
+    }
+
 def write_schema_file(path: Path) -> Path:
     source = DEFAULT_SCHEMA_PATH
     if not source.exists():
@@ -289,11 +316,13 @@ async def run_migration(args: argparse.Namespace) -> int:
 
     snapshot = await _sqlite_snapshot()
     print(
-        "SQLite snapshot:",
-        f"articles={snapshot['total_articles']}",
-        f"profiles={len(snapshot['profiles'])}",
-        f"subscribers={len(snapshot['subscribers'])}",
-        f"metadata={len(snapshot['metadata'])}",
+        "SQLite snapshot:\n"
+        f"articles={snapshot['total_articles']}, "
+        f"profiles={len(snapshot['profiles'])}, "
+        f"subscribers={len(snapshot['subscribers'])}, "
+        f"metadata={len(snapshot['metadata'])}, "
+        f"user_events={len(snapshot.get('user_events', []))}, "
+        f"user_topic_scores={len(snapshot.get('user_topic_scores', []))}"
     )
 
     inserted_articles = 0
@@ -315,16 +344,30 @@ async def run_migration(args: argparse.Namespace) -> int:
     metadata_rows = _metadata_rows(snapshot["metadata"])
     inserted_metadata = await client.insert_rows("metadata", metadata_rows, on_conflict="key")
 
+    user_events_rows = [_user_events_row(row) for row in snapshot.get("user_events", [])]
+    inserted_user_events = await client.insert_rows("user_events", user_events_rows)
+
+    user_topic_scores_rows = [_user_topic_scores_row(row) for row in snapshot.get("user_topic_scores", [])]
+    inserted_user_topic_scores = await client.insert_rows(
+        "user_topic_scores",
+        user_topic_scores_rows,
+        on_conflict="session_id, sync_code, topic"
+    )
+
     remote_articles = await client.count_rows("articles")
     remote_profiles = await client.count_rows("profiles")
     remote_subscribers = await client.count_rows("subscribers", filters={"is_active": "eq.true"})
     remote_metadata = await client.count_rows("metadata")
+    remote_user_events = await client.count_rows("user_events")
+    remote_user_topic_scores = await client.count_rows("user_topic_scores")
 
     print("Migration complete:")
     print(f"- inserted_articles={inserted_articles}, remote_articles={remote_articles}")
     print(f"- inserted_profiles={inserted_profiles}, remote_profiles={remote_profiles}")
     print(f"- inserted_subscribers={inserted_subscribers}, remote_active_subscribers={remote_subscribers}")
     print(f"- inserted_metadata={inserted_metadata}, remote_metadata={remote_metadata}")
+    print(f"- inserted_user_events={inserted_user_events}, remote_user_events={remote_user_events}")
+    print(f"- inserted_user_topic_scores={inserted_user_topic_scores}, remote_user_topic_scores={remote_user_topic_scores}")
 
     return 0
 

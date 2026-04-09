@@ -5,6 +5,9 @@ All settings, constants, and env-driven configuration in one place.
 
 import os
 from datetime import UTC, datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── App Metadata ────────────────────────────────────────────────────
 APP_NAME = "DailyAI"
@@ -130,6 +133,20 @@ FEED_QUERIES_DE: dict[str, str] = {
     "ki_startups": "KI+Startup+Deutschland+OR+AI+Startup+Germany+OR+Aleph+Alpha+OR+DeepL",
 }
 
+FEED_QUERIES_IN: dict[str, str] = {
+    "ai_india": "artificial+intelligence+India+OR+AI+India+OR+machine+learning+India",
+    "ai_india_companies": "Infosys+AI+OR+TCS+artificial+intelligence+OR+Wipro+AI+OR+Reliance+Jio+AI",
+    "ai_india_research": "IIT+AI+OR+IISC+AI+OR+ISRO+AI+OR+India+AI+research+OR+NASSCOM+AI",
+    "ai_india_govt": "India+AI+policy+OR+MeitY+AI+OR+India+digital+transformation",
+}
+
+FEED_QUERIES_GB: dict[str, str] = {
+    "ai_uk": "artificial+intelligence+UK+OR+AI+United+Kingdom+OR+machine+learning+UK",
+    "ai_uk_companies": "DeepMind+OR+ARM+AI+OR+BT+artificial+intelligence+OR+UK+AI+startup",
+    "ai_uk_policy": "UK+AI+Safety+Institute+OR+UK+AI+regulation+OR+Bletchley+Park+AI+summit",
+    "ai_uk_research": "Alan+Turing+Institute+AI+OR+Oxford+AI+OR+Cambridge+AI+research",
+}
+
 # ── Source Trust ────────────────────────────────────────────────────
 HIGH_TRUST_SOURCES: set[str] = {
     "reuters", "associated press", "ap news", "financial times",
@@ -140,6 +157,11 @@ HIGH_TRUST_SOURCES: set[str] = {
     "heise", "golem", "t3n", "handelsblatt", "faz",
     "frankfurter allgemeine", "spiegel", "der spiegel",
     "süddeutsche zeitung", "die zeit", "tagesschau", "nzz", "der standard",
+    # India high-trust
+    "the hindu", "times of india", "economic times", "livemint",
+    "ndtv", "india today", "business standard", "the indian express",
+    # UK high-trust
+    "bbc", "the times", "the telegraph", "sky news",
 }
 
 MEDIUM_TRUST_SOURCES: set[str] = {
@@ -148,12 +170,16 @@ MEDIUM_TRUST_SOURCES: set[str] = {
     "south china morning post", "business insider", "fortune",
     "fast company", "cnet", "tom's hardware", "9to5mac", "9to5google",
     "chip.de", "computerbild",
+    # India medium-trust
+    "moneycontrol", "firstpost", "inc42", "yourstory",
+    # UK medium-trust
+    "techradar", "the register",
 }
 
 # ── Pipeline Limits ─────────────────────────────────────────────────
 MAX_TILES_PER_FETCH = 30
 MAX_FEED_SIZE = 30
-MIN_FEED_SIZE = 10
+MIN_FEED_SIZE = 3  # Lowered from 10 to avoid premature fallback for regional feeds
 RSS_MAX_ITEMS_PER_FEED = 20
 RSS_TIMEOUT_SECONDS = 15
 LLM_TIMEOUT_SECONDS = 45

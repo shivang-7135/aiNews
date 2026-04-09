@@ -22,7 +22,10 @@ from dailyai.config import (
 from dailyai.services.news import stream_article_brief, get_feed, refresh_news
 from dailyai.storage.backend import backend_name
 from dailyai.storage.models import (
+    AdminDeleteRSSFeedRequest,
+    AdminRSSFeedRequest,
     ArticleBriefRequest,
+    BatchEventsRequest,
     CreateProfileRequest,
     RecordAnalyticsRequest,
     RecordSignalRequest,
@@ -138,15 +141,6 @@ async def countries():
 @router.get("/api/languages")
 async def languages():
     return {"languages": UI_LANGUAGES}
-
-
-@router.get("/api/admin/cache-health")
-async def cache_health():
-    """Admin/debug endpoint for DB cache health and rotation stats."""
-    from dailyai.storage.backend import get_cache_health
-
-    return await get_cache_health()
-
 
 # ── Subscribe ───────────────────────────────────────────────────────
 
@@ -316,3 +310,121 @@ async def api_v1_trending(
         reverse=True,
     )
     return {"threads": sorted_threads[:20], "total": len(sorted_threads), "api_version": "v1"}
+
+
+# ── Analytics Events API ────────────────────────────────────────────
+
+@router.post("/api/analytics/events")
+async def ingest_analytics_events(req: BatchEventsRequest):
+    """Batch ingest user interaction events for personalization."""
+    from dailyai.services.analytics import record_events
+
+    if not req.session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    if not req.events:
+        return {"recorded": 0}
+
+    events = [e.model_dump() for e in req.events]
+    count = await record_events(req.session_id, req.sync_code, events)
+    return {"recorded": count}
+
+
+@router.get("/api/analytics/scores/{identifier}")
+async def get_personalization_scores(identifier: str):
+    """Get topic preference scores for a session or sync code."""
+    from dailyai.services.analytics import get_personalized_scores
+
+    # Try as sync_code first, then session_id
+    scores = await get_personalized_scores(session_id=identifier, sync_code=identifier)
+    return {"identifier": identifier, "scores": scores}
+
+
+# ── Admin API (Password Protected) ──────────────────────────────────
+
+_ADMIN_PASSWORD = None
+
+def _get_admin_password() -> str:
+    global _ADMIN_PASSWORD
+    if _ADMIN_PASSWORD is None:
+        import os
+        _ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "dailyai-admin-2026")
+    return _ADMIN_PASSWORD
+
+
+def _check_admin_auth(authorization: str | None) -> bool:
+    if not authorization:
+        return False
+    expected = _get_admin_password()
+    # Support both "Bearer <password>" and plain password
+    token = authorization.replace("Bearer ", "").strip()
+    return token == expected
+
+
+@router.get("/api/admin/rss-feeds")
+async def admin_get_rss_feeds(
+    country_code: str | None = None,
+    authorization: str | None = Header(None),
+):
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import get_rss_feeds
+    feeds = await get_rss_feeds(country_code)
+    return {"feeds": feeds, "total": len(feeds)}
+
+
+@router.post("/api/admin/rss-feeds")
+async def admin_save_rss_feed(
+    req: AdminRSSFeedRequest,
+    authorization: str | None = Header(None),
+):
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import save_rss_feed
+    await save_rss_feed(req.country_code, req.feed_key, req.query, req.is_active)
+    return {"status": "saved", "country_code": req.country_code, "feed_key": req.feed_key}
+
+
+@router.delete("/api/admin/rss-feeds")
+async def admin_delete_rss_feed(
+    req: AdminDeleteRSSFeedRequest,
+    authorization: str | None = Header(None),
+):
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import delete_rss_feed
+    deleted = await delete_rss_feed(req.country_code, req.feed_key)
+    return {"status": "deleted" if deleted else "not_found"}
+
+
+@router.get("/api/admin/analytics")
+async def admin_analytics_overview(
+    authorization: str | None = Header(None),
+):
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.services.analytics import get_analytics_summary
+    return await get_analytics_summary()
+
+
+@router.get("/api/admin/cache-health")
+async def admin_cache_health(
+    authorization: str | None = Header(None),
+):
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import get_cache_health
+    return await get_cache_health()
+
+
+@router.post("/api/admin/auth")
+async def admin_auth(password: str = ""):
+    """Simple admin auth check."""
+    if password == _get_admin_password():
+        return {"authenticated": True}
+    return JSONResponse({"error": "Invalid password"}, status_code=401)
+

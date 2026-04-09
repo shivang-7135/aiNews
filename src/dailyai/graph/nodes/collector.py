@@ -13,8 +13,6 @@ import feedparser
 import httpx
 
 from dailyai.config import (
-    FEED_QUERIES,
-    FEED_QUERIES_DE,
     GOOGLE_NEWS_RSS,
     LANG_MAP,
     RSS_MAX_ITEMS_PER_FEED,
@@ -70,15 +68,25 @@ async def run(state: dict) -> dict:
     Reads: country_code
     Writes: raw_articles, node_timings
     """
+    from dailyai.storage.backend import get_rss_feeds
+    
     start = time.time()
     country_code = state.get("country_code", "GLOBAL")
     hl = state.get("language", "en")
     gl = LANG_MAP.get(country_code, ("en", "US"))[1]
 
-    # Build query set
-    queries = dict(FEED_QUERIES)
-    if country_code in ("DE", "AT", "CH") or gl == "DE" or hl == "de":
-        queries.update(FEED_QUERIES_DE)
+    # Fetch global queries as baseline
+    global_feeds = await get_rss_feeds("GLOBAL")
+    queries = {f["feed_key"]: f["query"] for f in global_feeds if f.get("is_active")}
+    
+    # Merge country-specific queries if applicable
+    if country_code != "GLOBAL":
+        country_feeds = await get_rss_feeds(country_code)
+        country_queries = {f["feed_key"]: f["query"] for f in country_feeds if f.get("is_active")}
+        queries.update(country_queries)
+        
+    if not queries:
+        logger.warning(f"No active RSS feeds found for country '{country_code}' or GLOBAL")
 
     # Fetch all feeds concurrently
     tasks = [_fetch_rss_feed(q, gl=gl, hl=hl) for q in queries.values()]

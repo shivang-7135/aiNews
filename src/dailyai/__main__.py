@@ -63,12 +63,21 @@ def main():
         stop_scheduler()
         await close_db()
 
-    # Run server
+    import argparse
+    parser = argparse.ArgumentParser(description="DailyAI via Uvicorn")
+    parser.add_argument("--workers", type=int, default=1, help="Number of uvicorn workers to use.")
+    args = parser.parse_args()
+
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
 
-    logger.info(f"Starting Uvicorn server on http://{host}:{port}")
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    if args.workers > 1:
+        logger.info(f"Starting Multi-Worker Uvicorn server on http://{host}:{port} with {args.workers} workers")
+        # uvicorn needs an import string for workers > 1
+        uvicorn.run("dailyai.ui.app:create_app", host=host, port=port, log_level="info", workers=args.workers, factory=True)
+    else:
+        logger.info(f"Starting Single-Worker Uvicorn server on http://{host}:{port}")
+        uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
