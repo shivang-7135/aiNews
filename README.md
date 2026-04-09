@@ -1,42 +1,199 @@
-# DailyAI — Agentic News Intelligence
+# DailyAI
 
-DailyAI is a modern, high-performance web application that aggregates, categorizes, and curates AI and technology news from 50+ global sources. It leverages a novel "agentic pipeline" architecture to autonomously process feeds, filter noise, and generate tailored, real-time intelligence briefs.
+DailyAI is a FastAPI + NiceGUI application for AI/tech news intelligence.
+It ingests RSS sources, processes stories through a LangGraph pipeline, serves a mobile-first feed UI, and exposes API endpoints for feed access, personalization, and operations.
 
-## Architecture
+## Current Status
 
-The project has transitioned from a basic procedural setup into a scalable startup architecture, utilizing the following core stack:
+This repository is now on the v2 architecture and includes:
 
-- **Frontend / UI**: [**NiceGUI**](https://nicegui.io/)
-  - An entirely Python-based UI framework built on top of Vue/Quasar.
-  - Enables zero-compilation mobile-first responsive design, delivering a premium "app-like" experience directly through standard Python.
-  - UI styled globally via pure CSS injections inside `src/dailyai/ui/components/theme.py`, utilizing custom scrollbar overrides, glassmorphism, and ambient gradients.
+- Source-first app structure under `src/dailyai`.
+- FastAPI + NiceGUI unified app startup.
+- LangGraph pipeline for collection, dedupe, trust/sentiment/topic tagging, and formatting.
+- Streaming article briefs with LLM fallback chaining.
+- SQLite default persistence, with optional Supabase backend.
+- Analytics-driven personalization and profile sync codes.
+- Operational admin endpoints and hidden cache/RSS admin UI.
+- Deployment-ready setup for buildpack and container platforms.
 
-- **Backend Framework**: **FastAPI**
-  - Serves as the high-throughput asynchronous foundation.
-  - Powers Server-Sent Events (SSE) streaming (`StreamingResponse`) which delivers real-time AI briefs to the frontend seamlessly.
+## Tech Stack
 
-- **AI Pipeline**: [**LangGraph**](https://langchain-ai.github.io/langgraph/)
-  - Replaces monolithic LLM calls with a resilient graphed state machine (`src/dailyai/graph/pipeline.py`).
-  - Manages fetching, de-duplication, quality grading, and content categorization.
-  - Supports multiple LLM providers (Gemini, Groq, OpenAI) synchronously via intelligent fallbacks.
+- Backend: FastAPI
+- UI: NiceGUI (Quasar/Vue runtime)
+- Pipeline: LangGraph + LangChain
+- Storage: SQLite (`aiosqlite`) by default, optional Supabase
+- Scheduler: APScheduler
+- Email: Resend (optional)
+- Runtime: Python 3.11+
 
-- **Storage Layer**: **SQLite / `aiosqlite`**
-  - Eliminates slow JSON flat files by using an asynchronous, zero-config relational database (`dailyai.db`) for storing structured feeds, profiles, analytics, and persistent AI Brief caches.
+## Key Features
 
-- **Dependency & Task Management**: [**uv**](https://github.com/astral-sh/uv)
-  - Blazing-fast dependency injection and environment resolution replacing standard `pip` workflows.
+- Multi-country, multi-language feed slices (with normalization and fallback logic)
+- Topic-aware feed tabs and category counts
+- Personalized ranking using captured behavior events
+- Article brief streaming endpoint with cached summaries
+- Background prefetch and scheduled full refresh
+- Daily email digest support
+- Developer API (`/api/v1/*`) plus internal UI APIs (`/api/*`)
 
-## Core Features
-1. **Real-Time Streaming Briefs**: AI summaries do not block. They type out line-by-line dynamically on the frontend.
-2. **Parallel Startup Optimization**: Feeds for `GLOBAL` and regional metrics are fetched asynchronously with `asyncio.gather` for significantly reduced load times.
-3. **Database Caching Strategy**: LLM outputs and RSS feeds are rotated efficiently to ensure maximum API rate-limit preservation.
-4. **Mobile First Typography**: In-shorts style scrolling cards displaying high-quality, lightweight compressed image assets from Unsplash.
+## Project Layout
 
-## Getting Started
+```text
+.
+├── app.py                      # ASGI compatibility entrypoint (uvicorn app:app)
+├── src/dailyai/
+│   ├── __main__.py             # Main runtime entrypoint (uv run dailyai)
+│   ├── api/                    # REST routes + middleware
+│   ├── graph/                  # LangGraph state + nodes
+│   ├── llm/                    # LLM provider + prompts
+│   ├── services/               # News, analytics, profiles, scheduler, digest
+│   ├── storage/                # sqlite/supabase backends + migration utility
+│   └── ui/                     # NiceGUI pages/components/theme
+├── tests/
+├── requirements.txt            # Deployment dependency source of truth
+├── Procfile                    # Buildpack start command
+├── Dockerfile
+└── render.yaml
+```
 
-1. Set your target API keys in a `.env` file (e.g. `OPENAI_API_KEY`, `GOOGLE_AI_KEY`).
-2. Run the application via `uv`:
-   ```bash
-   uv run uvicorn app:app --reload
-   ```
-3. Open mobile or desktop browser to `http://localhost:8000`.
+## Local Development
+
+### 1) Prepare environment
+
+```bash
+cp .env.example .env
+```
+
+Set at least one LLM provider key in `.env` (for example `OPENAI_API_KEY` or `GOOGLE_AI_KEY`).
+
+### 2) Install dependencies
+
+Option A (recommended for local dev):
+
+```bash
+uv sync
+```
+
+Option B (pip workflow / deployment parity):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3) Run the app
+
+Primary command:
+
+```bash
+uv run dailyai
+```
+
+Compatibility command:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Open: `http://localhost:8000`
+
+## Useful Environment Variables
+
+- Server: `HOST`, `PORT`, `DEBUG`, `APP_URL`
+- Storage: `STORAGE_BACKEND`, `DB_PATH`, `SUPABASE_URL`, `SUPABASE_KEY`
+- LLM: `OPENAI_API_KEY`, `GOOGLE_AI_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY`, `HF_API_TOKEN`, `ARLIAI_API_KEY`, `OLLAMA_BASE_URL`
+- Scheduling/cache: `DAILY_REFRESH_HOUR_UTC`, `DAILY_REFRESH_MINUTE_UTC`, `STARTUP_PREFETCH_*`, `CACHE_*`
+- Email: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_REPLY_TO`
+- Admin: `ADMIN_PASSWORD`
+
+## API Surface
+
+Internal/UI APIs:
+
+- `GET /api/articles`
+- `GET /api/articles/categories`
+- `POST /api/articles/brief` (streaming response)
+- `POST /api/analytics/events`
+- `GET /api/profile/{sync_code}` and related profile routes
+
+Developer APIs:
+
+- `GET /api/v1/feed`
+- `GET /api/v1/categories`
+- `GET /api/v1/trending`
+
+Ops/Admin APIs:
+
+- `GET /api/admin/cache-health`
+- `GET/POST/DELETE /api/admin/rss-feeds`
+- `GET /api/admin/analytics`
+
+Legal/info pages:
+
+- `/impressum`, `/datenschutz`, `/terms`, `/api-docs`
+
+## Testing and Quality
+
+Run all tests:
+
+```bash
+uv run pytest -q
+```
+
+Run function health checks:
+
+```bash
+uv run pytest -q tests/test_function_health.py
+```
+
+Lint/type checks:
+
+```bash
+uv run ruff check .
+uv run mypy .
+```
+
+## Storage Backends
+
+Default backend is SQLite.
+
+To use Supabase:
+
+1. Set `STORAGE_BACKEND=supabase`
+2. Set `SUPABASE_URL` and `SUPABASE_KEY`
+3. (Optional) migrate existing SQLite data:
+
+```bash
+uv run dailyai-migrate-supabase --check-only
+uv run dailyai-migrate-supabase
+```
+
+## Deployment
+
+### Buildpack-style platforms
+
+This repo is configured to use `requirements.txt` as dependency source for deployment.
+
+- `Procfile` exists with:
+  - `web: uvicorn app:app --host 0.0.0.0 --port $PORT`
+- `uv.lock` is intentionally excluded for buildpack compatibility.
+
+### Render
+
+`render.yaml` is included:
+
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn app:app --host 0.0.0.0 --port $PORT`
+
+### Docker
+
+```bash
+docker build -t dailyai .
+docker run -p 8000:8000 --env-file .env dailyai
+```
+
+## Contributing
+
+See `CONTRIBUTING.md`.
+
