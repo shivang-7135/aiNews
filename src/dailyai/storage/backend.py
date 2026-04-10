@@ -171,3 +171,9 @@ async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
 
 async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
     return await _backend.delete_rss_feed(country_code, feed_key)
+
+async def store_user_daily_digest(sync_code: str, target_date: str, synthesis: str, custom_hooks: dict) -> None:
+    await _backend.store_user_daily_digest(sync_code, target_date, synthesis, custom_hooks)
+
+async def get_user_daily_digest(sync_code: str, target_date: str) -> dict | None:
+    return await _backend.get_user_daily_digest(sync_code, target_date)

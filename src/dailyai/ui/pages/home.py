@@ -14,8 +14,8 @@ from dailyai.api.routes import get_feed
 from dailyai.config import COUNTRIES, UI_FEED_TOPICS, UI_LANGUAGES
 from dailyai.ui.components.nav_bar import nav_bar, sidebar, topic_filter
 from dailyai.ui.components.news_card import _inject_detail_overlay_once, news_card, skeleton_card
-from dailyai.ui.i18n import normalize_ui_language, tr
 from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS, inject_boot_loader
+from dailyai.ui.i18n import normalize_ui_language, tr
 
 logger = logging.getLogger("dailyai.home")
 
@@ -251,10 +251,12 @@ async def home_page():
             app_state["articles"] = articles
             app_state["total"] = int(feed_data.get("total", len(articles)))
             app_state["has_more"] = bool(feed_data.get("has_more", False))
+            app_state["synthesis"] = feed_data.get("synthesis", "")
         except Exception as e:
             articles = []
             app_state["total"] = 0
             app_state["has_more"] = False
+            app_state["synthesis"] = ""
             logger.error(f"Feed load error: {e}")
             ui.notify(tr(app_state["language"], 'failed_feed', error=e), type="negative", position="bottom")
 
@@ -276,6 +278,13 @@ async def home_page():
                         </div>
                     ''')
             else:
+                if app_state.get("synthesis") and app_state["topic"] == "For You":
+                    with ui.element('div').classes('synthesis-banner'):
+                        with ui.element('div').classes('synthesis-header'):
+                            ui.html('<span class="material-icons" style="font-size: 16px;">auto_awesome</span>')
+                            ui.label('Your Daily Briefing')
+                        ui.label(app_state["synthesis"]).classes('synthesis-content')
+                        
                 # Feed container — Inshorts snap-scroll on mobile, grid on desktop
                 feed_container = ui.element('div').classes(
                     'w-full feed-container feed-grid px-0 sm:px-4 md:px-6'

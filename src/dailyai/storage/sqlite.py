@@ -7,7 +7,6 @@ Zero-config, serverless, handles concurrent reads, and queryable.
 import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 
 import aiosqlite
 
@@ -102,6 +101,15 @@ async def _create_tables(db: aiosqlite.Connection):
         CREATE TABLE IF NOT EXISTS metadata (
             key TEXT PRIMARY KEY,
             value TEXT DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS user_daily_digests (
+            sync_code TEXT,
+            target_date TEXT,
+            synthesis TEXT DEFAULT '',
+            custom_hooks TEXT DEFAULT '{}',
+            created_at TEXT,
+            PRIMARY KEY (sync_code, target_date)
         );
 
         CREATE TABLE IF NOT EXISTS user_events (
@@ -711,3 +719,32 @@ async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
     await db.commit()
     return cursor.rowcount > 0
 
+
+async def store_user_daily_digest(sync_code: str, target_date: str, synthesis: str, custom_hooks: dict) -> None:
+    """Store a personalized daily digest payload."""
+    import json
+    db = await get_db()
+    # Replace existing or insert new
+    await db.execute(
+        """INSERT OR REPLACE INTO user_daily_digests 
+           (sync_code, target_date, synthesis, custom_hooks, created_at) 
+           VALUES (?, ?, ?, ?, datetime('now'))""",
+        (sync_code, target_date, synthesis, json.dumps(custom_hooks))
+    )
+    await db.commit()
+
+async def get_user_daily_digest(sync_code: str, target_date: str) -> dict | None:
+    """Retrieve a personalized daily digest payload."""
+    import json
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT synthesis, custom_hooks FROM user_daily_digests WHERE sync_code = ? AND target_date = ?",
+        (sync_code, target_date)
+    )
+    row = await cursor.fetchone()
+    if row:
+        return {
+            "synthesis": row["synthesis"],
+            "custom_hooks": json.loads(row["custom_hooks"])
+        }
+    return None

@@ -5,7 +5,6 @@ Uses weighted scoring to rank topics by user interest.
 """
 
 import logging
-from datetime import UTC, datetime
 
 from dailyai.storage import backend as db
 

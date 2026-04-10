@@ -8,9 +8,9 @@ import json
 import logging
 import random
 import threading
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
-
 
 logger = logging.getLogger("dailyai.profiles")
 
@@ -223,10 +223,8 @@ def record_analytics(sync_code: str, stats: dict) -> dict | None:
     }
     for src_key, dest_key in FIELD_MAP.items():
         val = stats.get(src_key, 0)
-        try:
+        with suppress(TypeError, ValueError):
             analytics[dest_key] = analytics.get(dest_key, 0) + int(val)
-        except (TypeError, ValueError):
-            pass
 
     profile["analytics"] = analytics
     profile["last_active"] = datetime.now(UTC).isoformat()

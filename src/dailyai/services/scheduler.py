@@ -3,7 +3,6 @@ DailyAI — APScheduler Jobs
 Manages periodic tasks: news refresh, Supabase sync, email digest.
 """
 
-import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler

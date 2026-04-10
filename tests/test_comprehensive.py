@@ -8,16 +8,13 @@ All external dependencies (LLM APIs, RSS feeds, SQLite, email) are
 fully mocked so tests are fast, deterministic, and offline.
 """
 
-import asyncio
 import hashlib
-import json
 import os
 import sys
-import time
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 # ── Ensure project root is importable ──────────────────────────────
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -104,7 +101,7 @@ class TestConfigModule:
         assert "reuters" in HIGH_TRUST_SOURCES
 
     def test_pipeline_limits_sane(self):
-        from dailyai.config import MAX_FEED_SIZE, MIN_FEED_SIZE, MAX_TILES_PER_FETCH
+        from dailyai.config import MAX_FEED_SIZE, MAX_TILES_PER_FETCH, MIN_FEED_SIZE
         assert MIN_FEED_SIZE < MAX_FEED_SIZE
         assert MAX_TILES_PER_FETCH > 0
 
@@ -206,16 +203,14 @@ class TestLLMProvider:
     def test_get_llm_no_providers_raises(self):
         from dailyai.llm.provider import get_llm
         get_llm.cache_clear()
-        with patch("dailyai.llm.provider._build_providers", return_value=[]):
-            with pytest.raises(RuntimeError, match="No LLM providers"):
-                get_llm()
+        with patch("dailyai.llm.provider._build_providers", return_value=[]), pytest.raises(RuntimeError, match="No LLM providers"):
+            get_llm()
 
     def test_get_fast_llm_no_providers_raises(self):
         from dailyai.llm.provider import get_fast_llm
         get_fast_llm.cache_clear()
-        with patch("dailyai.llm.provider._build_providers", return_value=[]):
-            with pytest.raises(RuntimeError, match="No LLM providers"):
-                get_fast_llm()
+        with patch("dailyai.llm.provider._build_providers", return_value=[]), pytest.raises(RuntimeError, match="No LLM providers"):
+            get_fast_llm()
 
     @pytest.mark.asyncio
     async def test_invoke_llm_success(self):
@@ -261,14 +256,13 @@ class TestLLMProvider:
     @pytest.mark.asyncio
     async def test_warmup_hf_with_token_handles_error(self):
         from dailyai.llm.provider import warmup_hf_model
-        with patch.dict(os.environ, {"HF_API_TOKEN": "test-token"}, clear=False):
-            with patch("dailyai.llm.provider.httpx") as mock_httpx:
-                mock_client = AsyncMock()
-                mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock()
-                mock_client.post.side_effect = Exception("Connection error")
-                # Should handle error gracefully
-                await warmup_hf_model()
+        with patch.dict(os.environ, {"HF_API_TOKEN": "test-token"}, clear=False), patch("dailyai.llm.provider.httpx") as mock_httpx:
+            mock_client = AsyncMock()
+            mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock()
+            mock_client.post.side_effect = Exception("Connection error")
+            # Should handle error gracefully
+            await warmup_hf_model()
 
 
 # =====================================================================
@@ -619,7 +613,7 @@ class TestCuratorNode:
     async def test_curator_llm_timeout_fallback(self):
         from dailyai.graph.nodes.curator import run
         mock_llm = MagicMock()
-        mock_llm.ainvoke = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_llm.ainvoke = AsyncMock(side_effect=TimeoutError())
 
         with patch("dailyai.graph.nodes.curator.get_llm", return_value=mock_llm):
             state = {
@@ -691,7 +685,8 @@ class TestPydanticModels:
 
     def test_news_article_importance_clamped(self):
         from dailyai.storage.models import NewsArticle
-        with pytest.raises(Exception):  # pydantic validation
+
+        with pytest.raises(ValidationError):
             NewsArticle(title="Test", importance=99)
 
     def test_raw_article_minimal(self):
@@ -835,7 +830,7 @@ class TestNewsService:
         """get_article_brief returns cached result on second call."""
         from dailyai.services.news import _brief_cache, get_article_brief
         # Pre-populate cache
-        cache_key = hashlib.md5("Test Title".encode("utf-8")).hexdigest()[:16]
+        cache_key = hashlib.md5(b"Test Title").hexdigest()[:16]
         _brief_cache[cache_key] = "Cached brief content"
         try:
             result = await get_article_brief(title="Test Title")
@@ -987,8 +982,8 @@ class TestPipeline:
         assert pipeline is not None
 
     def test_get_pipeline_singleton(self):
-        from dailyai.graph.pipeline import get_pipeline
         import dailyai.graph.pipeline as mod
+        from dailyai.graph.pipeline import get_pipeline
         mod._pipeline = None  # Reset
         p1 = get_pipeline()
         p2 = get_pipeline()
@@ -1023,7 +1018,7 @@ class TestScheduler:
     """Tests for src/dailyai/services/scheduler.py"""
 
     def test_scheduler_importable(self):
-        from dailyai.services.scheduler import scheduler, start_scheduler, stop_scheduler
+        from dailyai.services.scheduler import scheduler
         assert scheduler is not None
 
 

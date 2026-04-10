@@ -6,7 +6,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent import NewsAgent, _sanitize_llm_response
+from agent import NewsAgent
 from services.config import COUNTRIES, MAX_TILES, UI_TOPIC_MAP, normalize_language, store_key
 from services.store import LAST_UPDATED, NEWS_STORE
 

@@ -4,9 +4,8 @@ Security headers, CORS, and rate limiting.
 """
 
 import logging
-import secrets
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 
 logger = logging.getLogger("dailyai.api.middleware")
 

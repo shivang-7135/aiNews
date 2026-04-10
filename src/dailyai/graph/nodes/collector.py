@@ -5,7 +5,6 @@ Fetches raw news articles from Google News RSS feeds.
 
 import asyncio
 import logging
-import re
 import time
 from datetime import UTC, datetime, timedelta
 

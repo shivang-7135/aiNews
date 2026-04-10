@@ -117,3 +117,40 @@ def sanitize_llm_response(text: str) -> str:
     if hits >= 3:
         return ""
     return text
+
+# ── 1-Call Hyper-Personalization Engine ─────────────────────────────────
+
+BESPOKE_SYSTEM = """You are a highly analytical Chief of Staff for an AI professional.
+Your goal is to parse today's AI news and generate a bespoke daily briefing based EXCLUSIVELY on their "User Persona".
+
+RULES:
+1. You will receive the user's Persona and a JSON list of today's top AI articles.
+2. Output a strictly valid JSON object with the following schema:
+{{
+  "daily_synthesis": "A 2-paragraph executive summary (approx 100 words). Relate the top trends directly to their persona/job. Use a confident, professional tone. No greetings.",
+  "custom_hooks": {{
+      "article_id_1": "A unique 1-2 sentence hook rewriting 'why_it_matters' explicitly for their persona.",
+      "article_id_2": "Another custom hook...",
+      "article_id_3": "Another custom hook...",
+      "article_id_4": "Another custom hook...",
+      "article_id_5": "Another custom hook..."
+  }}
+}}
+3. Create custom hooks for EXACTLY the 5 articles most relevant to their persona. Use the article's given "id" as the key.
+4. If an article doesn't matter to their persona, DO NOT include it in custom_hooks.
+5. The daily_synthesis MUST NOT refer to "the persona". Speak directly to the trends.
+6. The JSON must be raw and valid, with no markdown fences, no triple backticks.
+"""
+
+BESPOKE_HUMAN = """User Persona:
+{persona}
+
+Today's Top Articles:
+{articles_json}
+
+Generate the bespoke JSON briefing now:"""
+
+BESPOKE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", BESPOKE_SYSTEM),
+    ("human", BESPOKE_HUMAN),
+])

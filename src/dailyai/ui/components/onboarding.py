@@ -1,6 +1,8 @@
 from nicegui import ui
-from dailyai.ui.i18n import tr
+
 from dailyai.ui.components.theme import COLORS
+from dailyai.ui.i18n import tr
+
 
 class OnboardingState:
     def __init__(self):

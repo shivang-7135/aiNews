@@ -4,17 +4,107 @@ Dark base + warm vibrant accents for an inviting, happy, professional experience
 Inshorts-style mobile snap-scroll cards, expandable summaries, share/save actions.
 """
 
-from pathlib import Path
 
 from nicegui import ui
+
 from dailyai.ui.i18n import tr
 
+
+def resolve_image_url(url: str | None, topic: str | None = None, seed: str | None = None) -> str:
+    """Return a valid image URL. Falls back to a category image if invalid or missing."""
+    if url and url.startswith("http"):
+        return url
+    return get_category_image(topic, seed)
+
 def inject_boot_loader(language: str):
-    ui.html(f'''
+    boot_text = tr(language, 'boot_loader')
+    # Inject via <head> <template> + importNode so the browser parses SVG in
+    # the correct namespace. NiceGUI's ui.html() mangles SVG elements.
+    ui.add_head_html(f'''
+    <template id="bootLoaderTpl">
         <div class="boot-loader" id="bootLoader">
-            <div class="boot-spinner"></div>
-            <div class="boot-text">{tr(language, 'boot_loader')}</div>
+            <div class="newspaper-loader">
+                <svg viewBox="0 0 140 110" xmlns="http://www.w3.org/2000/svg" class="newspaper-svg">
+                    <!-- Open newspaper base (left page) -->
+                    <rect x="5" y="15" width="60" height="80" rx="2" ry="2"
+                          fill="#1a1d26" stroke="rgba(255,184,0,0.25)" stroke-width="0.8"/>
+                    <!-- Left page masthead -->
+                    <rect x="12" y="22" width="28" height="4" rx="1.5" fill="rgba(255,184,0,0.6)"/>
+                    <rect x="12" y="29" width="18" height="1.5" rx="0.7" fill="rgba(255,255,255,0.12)"/>
+                    <line x1="12" y1="33" x2="58" y2="33" stroke="rgba(255,255,255,0.06)" stroke-width="0.4"/>
+                    <!-- Left page text lines -->
+                    <rect x="12" y="37" width="22" height="2" rx="1" fill="rgba(255,255,255,0.10)"/>
+                    <rect x="12" y="41" width="20" height="2" rx="1" fill="rgba(255,255,255,0.07)"/>
+                    <rect x="12" y="45" width="22" height="2" rx="1" fill="rgba(255,255,255,0.09)"/>
+                    <rect x="12" y="49" width="18" height="2" rx="1" fill="rgba(255,255,255,0.06)"/>
+                    <rect x="12" y="53" width="22" height="2" rx="1" fill="rgba(255,255,255,0.08)"/>
+                    <rect x="12" y="57" width="15" height="2" rx="1" fill="rgba(255,255,255,0.05)"/>
+                    <rect x="12" y="61" width="22" height="2" rx="1" fill="rgba(255,255,255,0.07)"/>
+                    <rect x="12" y="65" width="20" height="2" rx="1" fill="rgba(255,255,255,0.06)"/>
+                    <rect x="12" y="69" width="22" height="2" rx="1" fill="rgba(255,255,255,0.08)"/>
+                    <rect x="37" y="37" width="20" height="2" rx="1" fill="rgba(255,255,255,0.07)"/>
+                    <rect x="37" y="41" width="18" height="2" rx="1" fill="rgba(255,255,255,0.05)"/>
+                    <rect x="37" y="45" width="20" height="2" rx="1" fill="rgba(255,255,255,0.06)"/>
+                    <rect x="37" y="49" width="16" height="2" rx="1" fill="rgba(255,255,255,0.04)"/>
+                    <rect x="37" y="53" width="20" height="2" rx="1" fill="rgba(255,255,255,0.06)"/>
+                    <line x1="34" y1="36" x2="34" y2="72" stroke="rgba(255,255,255,0.04)" stroke-width="0.3"/>
+                    <!-- Spine/fold line -->
+                    <line x1="65" y1="15" x2="65" y2="95" stroke="rgba(255,184,0,0.15)" stroke-width="1"/>
+                    <!-- Right page (static base under turning pages) -->
+                    <rect x="65" y="15" width="60" height="80" rx="2" ry="2"
+                          fill="#1e2130" stroke="rgba(255,184,0,0.2)" stroke-width="0.6"/>
+                    <!-- Right page text lines (visible when pages are flipped away) -->
+                    <rect x="72" y="24" width="22" height="2" rx="1" fill="rgba(255,255,255,0.06)"/>
+                    <rect x="72" y="28" width="18" height="2" rx="1" fill="rgba(255,255,255,0.04)"/>
+                    <rect x="72" y="32" width="22" height="2" rx="1" fill="rgba(255,255,255,0.05)"/>
+                    <rect x="72" y="36" width="16" height="2" rx="1" fill="rgba(255,255,255,0.04)"/>
+                </svg>
+                <!-- Turning pages (HTML divs with 3D CSS transforms for real page flip) -->
+                <div class="turning-page tp-3">
+                    <div class="tp-line" style="width:70%; top:18%"></div>
+                    <div class="tp-line" style="width:55%; top:28%"></div>
+                    <div class="tp-line" style="width:65%; top:38%"></div>
+                    <div class="tp-line" style="width:45%; top:48%"></div>
+                    <div class="tp-line" style="width:60%; top:58%"></div>
+                    <div class="tp-line" style="width:50%; top:68%"></div>
+                </div>
+                <div class="turning-page tp-2">
+                    <div class="tp-line" style="width:60%; top:18%"></div>
+                    <div class="tp-line" style="width:70%; top:28%"></div>
+                    <div class="tp-line" style="width:50%; top:38%"></div>
+                    <div class="tp-line" style="width:65%; top:48%"></div>
+                    <div class="tp-line" style="width:55%; top:58%"></div>
+                    <div class="tp-line" style="width:40%; top:68%"></div>
+                </div>
+                <div class="turning-page tp-1">
+                    <div class="tp-line" style="width:65%; top:18%"></div>
+                    <div class="tp-line" style="width:50%; top:28%"></div>
+                    <div class="tp-line" style="width:70%; top:38%"></div>
+                    <div class="tp-line" style="width:55%; top:48%"></div>
+                    <div class="tp-line" style="width:45%; top:58%"></div>
+                    <div class="tp-line" style="width:60%; top:68%"></div>
+                </div>
+            </div>
+            <div class="boot-text">{boot_text}</div>
         </div>
+    </template>
+    <script>
+    (function() {{
+        function injectBootLoader() {{
+            if (document.getElementById('bootLoader')) return;
+            var tpl = document.getElementById('bootLoaderTpl');
+            if (tpl) {{
+                var clone = document.importNode(tpl.content, true);
+                document.body.appendChild(clone);
+            }}
+        }}
+        if (document.body) {{
+            injectBootLoader();
+        }} else {{
+            document.addEventListener('DOMContentLoaded', injectBootLoader);
+        }}
+    }})();
+    </script>
     ''')
 
 # ── Color Palette ───────────────────────────────────────────────────
@@ -100,70 +190,70 @@ CATEGORY_FALLBACK_IMAGES = {
 }
 
 CATEGORY_IMAGE_SETS = {
-    "breakthrough": [
-        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=400&q=70",
+    "top_stories": [
+        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=640&q=80",
     ],
-    "product": [
-        "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=400&q=70",
+    "ai_models": [
+        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=640&q=80",
     ],
-    "regulation": [
-        "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1505664159858-2d8616cda250?auto=format&fit=crop&w=400&q=70",
-    ],
-    "funding": [
-        "https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1579621970588-a3f5ce599fac?auto=format&fit=crop&w=400&q=70",
+    "business": [
+        "https://images.unsplash.com/photo-1614850715649-1d0106293cb1?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=640&q=80",
     ],
     "research": [
-        "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1518152006812-edab29b069ac?auto=format&fit=crop&w=400&q=70",
+        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=640&q=80",
     ],
-    "industry": [
-        "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=400&q=70",
+    "tools": [
+        "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=640&q=80",
+    ],
+    "regulation": [
+        "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=640&q=80",
+    ],
+    "funding": [
+        "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=640&q=80",
     ],
     "general": [
-        "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=70",
-        "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=400&q=70"
+        "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=640&q=80",
+        "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=640&q=80",
     ],
 }
 
-
 def _normalize_category_key(category: str) -> str:
     """Map UI and data labels to known internal category keys."""
-    raw = (category or "").strip().lower().replace("_", " ").replace("-", " ")
+    raw = (category or "").strip().lower()
     if not raw:
         return "general"
 
-    aliases = {
-        "ai models": "breakthrough",
-        "models": "breakthrough",
-        "model": "breakthrough",
-        "business": "industry",
-        "industry": "industry",
-        "research": "research",
-        "tools": "product",
-        "product": "product",
-        "products": "product",
-        "regulation": "regulation",
-        "funding": "funding",
-        "top stories": "general",
-        "general": "general",
-    }
-    return aliases.get(raw, raw if raw in CATEGORY_IMAGE_SETS else "general")
+    if "top stories" in raw or "🔥" in raw:
+        return "top_stories"
+    elif "ai model" in raw or "🤖" in raw or "llm" in raw:
+        return "ai_models"
+    elif "business" in raw or "💼" in raw or "startup" in raw or "industry" in raw:
+        return "business"
+    elif "research" in raw or "🔬" in raw or "robotics" in raw or "healthcare" in raw or "autonomous" in raw:
+        return "research"
+    elif "tools" in raw or "🛠" in raw or "open_source" in raw or "product" in raw:
+        return "tools"
+    elif "regulation" in raw or "⚖" in raw or "policy" in raw or "governance" in raw or "ai_safety" in raw:
+        return "regulation"
+    elif "funding" in raw or "💰" in raw:
+        return "funding"
+    return "general"
 
-
-def get_category_image(category: str, seed: str = "") -> str:
+def get_category_image(category: str | None = None, seed: str | None = None) -> str:
     """Select one of three cached cover images per category."""
-    key = _normalize_category_key(category)
+    key = _normalize_category_key(category or "")
     options = CATEGORY_IMAGE_SETS.get(key, CATEGORY_IMAGE_SETS["general"])
-    idx = 0 if not seed else sum(ord(c) for c in seed) % len(options)
-    preferred = options[idx]
-
-    # These are remote URLs now, so we just return them. No local verification needed.
-    return preferred
+    # hash can be negative, so we must add len(options) and modulo.
+    # We use python's modulo which inherently wraps correctly, but abs() is safer.
+    idx = 0 if not seed else abs(hash(seed)) % len(options)
+    return options[idx]
 
 SENTIMENT_ICONS = {
     "bullish": "trending_up",
@@ -311,15 +401,88 @@ body, html {
     transition: opacity 0.5s ease, visibility 0.5s ease;
 }
 .boot-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-.boot-spinner {
-    width: 48px; height: 48px; border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.06);
-    border-top-color: var(--accent);
-    border-right-color: var(--accent-teal);
-    animation: bootSpin 0.8s linear infinite;
-    box-shadow: 0 0 24px rgba(255,184,0,0.2);
+/* ── Newspaper Loader with 3D Page Turn ── */
+.newspaper-loader {
+    position: relative;
+    width: 130px; height: 96px;
+    perspective: 600px;
 }
-@keyframes bootSpin { to { transform: rotate(360deg); } }
+.newspaper-svg {
+    width: 100%; height: 100%;
+    filter: drop-shadow(0 4px 24px rgba(255,184,0,0.12));
+}
+/* Individual turning pages — positioned over the right half of the newspaper */
+.turning-page {
+    position: absolute;
+    top: 14.5%;   /* align with SVG right page y=15 of viewBox 110 */
+    left: 47.8%;  /* align with SVG spine at x=65 of viewBox 140 */
+    width: 42%;   /* right page width */
+    height: 72.7%;
+    background: #1e2130;
+    border: 0.5px solid rgba(255,184,0,0.18);
+    border-left: none;
+    border-radius: 0 2px 2px 0;
+    transform-origin: left center;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    animation: pageFlip 3.6s ease-in-out infinite;
+}
+/* Text lines on turning pages */
+.tp-line {
+    position: absolute;
+    left: 14%;
+    height: 3%;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.10);
+}
+/* Page stacking: tp-1 is on top (flips first), tp-3 is bottom (flips last) */
+.turning-page.tp-1 {
+    z-index: 3;
+    background: #222638;
+    animation-delay: 0s;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+}
+.turning-page.tp-1 .tp-line { background: rgba(255,255,255,0.12); }
+.turning-page.tp-2 {
+    z-index: 2;
+    background: #1f2334;
+    animation-delay: 1.2s;
+    box-shadow: -1px 0 6px rgba(0,0,0,0.10);
+}
+.turning-page.tp-2 .tp-line { background: rgba(255,255,255,0.09); }
+.turning-page.tp-3 {
+    z-index: 1;
+    background: #1c2030;
+    animation-delay: 2.4s;
+    box-shadow: -1px 0 4px rgba(0,0,0,0.08);
+}
+.turning-page.tp-3 .tp-line { background: rgba(255,255,255,0.07); }
+/* 3D page flip keyframes — page lifts, rotates over the spine, settles on left */
+@keyframes pageFlip {
+    0%   { transform: rotateY(0deg); opacity: 1; }
+    10%  { transform: rotateY(-15deg); opacity: 1; }
+    35%  { transform: rotateY(-110deg); opacity: 0.85; }
+    50%  { transform: rotateY(-170deg); opacity: 0.6; }
+    55%  { transform: rotateY(-180deg); opacity: 0; }
+    /* Page stays hidden while other pages flip */
+    90%  { transform: rotateY(-180deg); opacity: 0; }
+    95%  { transform: rotateY(-10deg); opacity: 0; }
+    100% { transform: rotateY(0deg); opacity: 1; }
+}
+/* Subtle glow pulse on the whole newspaper */
+.newspaper-loader::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 14px;
+    background: radial-gradient(circle, rgba(255,184,0,0.06), transparent 70%);
+    animation: glowPulse 3.6s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes glowPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.96); }
+    50%      { opacity: 1; transform: scale(1.04); }
+}
 .boot-text {
     font-size: 14px; font-weight: 600;
     color: var(--text-secondary);
@@ -378,6 +541,8 @@ body, html {
     transition: all 0.25s ease !important;
     white-space: nowrap !important; user-select: none;
     flex-shrink: 0;
+    position: relative;
+    z-index: 100;
 }
 .topic-chip:hover { background: var(--bg-highest) !important; color: var(--text-primary) !important; }
 .topic-chip:active { transform: scale(0.95) !important; }
@@ -385,9 +550,17 @@ body, html {
     background: rgba(0, 175, 255, 0.2) !important;
     color: #2ec8ff !important;
     box-shadow: 0 0 0 1px rgba(46, 200, 255, 0.25) inset !important;
+    z-index: 105;
 }
 /* Hide scrollbar on topic chips row */
 .topic-chip:first-child { margin-left: 4px; }
+.topic-rail {
+    width: 100%;
+    padding-top: 2px;
+    background: transparent;
+    z-index: 100;
+    position: relative;
+}
 .q-scrollarea__container::-webkit-scrollbar { display: none; }
 .q-scrollarea__container { scrollbar-width: none; }
 /* ========== BOTTOM NAVIGATION ========== */
@@ -588,6 +761,8 @@ body, html {
     width: 100%;
     padding-top: 2px;
     background: #0d0f14;
+    z-index: 100;
+    position: relative;
 }
 .topic-rail .q-scrollarea,
 .topic-rail .q-scrollarea__container,
@@ -596,6 +771,32 @@ body, html {
 }
 .topic-rail .topic-chip:first-child {
     margin-left: 0;
+}
+.hide-scb::-webkit-scrollbar {
+    display: none !important;
+}
+.hide-scb {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.topic-chip-scroll {
+    height: 56px;
+    overflow-x: auto;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: none;
+}
+.topic-chip-scroll::-webkit-scrollbar {
+    height: 0 !important;
+    width: 0 !important;
+}
+.topic-chip-row {
+    min-height: 56px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    align-items: center;
 }
 
 /* ========== TRUST SIGNAL ========== */
@@ -621,6 +822,46 @@ body, html {
 }
 .news-card-premium::before {
     content: none;
+}
+
+/* ── Trending Card Animation ── */
+.news-card-trending {
+    /* Slightly lighter background or different border if desired */
+}
+/* The animated background glow placed behind the card */
+.news-card-trending::before {
+    content: '';
+    position: absolute;
+    inset: -4px; /* Expand outside the card bounds */
+    z-index: -1; /* Place behind the card background */
+    background: linear-gradient(135deg, rgba(255,184,0,0.8), rgba(255,107,107,0), rgba(78,205,196,0.8), rgba(255,107,107,0));
+    background-size: 300% 300%;
+    border-radius: 24px; /* Slightly larger than card radius (20px) */
+    filter: blur(8px);
+    opacity: 0.6;
+    animation: trendingGlow 4s ease infinite;
+}
+
+/* Internal subtle pulse for trending cards */
+.news-card-trending::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 20px;
+    box-shadow: inset 0 0 0 1px rgba(255,184,0,0.3);
+    animation: trendingPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes trendingGlow {
+    0% { background-position: 0% 50%; opacity: 0.4; }
+    50% { background-position: 100% 50%; opacity: 0.8; }
+    100% { background-position: 0% 50%; opacity: 0.4; }
+}
+
+@keyframes trendingPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 /* Card image with actual photos */
@@ -680,7 +921,7 @@ body, html {
     line-height: 1.4;
     color: rgba(255, 255, 255, 0.72);
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical; overflow: hidden;
     overflow-wrap: anywhere; word-break: break-word;
 }
@@ -1057,7 +1298,7 @@ body, html {
     .card-body-area { flex: 1; padding: 10px 0 0; overflow: hidden; }
     .card-headline-text { font-size: 22px; -webkit-line-clamp: 3; margin-bottom: 8px; }
     .card-summary-text {
-        -webkit-line-clamp: 4;
+        -webkit-line-clamp: 2;
         font-size: 14px;
         margin-bottom: 0;
         line-height: 1.4;
@@ -1132,8 +1373,31 @@ body, html {
         grid-template-columns: repeat(2, 1fr);
         gap: 20px;
     }
-    .feed-grid .news-card-premium:first-child {
-        grid-column: 1 / -1;
-    }
+}
+
+.synthesis-banner {
+    background: linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(35, 39, 42, 0.5) 100%);
+    border: 1px solid rgba(88, 101, 242, 0.3);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 12px 16px 4px 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.synthesis-header {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #a5b4fc;
+    margin-bottom: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.synthesis-content {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #f8f9fa;
+    font-weight: 400;
 }
 """

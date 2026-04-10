@@ -2,13 +2,11 @@
 DailyAI — NiceGUI App Entry Point
 """
 
-import os
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from nicegui import app as nicegui_app
 from nicegui import ui
 
 from dailyai.api.middleware import register_middleware

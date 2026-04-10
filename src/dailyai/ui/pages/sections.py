@@ -4,9 +4,9 @@ from urllib.parse import urlencode
 
 from nicegui import ui
 
-from dailyai.config import COUNTRIES, UI_LANGUAGES
+from dailyai.config import COUNTRIES
 from dailyai.ui.components.nav_bar import nav_bar, sidebar
-from dailyai.ui.components.theme import COUNTRY_FLAGS, GLOBAL_CSS, inject_boot_loader
+from dailyai.ui.components.theme import GLOBAL_CSS, inject_boot_loader
 from dailyai.ui.i18n import normalize_ui_language, tr
 
 

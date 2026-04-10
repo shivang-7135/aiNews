@@ -9,7 +9,6 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any
 
 from dailyai.config import LLM_TIMEOUT_SECONDS, MAX_TILES_PER_FETCH, SUPPORTED_LANGUAGES
 from dailyai.llm.prompts import CURATION_PROMPT, sanitize_llm_response
@@ -32,9 +31,7 @@ def _is_template(tile: dict) -> bool:
         if val in _TEMPLATE_VALUES:
             return True
     title_lower = str(tile.get("title", "")).strip().lower()
-    if title_lower.startswith("short headline") or title_lower == "":
-        return True
-    return False
+    return title_lower.startswith("short headline") or title_lower == ""
 
 
 def _extract_json_array(response: str) -> list[dict] | None:
@@ -134,8 +131,9 @@ async def run(state: dict) -> dict:
         timeout_s = max(15.0, min(float(LLM_TIMEOUT_SECONDS), 35.0))
         response = await asyncio.wait_for(llm.ainvoke(prompt), timeout=timeout_s)
         response_text = response.content if hasattr(response, "content") else str(response)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.info("[Curator] LLM call timed out; using deterministic fallback")
+        errors.append("Curator: LLM timeout")
         timings = state.get("node_timings", {})
         timings["curator"] = round(time.time() - start, 2)
         return {

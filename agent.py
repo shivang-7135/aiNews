@@ -973,9 +973,7 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                     if val in TEMPLATE_VALUES:
                         return True
                 title_lower = str(tile.get("title", "")).strip().lower()
-                if title_lower.startswith("short headline") or title_lower == "":
-                    return True
-                return False
+                return title_lower.startswith("short headline") or title_lower == ""
 
             # Validate and clean each tile
             clean_tiles = []

@@ -8,20 +8,23 @@ import asyncio
 import hashlib
 import logging
 import time
+from asyncio import get_event_loop
 from datetime import UTC, datetime
+
+from deep_translator import GoogleTranslator
 
 from dailyai.config import (
     COUNTRIES,
     LANG_MAP,
     MAX_FEED_SIZE,
     MIN_FEED_SIZE,
-    SUPPORTED_LANGUAGES,
-    UI_FEED_TOPICS,
+    REFRESH_COOLDOWN_SECONDS,
+    STARTUP_PREFETCH_CONCURRENCY,
     STARTUP_PREFETCH_GLOBAL_LIMIT,
     STARTUP_PREFETCH_OTHER_LIMIT,
-    STARTUP_PREFETCH_CONCURRENCY,
     STARTUP_PREFETCH_TIMEOUT,
-    REFRESH_COOLDOWN_SECONDS,
+    SUPPORTED_LANGUAGES,
+    UI_FEED_TOPICS,
     normalize_language,
     store_key,
 )
@@ -36,6 +39,7 @@ _last_refresh: dict[str, float] = {}
 _refresh_locks: dict[str, asyncio.Lock] = {}
 _startup_prefetch_lock = asyncio.Lock()
 _startup_prefetch_done = False
+_brief_cache: dict[str, str] = {}
 
 
 def _infer_topic_category(title: str, summary: str = "", source: str = "") -> tuple[str, str]:
@@ -100,10 +104,7 @@ def _match_ui_topic(requested_topic: str, ui_topic: str, category: str, internal
         return internal_topic in {"regulation", "ai_safety"} or category == "regulation"
     if stripped_request == "Funding":
         return internal_topic in {"funding", "startups"} or category == "funding"
-    if stripped_request == "Top Stories":
-        return True  # Show everything in Top Stories
-
-    return False
+    return stripped_request == "Top Stories"
 
 
 def _topic_keyword_score(requested_topic: str, article: dict) -> int:
@@ -173,13 +174,13 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
                         timeout=STARTUP_PREFETCH_TIMEOUT,
                     )
                     logger.info(f"  ✅ Prefetch [{i}/{len(pairs)}] {country}/{language} complete")
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping")
                 except Exception as e:
                     logger.error(f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}")
 
         # Run all fetches concurrently
-        tasks = [fetch_pair(i, c, l) for i, (c, l) in enumerate(pairs, 1)]
+        tasks = [fetch_pair(i, country_code, lang) for i, (country_code, lang) in enumerate(pairs, 1)]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         _startup_prefetch_done = True
@@ -188,7 +189,6 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
 
 async def pregenerate_top_briefs(articles: list[dict], language: str) -> None:
     """Pre-generate and cache LLM briefs for top articles in the background."""
-    from dailyai.llm.provider import SUMMARY_FALLBACK_MESSAGE
     logger.info(f"Starting background brief pre-generation for {len(articles)} articles ({language}).")
     
     # Throttle pre-generation to respect LLM API limits
@@ -306,6 +306,60 @@ async def refresh_news(
             logger.error(f"Error refreshing {key}: {e}", exc_info=True)
 
 
+async def _background_translate_and_cache(
+    articles: list[dict], target_language: str, store_key_str: str
+) -> None:
+    """Translate English articles → target language in the background and
+    persist the translated versions to the DB so future page loads are instant."""
+    try:
+        loop = get_event_loop()
+
+        def _do_translate():
+            try:
+                t = GoogleTranslator(source='en', target=target_language)
+                titles = [a.get("title", "") or "" for a in articles]
+                summaries = [a.get("summary", "") or "" for a in articles]
+                whys = [a.get("why_it_matters", "") or "" for a in articles]
+                if any(titles):
+                    t_titles = t.translate_batch(titles)
+                    for a, trans in zip(articles, t_titles, strict=False):
+                        if trans:
+                            a["title"] = trans
+                if any(summaries):
+                    t_sums = t.translate_batch(summaries)
+                    for a, trans in zip(articles, t_sums, strict=False):
+                        if trans:
+                            a["summary"] = trans
+                if any(whys):
+                    t_whys = t.translate_batch(whys)
+                    for a, trans in zip(articles, t_whys, strict=False):
+                        if trans:
+                            a["why_it_matters"] = trans
+            except Exception as e:
+                logger.error(f"Background translation error: {e}")
+
+        await asyncio.wait_for(
+            loop.run_in_executor(None, _do_translate),
+            timeout=30.0,
+        )
+
+        # Save translated articles back to DB so next load is instant
+        existing = await db.get_articles(store_key_str)
+        existing_titles = {a.get("title", "") for a in existing}
+        merged = list(existing)
+        for a in articles:
+            if a.get("title", "") not in existing_titles:
+                merged.append(a)
+        await db.save_articles(store_key_str, merged)
+        logger.info(
+            f"Background translation complete: {len(articles)} articles → {target_language}, saved to {store_key_str}"
+        )
+    except TimeoutError:
+        logger.warning(f"Background translation timed out for {target_language}")
+    except Exception as e:
+        logger.error(f"Background translation failed: {e}")
+
+
 async def get_feed(
     country: str = "GLOBAL",
     language: str = "en",
@@ -342,11 +396,22 @@ async def get_feed(
         en_key = store_key("GLOBAL", "en")
         en_articles = await db.get_articles(en_key)
         existing_titles = {a.get("title", "") for a in articles}
+
+        new_arts = []
         for a in en_articles:
             if a.get("title", "") not in existing_titles:
-                articles.append(a)
-            if len(articles) >= MAX_FEED_SIZE:
+                new_arts.append(dict(a))
+            if len(articles) + len(new_arts) >= MAX_FEED_SIZE:
                 break
+
+        # Return English articles immediately (non-blocking) and schedule
+        # background translation that caches results for future page loads.
+        # This avoids the 15-30s synchronous GoogleTranslator bottleneck.
+        if new_arts:
+            articles.extend(new_arts)
+            asyncio.create_task(
+                _background_translate_and_cache(new_arts, language, key)
+            )
 
     # Format for UI
     from dailyai.config import UI_TOPIC_MAP
@@ -449,12 +514,26 @@ async def get_feed(
 
 
     # Personalization
+    synthesis = ""
+    custom_hooks = {}
     if sync_code:
         try:
             from dailyai.services.analytics import get_personalized_scores, rank_articles_by_scores
             scores = await get_personalized_scores(sync_code=sync_code)
             if scores:
                 feed_articles = rank_articles_by_scores(feed_articles, scores)
+                
+            if topic == "For You":
+                from dailyai.services.personalizer_llm import generate_daily_bespoke_digest
+                digest = await generate_daily_bespoke_digest(sync_code, feed_articles)
+                if digest:
+                    synthesis = digest.get("synthesis", "")
+                    custom_hooks = digest.get("custom_hooks", {})
+                    # Inject custom hooks directly into the returned page
+                    for _idx, a in enumerate(feed_articles):
+                        aid = str(a.get("id"))
+                        if custom_hooks and aid in custom_hooks:
+                            a["why_it_matters"] = custom_hooks[aid]
         except Exception as e:
             logger.warning(f"Personalization failed: {e}")
 
@@ -481,6 +560,7 @@ async def get_feed(
         "language": language,
         "last_updated": last_updated,
         "categories": topic_counts,
+        "synthesis": synthesis,
     }
 
 
@@ -549,3 +629,36 @@ async def stream_article_brief(article: dict, language: str = "en"):
     except Exception as e:
         logger.error(f"Streaming brief failed: {e}", exc_info=True)
         yield SUMMARY_FALLBACK_MESSAGE
+
+
+async def get_article_brief(
+    title: str,
+    source: str = "",
+    summary: str = "",
+    why_it_matters: str = "",
+    topic: str = "general",
+    link: str = "",
+    language: str = "en",
+) -> str:
+    """Compatibility helper returning a single brief string with in-memory caching."""
+    cache_key = hashlib.md5(str(title or "").encode("utf-8")).hexdigest()[:16]
+    cached = _brief_cache.get(cache_key)
+    if cached:
+        return cached
+
+    article = {
+        "title": title,
+        "source": source,
+        "summary": summary,
+        "why_it_matters": why_it_matters,
+        "topic": topic,
+        "link": link,
+    }
+    chunks: list[str] = []
+    async for chunk in stream_article_brief(article, language=language):
+        chunks.append(chunk)
+
+    brief = "".join(chunks).strip()
+    if brief:
+        _brief_cache[cache_key] = brief
+    return brief

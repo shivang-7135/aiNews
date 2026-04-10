@@ -16,7 +16,7 @@ from dailyai.ui.components.theme import (
     COLORS,
     SENTIMENT_ICONS,
     TRUST_LABELS,
-    get_category_image,
+    resolve_image_url,
 )
 from dailyai.ui.i18n import normalize_ui_language, tr, tr_time_ago
 
@@ -35,15 +35,19 @@ def _format_time_ago(iso_date: str, language: str = "en") -> str:
 
 def _short_summary(article: dict, language: str = "en") -> str:
     import re
+    
+    # Prefer 'why_it_matters' because it's generating an engaging hook
+    why = _clean_text(str(article.get("why_it_matters", "") or ""))
+    if why and len(why) > 20:
+        return why
+
     summary = _clean_text(str(article.get("summary", "") or ""))
     # Skip generic fallback summaries
     if summary and not re.match(
         r'^Reported by .+\.\s*(Tap to read|Click to read)', summary, re.IGNORECASE
     ) and len(summary) > 20:
         return summary
-    why = _clean_text(str(article.get("why_it_matters", "") or ""))
-    if why and len(why) > 20:
-        return why
+    
     headline = _clean_text(str(article.get("headline", "") or ""))
     source = _clean_text(str(article.get("source_name", "") or ""))
     if headline and source:
@@ -51,6 +55,14 @@ def _short_summary(article: dict, language: str = "en") -> str:
     if headline:
         return headline
     return tr(language, "latest_ai_news_from", source=source) if source else tr(language, "tap_to_read")
+
+
+def _calculate_read_time(article: dict) -> int:
+    """Calculate estimated reading time in minutes based on text length."""
+    text = f"{article.get('headline', '')} {article.get('summary', '')} {article.get('why_it_matters', '')}"
+    words = len(text.split())
+    # Average reading speed is ~238 words per minute.
+    return max(1, round(words / 200))
 
 
 def _build_article_link(article: dict) -> str:
@@ -476,9 +488,16 @@ def _inject_detail_overlay_once(language: str = "en"):
             var overlay = document.getElementById('detailOverlay');
             if (!overlay) return;
 
+            // Set up fallback image if the primary fails
+            var coverEl = document.getElementById('detailCover');
+            coverEl.onerror = function() {
+                this.onerror = null;
+                this.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22 viewBox=%220 0 400 200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%232a2a2a%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 font-family=%22sans-serif%22 font-size=%2214%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3EArticle Image%3C/text%3E%3C/svg%3E";
+            };
+
             // Populate static content
-            document.getElementById('detailCover').src = data.coverImg;
-            document.getElementById('detailCover').alt = data.topic;
+            coverEl.src = data.coverImg;
+            coverEl.alt = data.topic;
             document.getElementById('detailTopicPill').textContent = data.topic;
             document.getElementById('detailHeadline').textContent = data.headline;
             document.getElementById('detailSourceDot').style.background = data.sourceColor;
@@ -855,7 +874,10 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
     why = _clean_text(str(article.get("why_it_matters", "") or ""))
 
     image_key = topic_label if cat == "general" else cat
-    cover_img = get_category_image(image_key, article.get("id", headline))
+    # Use the original article image if available, else use a category cover
+    # Providing the headline as the seed ensures variety within the same category
+    raw_img = article.get("image_url") or article.get("image")
+    cover_img = resolve_image_url(raw_img, topic=image_key, seed=article.get("id", headline))
     link = _build_article_link(article)
     article_url = article.get("article_url", link)
     uid = _card_uid(article)
@@ -911,7 +933,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
     ''')
 
     # ── Render the compact card ──
-    card_el = ui.card().classes('news-card-premium w-full p-0 mb-4 card-animate')
+    read_time = _calculate_read_time(article)
+    base_classes = 'news-card-premium w-full p-0 mb-4 card-animate'
+    card_classes = f'{base_classes} news-card-trending' if importance >= 8 else base_classes
+    
+    card_el = ui.card().classes(card_classes)
     card_el._props['data-card-uid'] = uid
     with card_el.style(f'animation-delay: {delay}s;'):
 
@@ -920,10 +946,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
 
         # Image area
         with ui.element('div').classes('card-image-area cursor-pointer').on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
+            svg_fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22 viewBox=%220 0 400 200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%232a2a2a%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 font-family=%22sans-serif%22 font-size=%2214%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3EArticle Image%3C/text%3E%3C/svg%3E"
             ui.html(f'''
                 <img src="{cover_img}" alt="{_esc(topic_label)}"
                      loading="lazy"
-                     onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, {color}22, var(--bg-card))';" />
+                     onerror="this.onerror=null; this.src='{svg_fallback}';" />
                 <div class="card-image-gradient"></div>
                 <div class="card-topic-tag">{_esc(topic_label)}</div>
                  {f'<div class="card-position-chip">{_esc(position_chip)}</div>' if position_chip else ''}
@@ -960,23 +987,15 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
                 <span class="source-name-text">{publisher_name}</span>
             </div>
             <div class="card-actions">
-                <button class="action-btn" id="card-save-{uid}" title="Save" aria-label="Save article" aria-pressed="false"
-                        onclick="event.preventDefault(); event.stopPropagation(); window.toggleSaveArticle('{uid}'); return false;">
-                    <svg class="bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </button>
+                <span class="card-read-time" style="font-size: 11px; color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 4px;">
+                    <span class="material-icons" style="font-size: 13px;">schedule</span>
+                    {read_time} min read
+                </span>
             </div>
         </div>''')
 
         ui.run_javascript(f'''
             (function() {{
-                var btn = document.getElementById('card-save-{uid}');
-                var isSaved = !!(window._savedArticles && window._savedArticles['{uid}']);
-                if (btn) {{
-                    btn.classList.toggle('saved', isSaved);
-                    btn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
-                }}
                 /* Register with IntersectionObserver for impression tracking */
                 var cards = document.querySelectorAll('[data-card-uid="{uid}"]');
                 cards.forEach(function(card) {{

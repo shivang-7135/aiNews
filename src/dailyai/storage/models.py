@@ -5,11 +5,7 @@ Structured data models for the entire application.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
-
 from pydantic import BaseModel, Field
-
 
 # ── News Article ────────────────────────────────────────────────────
 
@@ -100,10 +96,10 @@ class CreateProfileRequest(BaseModel):
 
 
 class UpdateProfileRequest(BaseModel):
-    preferred_topics: Optional[list[str]] = None
-    country: Optional[str] = None
-    language: Optional[str] = None
-    bookmarks: Optional[list[str]] = None
+    preferred_topics: list[str] | None = None
+    country: str | None = None
+    language: str | None = None
+    bookmarks: list[str] | None = None
 
 
 class RecordSignalRequest(BaseModel):

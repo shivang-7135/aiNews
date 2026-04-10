@@ -6,6 +6,7 @@ Now backed by SQLite instead of JSON files.
 
 import logging
 import random
+from contextlib import suppress
 from datetime import UTC, datetime
 
 from dailyai.storage import backend as db
@@ -156,12 +157,50 @@ async def record_analytics(sync_code: str, stats: dict) -> dict | None:
         "time_spent_seconds": "total_time_spent_seconds", "session_count": "session_count",
     }
     for src_key, dest_key in FIELD_MAP.items():
-        try:
+        with suppress(TypeError, ValueError):
             analytics[dest_key] = analytics.get(dest_key, 0) + int(stats.get(src_key, 0))
-        except (TypeError, ValueError):
-            pass
 
     profile["analytics"] = analytics
     profile["last_active"] = datetime.now(UTC).isoformat()
     await db.save_profile(profile)
     return analytics
+
+async def set_custom_persona(sync_code: str, persona: str) -> None:
+    """Save a user-defined custom AI Persona to the metadata table."""
+    from dailyai.storage.backend import set_metadata
+    if not persona.strip():
+        await set_metadata(f"custom_persona:{sync_code}", None) # clear it
+    else:
+        # Enforce max 200 characters limit
+        await set_metadata(f"custom_persona:{sync_code}", persona.strip()[:200])
+
+async def build_user_persona(sync_code: str) -> str:
+    """Build a combined text persona (user input + implicit signals)."""
+    from dailyai.storage.backend import get_metadata
+    custom = await get_metadata(f"custom_persona:{sync_code}")
+    
+    profile = await get_profile(sync_code)
+    
+    # 1. Base instruction is either custom or explicit preferences
+    if custom:
+        base_persona = custom
+    else:
+        if not profile:
+            return "General AI researcher."
+        prefs = profile.get("preferred_topics", [])
+        base_persona = f"Explicitly likes: {', '.join(prefs[:4])}." if prefs else "General tech user."
+    
+    # 2. Add implicit metrics (saves, taps)
+    if profile:
+        signals = profile.get("signals", {})
+        # Only take top 3 to save space
+        top_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)[:3]
+        sig_str = ", ".join([f"{k}({v})" for k, v in top_signals if v > 0])
+        if sig_str:
+            base_persona += f" Implicit stats: {sig_str}."
+            
+    # 3. Fast Truncation to 200 chars limit as requested
+    if len(base_persona) > 200:
+        base_persona = base_persona[:197] + "..."
+        
+    return base_persona

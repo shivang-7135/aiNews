@@ -8,19 +8,20 @@ status report without running the full suite.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-import digest
 import pytest
 
+import digest
 from dailyai.config import normalize_language, store_key
 from dailyai.graph.nodes.deduplicator import _normalize_title
 from dailyai.graph.nodes.personalizer import _quality_score
 from dailyai.graph.nodes.trust import _score_source
 from dailyai.llm.prompts import sanitize_llm_response
-from dailyai.services.profiles import _generate_sync_code
 from dailyai.services.news import get_prefetch_pairs
+from dailyai.services.profiles import _generate_sync_code
 from dailyai.ui.components.theme import get_category_image
 
 

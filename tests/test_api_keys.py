@@ -2,24 +2,20 @@
 DailyAI API Key Tests — Validate key generation, rate limiting, and field filtering.
 """
 
-import sys
 import os
-import json
-from pathlib import Path
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
 from services.api_keys import (
-    BASIC_FIELDS,
-    FULL_FIELDS,
     TIERS,
+    _hash_key,
     check_rate_limit,
     create_api_key,
     filter_fields_for_tier,
     validate_api_key,
-    _hash_key,
 )
 
 

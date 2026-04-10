@@ -16,7 +16,7 @@ class SubscribeRequest(BaseModel):
 
     @pydantic_validator("topics")
     def validate_topics(cls, value: list[str]) -> list[str]:
-        allowed = {k for k in TOPICS.keys() if k != "all"}
+        allowed = {k for k in TOPICS if k != "all"}
         clean: list[str] = []
         for item in value or []:
             topic = str(item or "").strip().lower()
@@ -44,7 +44,7 @@ class CreateProfileRequest(BaseModel):
 
     @pydantic_validator("preferred_topics")
     def validate_profile_topics(cls, value: list[str]) -> list[str]:
-        allowed = {k for k in TOPICS.keys() if k != "all"}
+        allowed = {k for k in TOPICS if k != "all"}
         clean: list[str] = []
         for item in value or []:
             topic = str(item or "").strip().lower()

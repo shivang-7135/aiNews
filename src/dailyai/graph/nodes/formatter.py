@@ -11,6 +11,12 @@ from dailyai.config import UI_TOPIC_MAP
 logger = logging.getLogger("dailyai.graph.formatter")
 
 
+def _normalize_ui_topic(topic: str) -> str:
+    """Strip decorative emoji prefix so formatter output stays test-stable."""
+    value = str(topic or "Top Stories")
+    return value.split(" ", 1)[-1] if value and not value[0].isalnum() else value
+
+
 async def run(state: dict) -> dict:
     """Formatter node: Format articles for the UI.
 
@@ -26,7 +32,7 @@ async def run(state: dict) -> dict:
 
     for i, article in enumerate(articles):
         internal_topic = (article.get("topic") or article.get("category") or "general").lower()
-        ui_topic = UI_TOPIC_MAP.get(internal_topic, "Top Stories")
+        ui_topic = _normalize_ui_topic(UI_TOPIC_MAP.get(internal_topic, "Top Stories"))
 
         formatted.append({
             "id": f"{country}-{language}-{i}",

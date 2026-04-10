@@ -3,12 +3,13 @@
 Mobile-friendly operational view for cache health metrics and RSS Administration.
 """
 
-from nicegui import ui, app
+from nicegui import ui
 
-from dailyai.ui.components.theme import GLOBAL_CSS
 from dailyai.api.routes import _get_admin_password
 from dailyai.config import COUNTRIES
-from dailyai.storage.backend import get_rss_feeds, save_rss_feed, delete_rss_feed
+from dailyai.storage.backend import delete_rss_feed, get_rss_feeds, save_rss_feed
+from dailyai.ui.components.theme import GLOBAL_CSS
+
 
 @ui.page('/_admin/cache')
 async def cache_admin_page():
@@ -116,14 +117,13 @@ def render_rss_admin(token: str):
                 ui.label('No custom RSS feeds configured.').classes('text-[var(--text-muted)] italic')
             else:
                 for f in feeds:
-                    with ui.card().classes('w-full bg-[var(--bg-card)] border-[var(--border-ghost)] p-3'):
-                        with ui.row().classes('w-full justify-between items-center'):
-                            with ui.column().classes('gap-0'):
-                                ui.label(f"{f['country_code']} — {f['feed_key']}").classes('font-bold text-[var(--text-primary)] text-sm')
-                                ui.label(f['query']).classes('text-xs text-[var(--text-secondary)] truncate max-w-[200px] sm:max-w-md')
-                            with ui.row().classes('gap-2 items-center'):
-                                ui.switch('Active', value=bool(f['is_active']), on_change=lambda e, curr=f: toggle_feed(curr, e.value)).props('dense')
-                                ui.button(icon='delete', on_click=lambda curr=f: delete_feed(curr)).props('flat color=negative dense')
+                    with ui.card().classes('w-full bg-[var(--bg-card)] border-[var(--border-ghost)] p-3'), ui.row().classes('w-full justify-between items-center'):
+                        with ui.column().classes('gap-0'):
+                            ui.label(f"{f['country_code']} — {f['feed_key']}").classes('font-bold text-[var(--text-primary)] text-sm')
+                            ui.label(f['query']).classes('text-xs text-[var(--text-secondary)] truncate max-w-[200px] sm:max-w-md')
+                        with ui.row().classes('gap-2 items-center'):
+                            ui.switch('Active', value=bool(f['is_active']), on_change=lambda e, curr=f: toggle_feed(curr, e.value)).props('dense')
+                            ui.button(icon='delete', on_click=lambda curr=f: delete_feed(curr)).props('flat color=negative dense')
 
             with ui.card().classes('w-full mt-4 bg-[var(--bg-card)] border-[var(--border-ghost)] p-4'):
                 with ui.row().classes('w-full justify-between items-center mb-2'):

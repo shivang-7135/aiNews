@@ -21,9 +21,12 @@ if str(SRC_DIR) not in sys.path:
 # Load .env for `uvicorn app:app` workflows.
 load_dotenv(ROOT_DIR / ".env")
 
-from dailyai.ui.app import create_app
 
-app = create_app()
+def _create_app():
+    from dailyai.ui.app import create_app
+    return create_app
+
+app = _create_app()
 
 
 @app.on_event("startup")

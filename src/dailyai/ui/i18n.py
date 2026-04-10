@@ -122,7 +122,16 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "onboarding_sync_title": "Your Sync Code",
         "onboarding_sync_text": "A unique Sync Code was just generated for you! Use it in the sidebar to sync your saved reading and preferences across devices.",
         "onboarding_start_button": "Let's Go!",
-        "onboarding_next": "Next",    },
+        "onboarding_next": "Next",
+        
+        # ── Persona ───────────────────────────────────────────────
+        "your_ai_persona": "👤 Your AI Persona",
+        "persona_description": "This is how we understand your interests. You can manually edit this instruction to fine-tune your bespoke briefings.",
+        "persona_textarea": "Persona",
+        "save_persona": "Save Persona",
+        "persona_saved": "Persona saved! Refresh feeds to apply.",
+        "persona_error": "Error saving persona: {error}",
+    },
     "de": {
         # ── Navigation & Core ─────────────────────────────────────
         "discover": "Entdecken",
@@ -236,6 +245,14 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "onboarding_sync_text": "Ein Sync-Code wurde für Dich generiert! Nutze ihn in der Sidebar, um Lesezeichen und Einstellungen auf allen Geräten zu synchronisieren.",
         "onboarding_start_button": "Los geht's!",
         "onboarding_next": "Weiter",
+        
+        # ── Persona ───────────────────────────────────────────────
+        "your_ai_persona": "👤 Deine KI-Persona",
+        "persona_description": "So verstehen wir deine Interessen. Du kannst diese Anweisung manuell bearbeiten, um deine maßgeschneiderten Briefings zu verfeinern.",
+        "persona_textarea": "Persona",
+        "save_persona": "Persona speichern",
+        "persona_saved": "Persona gespeichert! Aktualisiere den Feed, um die Änderungen anzuwenden.",
+        "persona_error": "Fehler beim Speichern der Persona: {error}",
     },
 }
 

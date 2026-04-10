@@ -5,6 +5,7 @@ All settings, constants, and env-driven configuration in one place.
 
 import os
 from datetime import UTC, datetime
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -161,7 +162,7 @@ HIGH_TRUST_SOURCES: set[str] = {
     "the hindu", "times of india", "economic times", "livemint",
     "ndtv", "india today", "business standard", "the indian express",
     # UK high-trust
-    "bbc", "the times", "the telegraph", "sky news",
+    "the times", "the telegraph", "sky news",
 }
 
 MEDIUM_TRUST_SOURCES: set[str] = {
@@ -173,7 +174,7 @@ MEDIUM_TRUST_SOURCES: set[str] = {
     # India medium-trust
     "moneycontrol", "firstpost", "inc42", "yourstory",
     # UK medium-trust
-    "techradar", "the register",
+    "techradar",
 }
 
 # ── Pipeline Limits ─────────────────────────────────────────────────

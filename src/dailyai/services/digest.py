@@ -4,7 +4,6 @@ Daily AI brief and welcome emails via Resend API.
 """
 
 import logging
-import os
 from datetime import UTC, datetime
 
 from dailyai.config import APP_URL, RESEND_API_KEY, RESEND_FROM_EMAIL, RESEND_REPLY_TO
