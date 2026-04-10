@@ -24,7 +24,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 def _create_app():
     from dailyai.ui.app import create_app
-    return create_app
+    return create_app()
 
 app = _create_app()
 
