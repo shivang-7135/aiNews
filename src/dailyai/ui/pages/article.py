@@ -2,6 +2,9 @@
 DailyAI — Article Detail Page
 """
 
+import json
+from contextlib import suppress
+
 from nicegui import ui
 
 from dailyai.api.routes import get_feed
@@ -123,3 +126,108 @@ def _short_summary(article: dict) -> str:
 
     source = str(article.get("source_name", "") or "Unknown source").strip()
     return f"Reported by {source}. Tap Open Source to read the full article."
+
+
+@ui.page("/s/{share_id}")
+async def shortlink_landing(share_id: str):
+    ui.add_head_html(f"<style>{GLOBAL_CSS}</style>")
+    ui.page_title("DailyAI — Bridging...")
+    ui.dark_mode(True)
+
+    from dailyai.storage.backend import get_metadata
+
+    data_str = await get_metadata(f"share:{share_id}")
+    data = None
+    if data_str:
+        with suppress(Exception):
+            data = json.loads(data_str)
+
+    if not data:
+        with ui.column().classes("w-full items-center justify-center min-h-screen py-20 opacity-70"):
+            ui.icon("broken_image", size="52px").classes("mb-4").style("color: var(--text-muted)")
+            ui.label("Link expired or invalid.").classes("text-secondary text-center")
+            ui.button("Go to DailyAI", on_click=lambda: ui.navigate.to("/")).props("outline color=accent mt-4")
+        return
+        
+    url = data.get("url", "/")
+    title = data.get("title", "")
+    source = data.get("source", "")
+    
+    ui.add_head_html("""
+        <style>
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(255, 184, 0, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 184, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 184, 0, 0); }
+        }
+        .splash-card {
+            background: rgba(26, 29, 38, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 184, 0, 0.15);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .splash-progress {
+            height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); overflow: hidden; position: relative;
+        }
+        .splash-progress::after {
+            content: ''; position: absolute; top:0; left:0; height:100%; width:0%;
+            background: linear-gradient(90deg, #FFB800, #FF5500);
+            border-radius: 2px;
+            animation: progress-fill 2.5s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+        }
+        @keyframes progress-fill {
+            to { width: 100%; }
+        }
+        .shimmer-text {
+            background: linear-gradient(90deg, #FFB800, #FFF, #FFB800);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: text-shimmer 3s linear infinite;
+        }
+        @keyframes text-shimmer {
+            to { background-position: 200% center; }
+        }
+        </style>
+    """)
+    
+    with ui.column().classes("w-full min-h-screen items-center justify-center p-4 bg-gradient-to-br from-[#0f111a] via-[#1a1d26] to-[#0a0a0f] relative overflow-hidden"):
+        # Decorative blur orbs
+        ui.label("").classes("absolute top-[-20%] left-[-10%] w-96 h-96 bg-accent opacity-10 rounded-full blur-[100px] pointer-events-none")
+        ui.label("").classes("absolute bottom-[-20%] right-[-10%] w-96 h-96 bg-primary opacity-[0.03] rounded-full blur-[100px] pointer-events-none")
+        
+        with ui.column().classes("splash-card w-full max-w-[420px] p-8 md:p-10 items-center text-center transform transition-all duration-700 hover:scale-[1.02]"):
+            
+            # Logo / Brand
+            with ui.row().classes("items-center justify-center gap-3 mb-8 w-full"):
+                ui.icon("bolt", size="28px").classes("text-accent").style("animation: pulse-glow 2s infinite; border-radius: 50%;")
+                ui.label("DailyAI").classes("text-2xl font-black text-white tracking-widest uppercase")
+            
+            # News Details
+            if source:
+                ui.label(source).classes("text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-3 px-3 py-1 border border-accent/30 rounded-full bg-accent/10")
+            
+            if title:
+                ui.label(title).classes("text-[22px] md:text-2xl font-bold text-white leading-[1.3] mb-8 line-clamp-4 max-w-sm")
+            
+            # Progress visualization
+            with ui.column().classes("w-full mb-6"):
+                ui.html("<div class='splash-progress w-full'></div>")
+                
+            ui.label("Bridging to original source...").classes("text-xs font-medium shimmer-text tracking-widest uppercase mb-6")
+            
+            ui.button("Jump Now", on_click=lambda: ui.navigate.to(url)).props("flat rounded color=white").classes(
+                "w-full bg-white/5 hover:bg-white/10 text-white font-bold tracking-wider transition-colors duration-300"
+            )
+        
+    ui.add_head_html(f'''
+        <script>
+            setTimeout(function() {{ window.location.href = "{url}"; }}, 2500);
+        </script>
+        <noscript>
+            <meta http-equiv="refresh" content="2;url={url}">
+        </noscript>
+    ''')

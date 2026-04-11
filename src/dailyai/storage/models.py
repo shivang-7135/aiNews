@@ -94,6 +94,12 @@ class SubscribeRequest(BaseModel):
     language: str = "en"
 
 
+class ShareRequest(BaseModel):
+    url: str
+    title: str = ""
+    source: str = ""
+
+
 class CreateProfileRequest(BaseModel):
     preferred_topics: list[str] = Field(default_factory=list)
     country: str = "GLOBAL"

@@ -4,6 +4,7 @@ Developer API v1 endpoints + internal API for the NiceGUI frontend.
 """
 
 import hashlib
+import json
 import logging
 import re
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ from dailyai.storage.models import (
     CreateProfileRequest,
     RecordAnalyticsRequest,
     RecordSignalRequest,
+    ShareRequest,
     SubscribeRequest,
     UpdateProfileRequest,
 )
@@ -154,6 +156,29 @@ async def countries():
 @router.get("/api/languages")
 async def languages():
     return {"languages": UI_LANGUAGES}
+
+
+# ── Share Shortlinks ────────────────────────────────────────────────
+
+@router.post("/api/share")
+async def create_share_link(req: ShareRequest):
+    from dailyai.storage.backend import set_metadata
+    
+    url = req.url.strip()
+    if not url:
+        return JSONResponse({"error": "URL is required"}, status_code=400)
+        
+    share_id = hashlib.md5((url + req.title).encode()).hexdigest()[:8]
+    key = f"share:{share_id}"
+    
+    payload = {
+        "url": url,
+        "title": req.title,
+        "source": req.source
+    }
+    
+    await set_metadata(key, json.dumps(payload))
+    return {"id": share_id, "url": f"/s/{share_id}"}
 
 
 # ── Subscribe ───────────────────────────────────────────────────────

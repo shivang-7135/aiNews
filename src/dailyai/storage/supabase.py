@@ -249,6 +249,7 @@ async def save_profile(profile: dict) -> None:
         await _request(
             "POST",
             "profiles",
+            params={"on_conflict": "sync_code"},
             json_body=payload,
             prefer="resolution=merge-duplicates,return=minimal",
             expect_json=False,
@@ -324,6 +325,7 @@ async def save_subscriber(subscriber: dict) -> None:
         await _request(
             "POST",
             "subscribers",
+            params={"on_conflict": "email"},
             json_body=payload,
             prefer="resolution=merge-duplicates,return=minimal",
             expect_json=False,
@@ -405,6 +407,7 @@ async def set_metadata(key: str, value: str) -> None:
         await _request(
             "POST",
             "metadata",
+            params={"on_conflict": "key"},
             json_body={"key": key, "value": value},
             prefer="resolution=merge-duplicates,return=minimal",
             expect_json=False,

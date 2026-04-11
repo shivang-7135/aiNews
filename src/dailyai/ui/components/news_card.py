@@ -288,16 +288,40 @@ def _inject_detail_overlay_once(language: str = "en"):
         };
 
         /* ── Share helper ── */
-        window.shareArticle = function(headline, url) {
-            if (navigator.share) {
-                navigator.share({ title: headline, url: url });
-            } else {
-                navigator.clipboard.writeText(url).then(function() {
-                    if (window.Quasar) Quasar.Notify.create({
-                        message: '__LINK_COPIED__', position: 'bottom', timeout: 1500,
-                        classes: 'text-body1'
-                    });
+        window.shareArticle = async function(headline, url, sourceName) {
+            try {
+                var res = await fetch('/api/share', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url, title: headline, source: sourceName || ""})
                 });
+                var resData = await res.json();
+                var shareUrl = window.location.origin + resData.url;
+                var clipText = headline + " — DailyAI\\n\\nRead here: " + shareUrl;
+                
+                if (navigator.share) {
+                    navigator.share({ title: headline, text: headline, url: shareUrl });
+                } else {
+                    navigator.clipboard.writeText(clipText).then(function() {
+                        if (window.Quasar) Quasar.Notify.create({
+                            message: '__LINK_COPIED__', position: 'bottom', timeout: 1500,
+                            classes: 'text-body1'
+                        });
+                    });
+                }
+            } catch (err) {
+                console.error("Shortlink failed:", err);
+                var fallbackClip = headline + " — DailyAI\\n\\nRead here: " + url;
+                if (navigator.share) {
+                    navigator.share({ title: headline, text: headline, url: url });
+                } else {
+                    navigator.clipboard.writeText(fallbackClip).then(function() {
+                        if (window.Quasar) Quasar.Notify.create({
+                            message: '__LINK_COPIED__', position: 'bottom', timeout: 1500,
+                            classes: 'text-body1'
+                        });
+                    });
+                }
             }
         };
 
@@ -541,7 +565,7 @@ def _inject_detail_overlay_once(language: str = "en"):
 
             // Share/Save
             document.getElementById('detailShareBtn').onclick = function() {
-                shareArticle(data.headline, data.articleUrl || data.link);
+                shareArticle(data.headline, data.articleUrl || data.link, data.source_name || data.source);
             };
             document.getElementById('detail-save-btn').onclick = function() {
                 toggleSaveArticle(uid);
@@ -800,14 +824,14 @@ def _inject_detail_overlay_once(language: str = "en"):
 
             /* ── Track share/save through existing functions ── */
             var _origShare = window.shareArticle;
-            window.shareArticle = function(headline, url) {
+            window.shareArticle = function(headline, url, sourceName) {
                 var overlay = document.getElementById('detailOverlay');
                 var uid = overlay ? overlay.dataset.uid : '';
                 var data = window.__articleData && window.__articleData[uid];
                 if (data) {
                     window._trackEvent('share', uid, data.topic, data.category, 0);
                 }
-                _origShare(headline, url);
+                _origShare(headline, url, sourceName);
             };
 
             var _origToggleSave = window.toggleSaveArticle;
