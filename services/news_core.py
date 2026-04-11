@@ -5,6 +5,7 @@ import os
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from agent import NewsAgent
 from services.config import COUNTRIES, MAX_TILES, UI_TOPIC_MAP, normalize_language, store_key
@@ -25,7 +26,7 @@ def _load_articles_cache() -> dict:
     """Load persisted articles from disk."""
     if ARTICLES_CACHE_FILE.exists():
         try:
-            return json.loads(ARTICLES_CACHE_FILE.read_text())
+            return cast(dict, json.loads(ARTICLES_CACHE_FILE.read_text()))
         except (OSError, json.JSONDecodeError):
             pass
     return {}

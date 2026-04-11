@@ -929,7 +929,7 @@ class TestNewsService:
         with patch("dailyai.services.news.db") as mock_db:
             articles = [
                 {
-                    "title": f"Article {i}",
+                    "title": f"word{i}_a word{i}_b word{i}_c word{i}_d word{i}_e",
                     "summary": "s",
                     "importance": 9 - i,
                     "topic": "general",

@@ -1,11 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from services.config import TOPICS
-
-try:
-    from pydantic import field_validator as pydantic_validator
-except ImportError:  # Pydantic v1 fallback
-    from pydantic import validator as pydantic_validator
 
 
 class SubscribeRequest(BaseModel):
@@ -14,7 +9,7 @@ class SubscribeRequest(BaseModel):
     country: str = Field(default="GLOBAL", min_length=2, max_length=10)
     language: str = Field(default="en", min_length=2, max_length=5)
 
-    @pydantic_validator("topics")
+    @field_validator("topics")
     def validate_topics(cls, value: list[str]) -> list[str]:
         allowed = {k for k in TOPICS if k != "all"}
         clean: list[str] = []
@@ -42,7 +37,7 @@ class CreateProfileRequest(BaseModel):
     country: str = Field(default="GLOBAL", min_length=2, max_length=10)
     language: str = Field(default="en", min_length=2, max_length=5)
 
-    @pydantic_validator("preferred_topics")
+    @field_validator("preferred_topics")
     def validate_profile_topics(cls, value: list[str]) -> list[str]:
         allowed = {k for k in TOPICS if k != "all"}
         clean: list[str] = []

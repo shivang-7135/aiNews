@@ -138,6 +138,33 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
     return await _backend.get_topic_scores_by_sync_code(sync_code)
 
 
+# ── Session Stats (compact aggregated analytics) ───────────────────
+
+
+async def save_session_stats(stats: dict) -> None:
+    await _backend.save_session_stats(stats)
+
+
+async def get_all_session_stats() -> list[dict]:
+    return await _backend.get_all_session_stats()
+
+
+async def get_session_stats_by_sync_code(sync_code: str) -> list[dict]:
+    return await _backend.get_session_stats_by_sync_code(sync_code)
+
+
+async def get_analytics_overview() -> dict:
+    return await _backend.get_analytics_overview()
+
+
+async def get_daily_leaderboard(limit: int = 3) -> list[dict]:
+    return await _backend.get_daily_leaderboard(limit)
+
+
+async def prune_old_events(days: int = 7) -> int:
+    return await _backend.prune_old_events(days)
+
+
 # ── RSS Feeds (Admin) ──────────────────────────────────────────────
 
 

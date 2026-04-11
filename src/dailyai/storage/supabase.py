@@ -614,21 +614,187 @@ async def get_events_by_sync_code(sync_code: str, limit: int = 1000) -> list[dic
 async def get_event_counts() -> dict:
     if not is_configured():
         return await _fallback("get_event_counts")
-
     try:
-        rows = await _request(
-            "GET",
-            "user_events",
-            params={"select": "event_type"},
-        )
+        # Quick estimate for admin checks
+        events = await get_events("", limit=1000)
         counts: dict[str, int] = {}
-        for row in rows or []:
-            et = row.get("event_type", "")
+        for e in events:
+            et = e.get("event_type", "")
             counts[et] = counts.get(et, 0) + 1
         return counts
-    except Exception as exc:
-        logger.error(f"Supabase get_event_counts failed: {exc}", exc_info=True)
+    except Exception:
         return await _fallback("get_event_counts")
+
+
+# ── Session Stats (compact aggregated analytics) ───────────────────
+
+
+async def save_session_stats(stats: dict) -> None:
+    if not is_configured():
+        await _fallback("save_session_stats", stats)
+        return
+        
+    try:
+        payload = {
+            "session_id": stats.get("session_id", ""),
+            "sync_code": stats.get("sync_code", ""),
+            "impressions": stats.get("impressions", 0),
+            "clicks": stats.get("clicks", 0),
+            "detail_opens": stats.get("detail_opens", 0),
+            "saves": stats.get("saves", 0),
+            "unsaves": stats.get("unsaves", 0),
+            "shares": stats.get("shares", 0),
+            "external_clicks": stats.get("external_clicks", 0),
+            "holds": stats.get("holds", 0),
+            "total_read_time_sec": stats.get("total_read_time_sec", 0.0),
+            "avg_read_time_sec": stats.get("avg_read_time_sec", 0.0),
+            "total_scroll_depth": stats.get("total_scroll_depth", 0.0),
+            "avg_scroll_depth": stats.get("avg_scroll_depth", 0.0),
+            "read_events": stats.get("read_events", 0),
+            "scroll_events": stats.get("scroll_events", 0),
+            "top_topics": stats.get("top_topics", {}),
+            "first_seen": stats.get("first_seen", datetime.now(UTC).isoformat()),
+            "last_seen": stats.get("last_seen", datetime.now(UTC).isoformat())
+        }
+        await _request(
+            "POST",
+            "user_session_stats",
+            params={"on_conflict": "session_id"},
+            json_body=[payload],
+            prefer="resolution=merge-duplicates,return=minimal",
+            expect_json=False,
+        )
+    except Exception:
+        await _fallback("save_session_stats", stats)
+
+
+async def get_all_session_stats() -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_all_session_stats")
+    try:
+        rows = await _request("GET", "user_session_stats", params={"select": "*", "order": "last_seen.desc", "limit": "1000"})
+        for row in rows or []:
+            row["top_topics"] = _coerce_json_field(row.get("top_topics"), {})
+        return rows or []
+    except Exception:
+        return await _fallback("get_all_session_stats")
+
+
+async def get_session_stats_by_sync_code(sync_code: str) -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_session_stats_by_sync_code", sync_code)
+    try:
+        rows = await _request("GET", "user_session_stats", params={"sync_code": f"eq.{sync_code}", "select": "*", "order": "last_seen.desc"})
+        for row in rows or []:
+            row["top_topics"] = _coerce_json_field(row.get("top_topics"), {})
+        return rows or []
+    except Exception:
+        return await _fallback("get_session_stats_by_sync_code", sync_code)
+
+
+async def get_analytics_overview() -> dict:
+    if not is_configured():
+        return await _fallback("get_analytics_overview")
+        
+    try:
+        # Full Supabase Analytics calculation
+        total_events = 0
+        try:
+            evts = await _request("GET", "user_events", params={"select": "id", "limit": "10000"})
+            total_events = len(evts or [])
+        except Exception:
+            pass
+            
+        sessions = await get_all_session_stats()
+        
+        event_breakdown = {}
+        unique_sessions = len(sessions)
+        unique_sync_codes = len(set(s.get("sync_code") for s in sessions if s.get("sync_code")))
+        
+        total_impressions = sum(s.get("impressions", 0) for s in sessions)
+        total_clicks = sum(s.get("clicks", 0) for s in sessions)
+        event_breakdown["impressions"] = total_impressions
+        event_breakdown["clicks"] = total_clicks
+        
+        top_topics = {}
+        for s in sessions:
+            topics = s.get("top_topics", {})
+            for t, count in topics.items():
+                top_topics[t] = top_topics.get(t, 0) + count
+
+        total_profiles = 0
+        try:
+            profs = await _request("GET", "profiles", params={"select": "sync_code"})
+            total_profiles = len(profs or [])
+        except Exception:
+            pass
+            
+        return {
+            "total_events": total_events,
+            "event_breakdown": event_breakdown,
+            "unique_sessions": unique_sessions,
+            "unique_sync_codes": unique_sync_codes,
+            "total_profiles": total_profiles,
+            "top_topics": top_topics,
+            "total_session_stats": len(sessions),
+            "daily_events": {},
+        }
+    except Exception:
+        return await _fallback("get_analytics_overview")
+
+
+async def get_daily_leaderboard(limit: int = 3) -> list[dict]:
+    if not is_configured():
+        return await _fallback("get_daily_leaderboard", limit)
+        
+    try:
+        from datetime import UTC, datetime
+        today = datetime.now(UTC).date().isoformat()
+        
+        # In Supabase, filter by last_seen >= today
+        rows = await _request(
+            "GET", 
+            "user_session_stats", 
+            params={
+                "select": "sync_code,total_read_time_sec",
+                "last_seen": f"gte.{today}T00:00:00Z"
+            }
+        )
+        
+        # Aggregate manually (Supabase REST v1 has no GROUP BY sum)
+        aggregated = {}
+        for r in rows or []:
+            sc = r.get("sync_code")
+            if not sc:
+                continue
+            if sc not in aggregated:
+                aggregated[sc] = {"sync_code": sc, "read_time_sec": 0.0, "sessions": 0}
+            aggregated[sc]["read_time_sec"] += float(r.get("total_read_time_sec", 0))
+            aggregated[sc]["sessions"] += 1
+            
+        ranked = sorted(aggregated.values(), key=lambda x: x["read_time_sec"], reverse=True)
+        return ranked[:limit]
+    except Exception:
+        return await _fallback("get_daily_leaderboard", limit)
+
+
+async def prune_old_events(days: int = 7) -> int:
+    if not is_configured():
+        return await _fallback("prune_old_events", days)
+        
+    try:
+        from datetime import UTC, datetime, timedelta
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        await _request(
+            "DELETE",
+            "user_events",
+            params={"created_at": f"lt.{cutoff}"},
+            prefer="return=minimal",
+            expect_json=False
+        )
+        return 0 # Since we use return=minimal, we don't get the count easily.
+    except Exception:
+        return await _fallback("prune_old_events", days)
 
 
 # -- User Topic Scores -----------------------------------------------

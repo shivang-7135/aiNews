@@ -11,6 +11,7 @@ import threading
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger("dailyai.profiles")
 
@@ -293,17 +294,20 @@ def record_analytics(sync_code: str, stats: dict) -> dict | None:
     if not profile:
         return None
 
-    analytics = profile.get(
-        "analytics",
-        {
-            "total_taps": 0,
-            "total_saves": 0,
-            "total_reads": 0,
-            "total_skips": 0,
-            "total_briefs_opened": 0,
-            "total_time_spent_seconds": 0,
-            "session_count": 0,
-        },
+    analytics = cast(
+        dict[str, int],
+        profile.get(
+            "analytics",
+            {
+                "total_taps": 0,
+                "total_saves": 0,
+                "total_reads": 0,
+                "total_skips": 0,
+                "total_briefs_opened": 0,
+                "total_time_spent_seconds": 0,
+                "session_count": 0,
+            },
+        ),
     )
 
     FIELD_MAP = {

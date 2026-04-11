@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -46,7 +47,7 @@ async def db_select(table: str, params: dict | None = None) -> list[dict]:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(_url(table), headers=_headers(), params=params or {})
             if resp.status_code == 200:
-                return resp.json()
+                return cast(list[dict], resp.json())
             logger.warning(f"[DB] SELECT {table} → {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         logger.warning(f"[DB] SELECT {table} failed: {e}")
@@ -59,7 +60,7 @@ async def db_insert(table: str, data: dict | list[dict]) -> list[dict]:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(_url(table), headers=_headers(), json=data)
             if resp.status_code in (200, 201):
-                return resp.json()
+                return cast(list[dict], resp.json())
             logger.warning(f"[DB] INSERT {table} → {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         logger.warning(f"[DB] INSERT {table} failed: {e}")
@@ -84,7 +85,7 @@ async def db_upsert(table: str, data: dict, on_conflict: str = "") -> list[dict]
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(_url(table), headers=headers, json=data, params=params)
             if resp.status_code in (200, 201):
-                return resp.json()
+                return cast(list[dict], resp.json())
             logger.warning(f"[DB] UPSERT {table} → {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         logger.warning(f"[DB] UPSERT {table} failed: {e}")
@@ -98,7 +99,7 @@ async def db_update(table: str, match_params: dict, data: dict) -> list[dict]:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.patch(_url(table), headers=_headers(), json=data, params=params)
             if resp.status_code == 200:
-                return resp.json()
+                return cast(list[dict], resp.json())
             logger.warning(f"[DB] UPDATE {table} → {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         logger.warning(f"[DB] UPDATE {table} failed: {e}")
@@ -240,7 +241,7 @@ async def sync_all_to_supabase() -> dict:
     if not is_supabase_configured():
         return {"status": "skipped", "reason": "Supabase not configured"}
 
-    summary = {"profiles": 0, "subscribers": 0, "errors": []}
+    summary: dict[str, Any] = {"profiles": 0, "subscribers": 0, "errors": []}
 
     # ── Sync profiles.json ──
     profiles_path = Path("profiles.json")

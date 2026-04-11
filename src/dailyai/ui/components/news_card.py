@@ -602,7 +602,8 @@ def _inject_detail_overlay_once(language: str = "en"):
         /* ═══════════════════════════════════════════════════════════
          *  DailyAI Analytics Tracker
          *  Tracks: impressions, clicks, holds, detail_open, read_time,
-         *  scroll_depth, share, save, external_click
+         *  scroll_depth, share, save, unsave, external_click
+         *  Per-session, per-article granular capture.
          * ═══════════════════════════════════════════════════════════ */
         (function() {
             /* Session & sync code management */
@@ -613,27 +614,51 @@ def _inject_detail_overlay_once(language: str = "en"):
             window.__dailyaiSessionId = sessionStorage.getItem('dailyai_session_id');
             window.__dailyaiSyncCode = localStorage.getItem('dailyai_sync_code') || '';
 
-            /* Event buffer — flushed every 30s or on page unload */
+            /* Track per-article interaction counts in this session */
+            window.__articleInteractions = window.__articleInteractions || {};
+
+            /* Event buffer — flushed every 15s or on page unload */
             window.__analyticsBuffer = [];
             window.__analyticsFlushTimer = null;
 
             window._trackEvent = function(eventType, articleId, topic, category, value, metadata) {
+                /* Enrich with article data if available */
+                var data = window.__articleData && window.__articleData[articleId];
+                var enrichedMeta = Object.assign({}, metadata || {});
+                if (data) {
+                    enrichedMeta.source = enrichedMeta.source || data.source || '';
+                    enrichedMeta.headline = enrichedMeta.headline || data.headline || '';
+                }
+
+                /* Track per-article interaction counts */
+                if (articleId) {
+                    if (!window.__articleInteractions[articleId]) {
+                        window.__articleInteractions[articleId] = {};
+                    }
+                    window.__articleInteractions[articleId][eventType] =
+                        (window.__articleInteractions[articleId][eventType] || 0) + 1;
+                }
+
                 window.__analyticsBuffer.push({
                     event_type: eventType,
                     article_id: articleId || '',
                     topic: topic || '',
                     category: category || '',
                     value: value || 0,
-                    metadata: metadata || {}
+                    metadata: enrichedMeta
                 });
                 /* Auto-flush if buffer gets large */
-                if (window.__analyticsBuffer.length >= 50) {
+                if (window.__analyticsBuffer.length >= 30) {
                     window._flushAnalytics();
                 }
             };
 
             window._flushAnalytics = function() {
                 if (!window.__analyticsBuffer.length) return;
+                /* Always refresh sync code from localStorage before flushing
+                   to ensure it's current even after switching codes in settings */
+                window.__dailyaiSyncCode = localStorage.getItem('dailyai_sync_code') || '';
+
                 var events = window.__analyticsBuffer.splice(0);
                 var payload = {
                     session_id: window.__dailyaiSessionId,
@@ -655,9 +680,9 @@ def _inject_detail_overlay_once(language: str = "en"):
                 } catch(e) { /* silent */ }
             };
 
-            /* Flush every 30 seconds */
+            /* Flush every 15 seconds for more timely analytics */
             if (window.__analyticsFlushTimer) clearInterval(window.__analyticsFlushTimer);
-            window.__analyticsFlushTimer = setInterval(window._flushAnalytics, 30000);
+            window.__analyticsFlushTimer = setInterval(window._flushAnalytics, 15000);
 
             /* Flush on page unload */
             window.addEventListener('beforeunload', function() {

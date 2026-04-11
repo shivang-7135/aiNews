@@ -118,6 +118,9 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "save_persona": "Save Persona",
         "persona_saved": "Persona saved! Refresh feeds to apply.",
         "persona_error": "Error saving persona: {error}",
+        # ── Leaderboard ───────────────────────────────────────────
+        "daily_leaderboard": "Top Readers Today",
+        "leaderboard_desc": "Rankings across the dailyAI network.",
     },
     "de": {
         # ── Navigation & Core ─────────────────────────────────────
@@ -226,6 +229,9 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "save_persona": "Persona speichern",
         "persona_saved": "Persona gespeichert! Aktualisiere den Feed, um die Änderungen anzuwenden.",
         "persona_error": "Fehler beim Speichern der Persona: {error}",
+        # ── Leaderboard ───────────────────────────────────────────
+        "daily_leaderboard": "Top-Leser heute",
+        "leaderboard_desc": "Rangliste im gesamten dailyAI-Netzwerk.",
     },
 }
 

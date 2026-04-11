@@ -41,6 +41,71 @@ _startup_prefetch_lock = asyncio.Lock()
 _startup_prefetch_done = False
 _brief_cache: dict[str, str] = {}
 
+# ── Dedup helpers ───────────────────────────────────────────────────
+_STOP_WORDS = frozenset({
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "in", "on", "at", "to", "for", "of", "with", "by", "from", "and",
+    "or", "not", "but", "this", "that", "it", "its", "as", "has", "had",
+    "will", "can", "could", "should", "would", "may", "might", "do",
+    "does", "did", "have", "how", "what", "which", "who", "whom",
+    "where", "when", "why", "new", "says", "said", "about", "just",
+    "into", "over", "after", "before", "up", "out", "no", "than",
+    "more", "most", "also", "very", "s", "t", "re", "ve", "-", "–",
+})
+
+
+def _headline_words(text: str) -> frozenset[str]:
+    """Extract meaningful lowercase words from a headline."""
+    words = set()
+    punct_table = str.maketrans("", "", ".,!?;:()[]{}\"'\\")
+    for w in text.lower().split():
+        cleaned = w.translate(punct_table)
+        if cleaned and cleaned not in _STOP_WORDS and len(cleaned) > 1:
+            words.add(cleaned)
+    return frozenset(words)
+
+
+def _is_near_duplicate(title_a: str, title_b: str, threshold: float = 0.50) -> bool:
+    """Return True if two headlines have >= threshold Jaccard word overlap."""
+    words_a = _headline_words(title_a)
+    words_b = _headline_words(title_b)
+    if not words_a or not words_b:
+        return False
+    intersection = len(words_a & words_b)
+    union = len(words_a | words_b)
+    return (intersection / union) >= threshold if union else False
+
+
+def _dedup_articles(articles: list[dict], title_key: str = "title") -> list[dict]:
+    """Remove near-duplicate articles, keeping the one with higher importance/trust."""
+    _TRUST_ORDER = {"high": 3, "medium": 2, "low": 1}
+    kept: list[dict] = []
+    kept_titles: list[str] = []
+
+    for article in articles:
+        title = str(article.get(title_key, "") or "")
+        if not title:
+            continue
+
+        is_dup = False
+        for i, existing_title in enumerate(kept_titles):
+            if _is_near_duplicate(title, existing_title):
+                # Keep whichever has better importance/trust
+                existing = kept[i]
+                new_score = int(article.get("importance", 5)) + _TRUST_ORDER.get(article.get("source_trust", "low"), 1)
+                old_score = int(existing.get("importance", 5)) + _TRUST_ORDER.get(existing.get("source_trust", "low"), 1)
+                if new_score > old_score:
+                    kept[i] = article
+                    kept_titles[i] = title
+                is_dup = True
+                break
+
+        if not is_dup:
+            kept.append(article)
+            kept_titles.append(title)
+
+    return kept
+
 
 def _infer_topic_category(title: str, summary: str = "", source: str = "") -> tuple[str, str]:
     """Infer internal topic/category to avoid overuse of generic buckets."""
@@ -376,6 +441,14 @@ async def refresh_news(
                     if str(merged[-1].get("category", "general")).lower() in ("", "general"):
                         merged[-1]["category"] = inferred_category
 
+            # Deduplicate near-identical headlines (50%+ word overlap)
+            pre_dedup_count = len(merged)
+            merged = _dedup_articles(merged, title_key="title")
+            if len(merged) < pre_dedup_count:
+                logger.info(
+                    f"Deduplication removed {pre_dedup_count - len(merged)} near-duplicate articles for {key}"
+                )
+
             await db.save_articles(key, merged)
             await db.set_metadata(
                 f"last_updated:{key}",
@@ -496,6 +569,9 @@ async def get_feed(
         if new_arts:
             articles.extend(new_arts)
             asyncio.create_task(_background_translate_and_cache(new_arts, language, key))
+
+    # Deduplicate near-identical headlines before formatting
+    articles = _dedup_articles(articles, title_key="title")
 
     # Format for UI
     from dailyai.config import UI_TOPIC_MAP

@@ -18,6 +18,7 @@ import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger("dailyai.apikeys")
 
@@ -166,7 +167,7 @@ def check_rate_limit(key_hash: str, tier: str) -> tuple[bool, int, int]:
 
     Returns (allowed, remaining, limit).
     """
-    limit = TIERS.get(tier, TIERS["free"])["daily_limit"]
+    limit = cast(int, TIERS.get(tier, TIERS["free"])["daily_limit"])
     now = time.time()
     day_start = now - 86400  # rolling 24h window
 
@@ -205,6 +206,7 @@ def get_api_key_stats(raw_key: str) -> dict | None:
 
     tier = record.get("tier", "free")
     tier_info = TIERS.get(tier, TIERS["free"])
+    daily_limit = cast(int, tier_info["daily_limit"])
 
     # Get current usage from rate bucket
     now = time.time()
@@ -218,9 +220,9 @@ def get_api_key_stats(raw_key: str) -> dict | None:
         "name": record.get("name", ""),
         "tier": tier,
         "tier_display": tier_info["display_name"],
-        "daily_limit": tier_info["daily_limit"],
+        "daily_limit": daily_limit,
         "requests_today": today_count,
-        "remaining_today": max(0, tier_info["daily_limit"] - today_count),
+        "remaining_today": max(0, daily_limit - today_count),
         "total_requests": record.get("total_requests", 0),
         "created_at": record.get("created_at", ""),
         "last_used": record.get("last_used", ""),

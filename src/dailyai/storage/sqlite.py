@@ -144,6 +144,33 @@ async def _create_tables(db: aiosqlite.Connection):
         CREATE INDEX IF NOT EXISTS idx_topic_scores_session ON user_topic_scores(session_id);
         CREATE INDEX IF NOT EXISTS idx_topic_scores_sync ON user_topic_scores(sync_code);
 
+        CREATE TABLE IF NOT EXISTS user_session_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            sync_code TEXT DEFAULT '',
+            impressions INTEGER DEFAULT 0,
+            clicks INTEGER DEFAULT 0,
+            detail_opens INTEGER DEFAULT 0,
+            saves INTEGER DEFAULT 0,
+            unsaves INTEGER DEFAULT 0,
+            shares INTEGER DEFAULT 0,
+            external_clicks INTEGER DEFAULT 0,
+            holds INTEGER DEFAULT 0,
+            total_read_time_sec REAL DEFAULT 0,
+            avg_read_time_sec REAL DEFAULT 0,
+            total_scroll_depth REAL DEFAULT 0,
+            avg_scroll_depth REAL DEFAULT 0,
+            read_events INTEGER DEFAULT 0,
+            scroll_events INTEGER DEFAULT 0,
+            top_topics TEXT DEFAULT '{}',
+            first_seen TEXT DEFAULT (datetime('now')),
+            last_seen TEXT DEFAULT (datetime('now')),
+            UNIQUE(session_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_session_stats_sync ON user_session_stats(sync_code);
+        CREATE INDEX IF NOT EXISTS idx_session_stats_last ON user_session_stats(last_seen);
+
         CREATE TABLE IF NOT EXISTS rss_feeds (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             country_code TEXT NOT NULL,
@@ -627,6 +654,185 @@ async def get_event_counts() -> dict:
     )
     rows = await cursor.fetchall()
     return {row["event_type"]: row["cnt"] for row in rows}
+
+
+# ── Session Stats (compact aggregated analytics) ───────────────────
+
+
+async def save_session_stats(stats: dict) -> None:
+    """Upsert aggregated session statistics."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO user_session_stats
+           (session_id, sync_code, impressions, clicks, detail_opens,
+            saves, unsaves, shares, external_clicks, holds,
+            total_read_time_sec, avg_read_time_sec,
+            total_scroll_depth, avg_scroll_depth,
+            read_events, scroll_events, top_topics, last_seen)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(session_id) DO UPDATE SET
+             sync_code = CASE WHEN ? != '' THEN ? ELSE sync_code END,
+             impressions = ?, clicks = ?, detail_opens = ?,
+             saves = ?, unsaves = ?, shares = ?, external_clicks = ?, holds = ?,
+             total_read_time_sec = ?, avg_read_time_sec = ?,
+             total_scroll_depth = ?, avg_scroll_depth = ?,
+             read_events = ?, scroll_events = ?,
+             top_topics = ?, last_seen = datetime('now')""",
+        (
+            stats["session_id"], stats.get("sync_code", ""),
+            stats.get("impressions", 0), stats.get("clicks", 0), stats.get("detail_opens", 0),
+            stats.get("saves", 0), stats.get("unsaves", 0), stats.get("shares", 0),
+            stats.get("external_clicks", 0), stats.get("holds", 0),
+            stats.get("total_read_time_sec", 0), stats.get("avg_read_time_sec", 0),
+            stats.get("total_scroll_depth", 0), stats.get("avg_scroll_depth", 0),
+            stats.get("read_events", 0), stats.get("scroll_events", 0),
+            json.dumps(stats.get("top_topics", {})),
+            # ON CONFLICT params:
+            stats.get("sync_code", ""), stats.get("sync_code", ""),
+            stats.get("impressions", 0), stats.get("clicks", 0), stats.get("detail_opens", 0),
+            stats.get("saves", 0), stats.get("unsaves", 0), stats.get("shares", 0),
+            stats.get("external_clicks", 0), stats.get("holds", 0),
+            stats.get("total_read_time_sec", 0), stats.get("avg_read_time_sec", 0),
+            stats.get("total_scroll_depth", 0), stats.get("avg_scroll_depth", 0),
+            stats.get("read_events", 0), stats.get("scroll_events", 0),
+            json.dumps(stats.get("top_topics", {})),
+        ),
+    )
+    await db.commit()
+
+
+async def get_all_session_stats() -> list[dict]:
+    """Get all session stats, ordered by most recent."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM user_session_stats ORDER BY last_seen DESC"
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        r = dict(row)
+        try:
+            r["top_topics"] = json.loads(r.get("top_topics", "{}"))
+        except (json.JSONDecodeError, TypeError):
+            r["top_topics"] = {}
+        result.append(r)
+    return result
+
+
+async def get_session_stats_by_sync_code(sync_code: str) -> list[dict]:
+    """Get session stats for a specific sync code."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM user_session_stats WHERE sync_code = ? ORDER BY last_seen DESC",
+        (sync_code,),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        r = dict(row)
+        try:
+            r["top_topics"] = json.loads(r.get("top_topics", "{}"))
+        except (json.JSONDecodeError, TypeError):
+            r["top_topics"] = {}
+        result.append(r)
+    return result
+
+
+async def get_analytics_overview() -> dict:
+    """Get a full analytics overview for the admin dashboard."""
+    db = await get_db()
+
+    # Total events
+    c = await db.execute("SELECT COUNT(*) as cnt FROM user_events")
+    r = await c.fetchone()
+    total_events = r["cnt"] if r else 0
+
+    # Event type breakdown
+    c = await db.execute(
+        "SELECT event_type, COUNT(*) as cnt FROM user_events GROUP BY event_type ORDER BY cnt DESC"
+    )
+    event_breakdown = {row["event_type"]: row["cnt"] for row in await c.fetchall()}
+
+    # Unique sessions
+    c = await db.execute("SELECT COUNT(DISTINCT session_id) as cnt FROM user_events")
+    r = await c.fetchone()
+    unique_sessions = r["cnt"] if r else 0
+
+    # Unique sync codes
+    c = await db.execute(
+        "SELECT COUNT(DISTINCT sync_code) as cnt FROM user_events WHERE sync_code != ''"
+    )
+    r = await c.fetchone()
+    unique_sync_codes = r["cnt"] if r else 0
+
+    # Total profiles
+    c = await db.execute("SELECT COUNT(*) as cnt FROM profiles")
+    r = await c.fetchone()
+    total_profiles = r["cnt"] if r else 0
+
+    # Top topics by event count
+    c = await db.execute(
+        """SELECT topic, COUNT(*) as cnt FROM user_events
+           WHERE topic != '' GROUP BY topic ORDER BY cnt DESC LIMIT 10"""
+    )
+    top_topics = {row["topic"]: row["cnt"] for row in await c.fetchall()}
+
+    # Session stats summary
+    c = await db.execute("SELECT COUNT(*) as cnt FROM user_session_stats")
+    r = await c.fetchone()
+    total_session_stats = r["cnt"] if r else 0
+
+    # Events per day (last 7 days)
+    c = await db.execute(
+        """SELECT DATE(created_at) as day, COUNT(*) as cnt
+           FROM user_events
+           WHERE created_at >= datetime('now', '-7 days')
+           GROUP BY DATE(created_at)
+           ORDER BY day DESC"""
+    )
+    daily_events = {row["day"]: row["cnt"] for row in await c.fetchall()}
+
+    return {
+        "total_events": total_events,
+        "event_breakdown": event_breakdown,
+        "unique_sessions": unique_sessions,
+        "unique_sync_codes": unique_sync_codes,
+        "total_profiles": total_profiles,
+        "top_topics": top_topics,
+        "total_session_stats": total_session_stats,
+        "daily_events": daily_events,
+    }
+
+
+async def get_daily_leaderboard(limit: int = 3) -> list[dict]:
+    """Get top readers for the current day (UTC) based on total read time."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT sync_code, SUM(total_read_time_sec) as read_time_sec, COUNT(*) as sessions 
+           FROM user_session_stats 
+           WHERE DATE(last_seen) = DATE('now')
+             AND sync_code != ''
+           GROUP BY sync_code 
+           ORDER BY read_time_sec DESC 
+           LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def prune_old_events(days: int = 7) -> int:
+    """Delete raw events older than N days. Returns count of deleted rows."""
+    db = await get_db()
+    cursor = await db.execute(
+        "DELETE FROM user_events WHERE created_at < datetime('now', ?)",
+        (f"-{days} days",),
+    )
+    await db.commit()
+    deleted = cursor.rowcount
+    if deleted > 0:
+        logger.info(f"Pruned {deleted} raw events older than {days} days")
+    return deleted
 
 
 # ── User Topic Scores ──────────────────────────────────────────────

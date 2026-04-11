@@ -459,9 +459,79 @@ async def admin_analytics_overview(
     if not _check_admin_auth(authorization):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    from dailyai.services.analytics import get_analytics_summary
+    from dailyai.storage.backend import get_analytics_overview
 
-    return await get_analytics_summary()
+    return await get_analytics_overview()
+
+
+@router.get("/api/admin/analytics/sessions")
+async def admin_session_stats(
+    authorization: str | None = Header(None),
+):
+    """Get all session stats (compact aggregated view)."""
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import get_all_session_stats
+
+    stats = await get_all_session_stats()
+    return {"sessions": stats, "count": len(stats)}
+
+
+@router.get("/api/admin/analytics/user/{sync_code}")
+async def admin_user_analytics(
+    sync_code: str,
+    authorization: str | None = Header(None),
+):
+    """Get analytics for a specific user (by sync code)."""
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import (
+        get_profile,
+        get_session_stats_by_sync_code,
+        get_topic_scores_by_sync_code,
+    )
+
+    profile = await get_profile(sync_code)
+    sessions = await get_session_stats_by_sync_code(sync_code)
+    topic_scores = await get_topic_scores_by_sync_code(sync_code)
+
+    return {
+        "sync_code": sync_code,
+        "profile": profile,
+        "sessions": sessions,
+        "topic_scores": topic_scores,
+    }
+
+
+@router.post("/api/admin/analytics/prune")
+async def admin_prune_events(
+    days: int = 7,
+    authorization: str | None = Header(None),
+):
+    """Manually prune raw events older than N days."""
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import prune_old_events
+
+    pruned = await prune_old_events(days)
+    return {"status": "pruned", "deleted": pruned, "max_age_days": days}
+
+
+@router.get("/api/admin/analytics/profiles")
+async def admin_profiles_overview(
+    authorization: str | None = Header(None),
+):
+    """Get all profiles with their analytics data."""
+    if not _check_admin_auth(authorization):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    from dailyai.storage.backend import get_all_profiles
+
+    profiles = await get_all_profiles()
+    return {"profiles": profiles, "count": len(profiles)}
 
 
 @router.get("/api/admin/cache-health")

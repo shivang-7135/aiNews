@@ -62,16 +62,123 @@ async def cache_admin_page():
                 ui.button("Logout", on_click=do_logout).props("flat dense")
 
             with ui.tabs().classes("w-full") as tabs:
+                analytics_tab = ui.tab("Analytics")
                 cache_tab = ui.tab("Cache Health")
                 rss_tab = ui.tab("RSS Feeds")
 
-            with ui.tab_panels(tabs, value=cache_tab).classes("w-full bg-transparent p-0"):
+            with ui.tab_panels(tabs, value=analytics_tab).classes("w-full bg-transparent p-0"):
+                with ui.tab_panel(analytics_tab):
+                    render_analytics(state["token"])
                 with ui.tab_panel(cache_tab):
                     render_cache_health(state["token"])
                 with ui.tab_panel(rss_tab):
                     render_rss_admin(state["token"])
 
     admin_ui()
+
+
+def render_analytics(token: str):
+    ui.add_head_html("""
+    <script>
+    async function pruneAnalytics(token, days) {
+        if (!confirm('Are you sure you want to prune events older than ' + days + ' days?')) return;
+        try {
+            const res = await fetch('/api/admin/analytics/prune?days=' + days, {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            const data = await res.json();
+            if (res.ok) alert('Pruned ' + data.deleted + ' old events.');
+            else alert('Error: ' + data.error);
+        } catch (e) {
+            alert('Failed: ' + e.message);
+        }
+    }
+    </script>
+    """)
+
+    container = ui.column().classes("w-full gap-4 max-w-[860px] mx-auto pb-8")
+
+    async def load_analytics_data():
+        container.clear()
+
+        from dailyai.storage.backend import get_all_session_stats, get_analytics_overview
+
+        try:
+            overview = await get_analytics_overview()
+            sessions = await get_all_session_stats()
+            
+            with container:
+                # Overview Cards
+                with ui.row().classes("w-full grid grid-cols-2 md:grid-cols-4 gap-3"):
+                    def stat_card(title, value):
+                        with ui.card().classes("bg-[var(--bg-card)] border-[var(--border-ghost)] p-3 items-center"):
+                            ui.label(title).classes("text-xs text-[var(--text-muted)] uppercase tracking-wider")
+                            ui.label(str(value)).classes("text-2xl font-bold text-[var(--text-primary)] mt-1")
+                    
+                    stat_card("Total Sessions", overview.get("unique_sessions", 0))
+                    stat_card("Total Profiles", overview.get("total_profiles", 0))
+                    stat_card("Raw Events", overview.get("total_events", 0))
+                    stat_card("Sync Codes", overview.get("unique_sync_codes", 0))
+
+                # Actions
+                with ui.row().classes("w-full justify-end mt-2"):
+                    ui.button("Prune Events > 7 Days", on_click=lambda: ui.run_javascript(f"pruneAnalytics('{token}', 7)")).props("outline color=negative size=sm")
+
+                # Events Breakdown
+                with ui.row().classes("w-full mt-4 gap-4"), ui.card().classes("bg-[var(--bg-card)] border-[var(--border-ghost)] p-4 flex-grow"):
+                    ui.label("Event Breakdown").classes("text-sm font-bold text-[var(--text-primary)] mb-3")
+                    with ui.column().classes("w-full gap-1"):
+                        breakdown = overview.get("event_breakdown", {})
+                        for etype, count in breakdown.items():
+                            with ui.row().classes("w-full justify-between items-center text-sm"):
+                                ui.label(str(etype)).classes("text-[var(--text-secondary)]")
+                                ui.label(str(count)).classes("font-mono text-[var(--text-primary)]")
+                                    
+                # Session Stats Table
+                with ui.column().classes("w-full mt-6"):
+                    ui.label("Recent Sessions").classes("text-lg font-bold text-[var(--text-primary)] mb-2")
+                    if not sessions:
+                        ui.label("No session stats recorded yet. Browse the app to generate data.").classes("text-[var(--text-muted)] italic text-sm")
+                    
+                    for s in sessions[:50]:  # Show top 50 mostly
+                        with ui.card().classes("w-full bg-[var(--bg-card)] border-[var(--border-ghost)] p-4 mb-3"):
+                            with ui.row().classes("w-full justify-between items-start mb-2"):
+                                with ui.column().classes("gap-0"):
+                                    ui.label(f"Session: {s.get('session_id', 'Unknown')[:12]}...").classes("font-mono text-sm font-bold text-[var(--text-primary)]")
+                                    sync = s.get('sync_code')
+                                    if sync:
+                                        ui.label(f"Sync: {sync}").classes("text-xs text-accent mt-1")
+                                
+                                ui.label(s.get('last_seen', '').split('.')[0]).classes("text-xs text-[var(--text-muted)]")
+
+                            # Stats grid
+                            with ui.row().classes("w-full grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3"):
+                                def mini_stat(icon, val, tooltip):
+                                    with ui.row().classes("items-center gap-1").tooltip(tooltip):
+                                        ui.icon(icon, size="14px").classes("text-[var(--text-muted)]")
+                                        ui.label(str(val)).classes("text-xs font-mono text-[var(--text-secondary)]")
+                                
+                                mini_stat("visibility", s.get("impressions", 0), "Impressions")
+                                mini_stat("touch_app", s.get("clicks", 0), "Clicks")
+                                mini_stat("open_in_new", s.get("detail_opens", 0), "Detail Opens")
+                                mini_stat("bookmark", s.get("saves", 0), "Saves")
+                                mini_stat("timer", f"{int(s.get('total_read_time_sec', 0))}s", "Total Read Time")
+                                mini_stat("swipe_down", f"{int(s.get('avg_scroll_depth', 0))}%", "Avg Scroll Depth")
+
+                            # Top topics
+                            topics = s.get("top_topics", {})
+                            if topics:
+                                with ui.row().classes("w-full mt-3 gap-2 flex-wrap items-center"):
+                                    ui.label("Top Topics:").classes("text-xs text-[var(--text-muted)]")
+                                    for t, c in list(topics.items())[:3]:
+                                        ui.label(f"{t} ({c})").classes("text-[10px] px-2 py-0.5 bg-[var(--bg-elevated)] rounded-full text-[var(--text-secondary)]")
+
+        except Exception as e:
+            with container:
+                ui.label(f"Failed to load analytics: {e}").classes("text-negative")
+
+    ui.timer(0, load_analytics_data, once=True)
 
 
 def render_rss_admin(token: str):

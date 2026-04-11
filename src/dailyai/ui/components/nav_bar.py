@@ -5,6 +5,7 @@ Uses NiceGUI ui.select for reliable dropdown handling.
 """
 
 import asyncio
+import hashlib
 from urllib.parse import urlencode
 
 from nicegui import ui
@@ -252,21 +253,42 @@ def sidebar(
 
             async def _apply_code():
                 new_code = str(sync_code_input.value or "").strip()
-                if new_code:
-                    ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{new_code}");')
-                    current_code_label.set_text(new_code)
-                    sync_code_input.value = ""
-                    ui.notify("Sync code updated!", type="positive")
-                    ui.run_javascript("closeSidebar()")
-                    if on_refresh:
-                        if asyncio.iscoroutinefunction(on_refresh):
-                            await on_refresh()
-                        else:
-                            on_refresh()
+                if not new_code:
+                    ui.notify("Please enter a sync code.", type="warning")
+                    return
+
+                # Validate sync code against DB before accepting
+                from dailyai.services.profiles import get_profile
+
+                profile = await get_profile(new_code)
+                if not profile:
+                    ui.notify(
+                        "Sync code not found. Please check the code and try again.",
+                        type="negative",
+                    )
+                    return
+
+                ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{new_code}");')
+                # Also update the analytics tracker sync code
+                ui.run_javascript(f'if (window.setSyncCode) window.setSyncCode("{new_code}");')
+                current_code_label.set_text(new_code)
+                sync_code_input.value = ""
+                ui.notify(
+                    f"Sync code applied! Profile loaded ({profile.get('country', 'GLOBAL')}, "
+                    f"{len(profile.get('preferred_topics', []))} topics).",
+                    type="positive",
+                )
+                ui.run_javascript("closeSidebar()")
+                if on_refresh:
+                    if asyncio.iscoroutinefunction(on_refresh):
+                        await on_refresh()
                     else:
-                        ui.navigate.to(
-                            f"/?{urlencode({'country': current_country, 'language': current_lang})}"
-                        )
+                        on_refresh()
+                else:
+                    ui.navigate.to(
+                        f"/?{urlencode({'country': current_country, 'language': current_lang})}"
+                    )
+
 
             ui.button("Apply Code", on_click=_apply_code).classes("w-full mt-3").props(
                 "color=accent dense"
@@ -353,6 +375,61 @@ def sidebar(
             ui.button(
                 tr(lang, "save_persona", fallback="Save Persona"), on_click=_save_persona
             ).classes("w-full mt-2").props("color=primary dense")
+
+        # Leaderboard
+        with ui.element("div").classes("sidebar-section"):
+            ui.html(
+                f'<div class="sidebar-section-title">🏆 {tr(lang, "daily_leaderboard")}</div>'
+            )
+            ui.label(
+                tr(lang, "leaderboard_desc")
+            ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
+            
+            leaderboard_container = ui.column().classes("w-full gap-2 mt-2")
+            
+            async def _load_leaderboard():
+                try:
+                    from dailyai.storage.backend import get_daily_leaderboard
+
+                    def _alias(sc):
+                        adjectives = ["Curious", "Fast", "Avid", "Deep", "Smart", "Brave", "Keen", "Epic"]
+                        nouns = ["Owl", "Reader", "Scholar", "Mind", "Brain", "Scout", "Seeker"]
+                        h = int(hashlib.md5(sc.encode()).hexdigest(), 16)
+                        return f"{adjectives[h % len(adjectives)]} {nouns[(h // len(adjectives)) % len(nouns)]} {sc[-4:].upper()}"
+
+                    leaders = await get_daily_leaderboard(3)
+                    
+                    leaderboard_container.clear()
+                    if not leaders:
+                        with leaderboard_container:
+                            ui.label("No reading stats today yet. Be the first!").classes("text-xs text-[var(--text-muted)] italic")
+                        return
+                        
+                    with leaderboard_container:
+                        count = 0
+                        for leader in leaders:
+                            time_val = float(leader.get('read_time_sec', 0))
+
+                            mins = int(time_val) // 60
+                            secs = int(time_val) % 60
+                            time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+                            
+                            medals = ["🥇", "🥈", "🥉"]
+                            medal = medals[count] if count < len(medals) else "🏅"
+                            
+                            with ui.row().classes("w-full items-center justify-between p-2 rounded bg-[var(--bg-elevated)] border border-[var(--border-ghost)]"):
+                                with ui.row().classes("items-center gap-2"):
+                                    ui.label(medal).classes("text-lg")
+                                    ui.label(_alias(leader['sync_code'])).classes("text-sm font-bold text-[var(--text-primary)]")
+                                ui.label(time_str).classes("text-xs font-mono text-accent")
+                            count += 1
+                                
+                        if count == 0:
+                            ui.label("No top readers today yet. Start reading!").classes("text-xs text-[var(--text-muted)] italic")
+                except Exception:
+                    pass
+            
+            ui.timer(0.3, _load_leaderboard, once=True)
 
         # Actions
         with ui.element("div").classes("sidebar-section"):
