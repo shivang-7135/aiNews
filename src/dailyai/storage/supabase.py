@@ -18,6 +18,31 @@ from dailyai.storage import sqlite
 
 logger = logging.getLogger("dailyai.storage.supabase")
 
+# None: unknown/unprobed, True: available, False: missing (404)
+_RSS_FEEDS_TABLE_AVAILABLE: bool | None = None
+
+
+def _is_http_404(exc: Exception) -> bool:
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404
+
+
+def _mark_rss_feeds_missing(exc: Exception) -> bool:
+    """Mark rss_feeds table as unavailable when Supabase returns 404.
+
+    Returns True when the error indicates missing table and fallback should be used.
+    """
+    global _RSS_FEEDS_TABLE_AVAILABLE
+    if not _is_http_404(exc):
+        return False
+
+    if _RSS_FEEDS_TABLE_AVAILABLE is not False:
+        logger.warning(
+            "Supabase table 'rss_feeds' returned 404. "
+            "Using sqlite fallback for RSS feed operations until restart."
+        )
+    _RSS_FEEDS_TABLE_AVAILABLE = False
+    return True
+
 
 def is_configured() -> bool:
     return bool(SUPABASE_URL and SUPABASE_KEY)
@@ -691,7 +716,12 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
 async def save_rss_feed(
     country_code: str, feed_key: str, query: str, is_active: bool = True
 ) -> None:
+    global _RSS_FEEDS_TABLE_AVAILABLE
     if not is_configured():
+        await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
+        return
+
+    if _RSS_FEEDS_TABLE_AVAILABLE is False:
         await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
         return
 
@@ -709,13 +739,21 @@ async def save_rss_feed(
             prefer="resolution=merge-duplicates,return=minimal",
             expect_json=False,
         )
+        _RSS_FEEDS_TABLE_AVAILABLE = True
     except Exception as exc:
+        if _mark_rss_feeds_missing(exc):
+            await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
+            return
         logger.error(f"Supabase save_rss_feed failed: {exc}", exc_info=True)
         await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
 
 
 async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
+    global _RSS_FEEDS_TABLE_AVAILABLE
     if not is_configured():
+        return await _fallback("get_rss_feeds", country_code)
+
+    if _RSS_FEEDS_TABLE_AVAILABLE is False:
         return await _fallback("get_rss_feeds", country_code)
 
     try:
@@ -723,14 +761,21 @@ async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
         if country_code:
             params["country_code"] = f"eq.{country_code}"
         rows = await _request("GET", "rss_feeds", params=params)
+        _RSS_FEEDS_TABLE_AVAILABLE = True
         return rows or []
     except Exception as exc:
+        if _mark_rss_feeds_missing(exc):
+            return await _fallback("get_rss_feeds", country_code)
         logger.error(f"Supabase get_rss_feeds failed: {exc}", exc_info=True)
         return await _fallback("get_rss_feeds", country_code)
 
 
 async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
+    global _RSS_FEEDS_TABLE_AVAILABLE
     if not is_configured():
+        return await _fallback("delete_rss_feed", country_code, feed_key)
+
+    if _RSS_FEEDS_TABLE_AVAILABLE is False:
         return await _fallback("delete_rss_feed", country_code, feed_key)
 
     try:
@@ -744,7 +789,10 @@ async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
             prefer="return=minimal",
             expect_json=False,
         )
+        _RSS_FEEDS_TABLE_AVAILABLE = True
         return True
     except Exception as exc:
+        if _mark_rss_feeds_missing(exc):
+            return await _fallback("delete_rss_feed", country_code, feed_key)
         logger.error(f"Supabase delete_rss_feed failed: {exc}", exc_info=True)
         return await _fallback("delete_rss_feed", country_code, feed_key)

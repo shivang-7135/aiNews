@@ -26,6 +26,7 @@ REQUIRED_TABLES = (
     "profiles",
     "subscribers",
     "metadata",
+    "rss_feeds",
     "user_events",
     "user_topic_scores",
 )
@@ -188,6 +189,7 @@ async def _sqlite_snapshot() -> dict:
     profiles = await sqlite.get_all_profiles()
     subscribers = await sqlite.get_all_subscribers()
     metadata = await sqlite.get_all_metadata()
+    rss_feeds = await sqlite.get_rss_feeds(None)
     user_events = await sqlite.get_all_events()
     user_topic_scores = await sqlite.get_all_topic_scores()
 
@@ -198,6 +200,7 @@ async def _sqlite_snapshot() -> dict:
         "profiles": profiles,
         "subscribers": subscribers,
         "metadata": metadata,
+        "rss_feeds": rss_feeds,
         "user_events": user_events,
         "user_topic_scores": user_topic_scores,
     }
@@ -251,6 +254,17 @@ def _subscriber_row(row: dict) -> dict:
 
 def _metadata_rows(meta: dict[str, str]) -> list[dict]:
     return [{"key": key, "value": value} for key, value in meta.items()]
+
+
+def _rss_feed_row(row: dict) -> dict:
+    return {
+        "country_code": row.get("country_code", "GLOBAL"),
+        "feed_key": row.get("feed_key", ""),
+        "query": row.get("query", ""),
+        "is_active": bool(row.get("is_active", True)),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
 
 
 def _user_events_row(row: dict) -> dict:
@@ -332,6 +346,7 @@ async def run_migration(args: argparse.Namespace) -> int:
         f"profiles={len(snapshot['profiles'])}, "
         f"subscribers={len(snapshot['subscribers'])}, "
         f"metadata={len(snapshot['metadata'])}, "
+        f"rss_feeds={len(snapshot.get('rss_feeds', []))}, "
         f"user_events={len(snapshot.get('user_events', []))}, "
         f"user_topic_scores={len(snapshot.get('user_topic_scores', []))}"
     )
@@ -357,6 +372,11 @@ async def run_migration(args: argparse.Namespace) -> int:
     metadata_rows = _metadata_rows(snapshot["metadata"])
     inserted_metadata = await client.insert_rows("metadata", metadata_rows, on_conflict="key")
 
+    rss_feed_rows = [_rss_feed_row(row) for row in snapshot.get("rss_feeds", [])]
+    inserted_rss_feeds = await client.insert_rows(
+        "rss_feeds", rss_feed_rows, on_conflict="country_code,feed_key"
+    )
+
     user_events_rows = [_user_events_row(row) for row in snapshot.get("user_events", [])]
     inserted_user_events = await client.insert_rows("user_events", user_events_rows)
 
@@ -371,6 +391,7 @@ async def run_migration(args: argparse.Namespace) -> int:
     remote_profiles = await client.count_rows("profiles")
     remote_subscribers = await client.count_rows("subscribers", filters={"is_active": "eq.true"})
     remote_metadata = await client.count_rows("metadata")
+    remote_rss_feeds = await client.count_rows("rss_feeds")
     remote_user_events = await client.count_rows("user_events")
     remote_user_topic_scores = await client.count_rows("user_topic_scores")
 
@@ -381,6 +402,7 @@ async def run_migration(args: argparse.Namespace) -> int:
         f"- inserted_subscribers={inserted_subscribers}, remote_active_subscribers={remote_subscribers}"
     )
     print(f"- inserted_metadata={inserted_metadata}, remote_metadata={remote_metadata}")
+    print(f"- inserted_rss_feeds={inserted_rss_feeds}, remote_rss_feeds={remote_rss_feeds}")
     print(f"- inserted_user_events={inserted_user_events}, remote_user_events={remote_user_events}")
     print(
         f"- inserted_user_topic_scores={inserted_user_topic_scores}, remote_user_topic_scores={remote_user_topic_scores}"
