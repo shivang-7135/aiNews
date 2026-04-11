@@ -19,7 +19,7 @@ RULES:
 6. Add a "why_it_matters" field — a single punchy sentence explaining why a busy AI professional should care (avoid hype)
 7. Assign a category: "breakthrough", "product", "regulation", "funding", "research", "industry", or "general"
 8. Assign a topic tag from: "llms", "robotics", "ai_safety", "funding", "research", "regulation", "startups", "big_tech", "open_source", "healthcare", "autonomous", "general"
-9. Assign an importance score from 1-10
+9. Assign an importance score from 1-10 using the FULL range. Calibration: 9-10 = groundbreaking, industry-shaking (MAX 2 articles); 7-8 = significant news worth attention; 5-6 = notable but routine; 3-4 = minor or niche; 1-2 = barely noteworthy. Aim for an average score of ~5 across all articles. Do NOT cluster most scores around 7.
 10. Consider relevance to {country_name} when applicable
 11. Prefer trustworthy, primary reporting sources over low-credibility or duplicate aggregators
 12. Return title, summary and why_it_matters in {output_language}
@@ -49,10 +49,12 @@ CURATION_HUMAN = """Here are the raw articles to analyze:
 
 Select and summarize the top AI news stories in {output_language}. Respond ONLY with a JSON array."""
 
-CURATION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", CURATION_SYSTEM),
-    ("human", CURATION_HUMAN),
-])
+CURATION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", CURATION_SYSTEM),
+        ("human", CURATION_HUMAN),
+    ]
+)
 
 
 # ── Article Brief Prompt ────────────────────────────────────────────
@@ -82,10 +84,12 @@ Context: {why_it_matters}
 
 Write exactly 5 informative bullet points (15-20 words each, ~100 words total). Each bullet should help the reader fully understand the story:"""
 
-BRIEF_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", BRIEF_SYSTEM),
-    ("human", BRIEF_HUMAN),
-])
+BRIEF_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", BRIEF_SYSTEM),
+        ("human", BRIEF_HUMAN),
+    ]
+)
 
 
 # ── Prompt Leak Detection ──────────────────────────────────────────
@@ -117,6 +121,7 @@ def sanitize_llm_response(text: str) -> str:
     if hits >= 3:
         return ""
     return text
+
 
 # ── 1-Call Hyper-Personalization Engine ─────────────────────────────────
 
@@ -150,7 +155,9 @@ Today's Top Articles:
 
 Generate the bespoke JSON briefing now:"""
 
-BESPOKE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", BESPOKE_SYSTEM),
-    ("human", BESPOKE_HUMAN),
-])
+BESPOKE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", BESPOKE_SYSTEM),
+        ("human", BESPOKE_HUMAN),
+    ]
+)

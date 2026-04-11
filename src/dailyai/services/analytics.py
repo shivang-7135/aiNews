@@ -16,8 +16,8 @@ EVENT_WEIGHTS: dict[str, float] = {
     "click": 1.0,
     "hold": 1.5,
     "detail_open": 2.0,
-    "read_time": 3.0,       # value = seconds; weight applied if >= 15s
-    "scroll_depth": 2.5,    # value = percentage; weight applied if >= 70%
+    "read_time": 3.0,  # value = seconds; weight applied if >= 15s
+    "scroll_depth": 2.5,  # value = percentage; weight applied if >= 70%
     "share": 4.0,
     "save": 5.0,
     "unsave": -2.0,
@@ -51,16 +51,18 @@ async def record_events(
     # Enrich events with session/sync info
     enriched = []
     for e in events:
-        enriched.append({
-            "session_id": session_id,
-            "sync_code": sync_code,
-            "event_type": e.get("event_type", ""),
-            "article_id": e.get("article_id", ""),
-            "topic": e.get("topic", ""),
-            "category": e.get("category", ""),
-            "value": float(e.get("value", 0)),
-            "metadata": e.get("metadata", {}),
-        })
+        enriched.append(
+            {
+                "session_id": session_id,
+                "sync_code": sync_code,
+                "event_type": e.get("event_type", ""),
+                "article_id": e.get("article_id", ""),
+                "topic": e.get("topic", ""),
+                "category": e.get("category", ""),
+                "value": float(e.get("value", 0)),
+                "metadata": e.get("metadata", {}),
+            }
+        )
 
     await db.save_events(enriched)
 

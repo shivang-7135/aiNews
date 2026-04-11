@@ -86,19 +86,23 @@ class TestLLMResponseParsing:
         self.agent = NewsAgent()
 
     def test_valid_json_response(self):
-        valid_json = json.dumps([{
-            "title": "GPT-5 Released",
-            "summary": "OpenAI launches GPT-5",
-            "why_it_matters": "Major AI milestone",
-            "category": "breakthrough",
-            "topic": "llms",
-            "importance": 9,
-            "sentiment": "bullish",
-            "story_thread": "OpenAI GPT-5",
-            "source": "TechCrunch",
-            "link": "https://example.com",
-            "published": "2026-01-01"
-        }])
+        valid_json = json.dumps(
+            [
+                {
+                    "title": "GPT-5 Released",
+                    "summary": "OpenAI launches GPT-5",
+                    "why_it_matters": "Major AI milestone",
+                    "category": "breakthrough",
+                    "topic": "llms",
+                    "importance": 9,
+                    "sentiment": "bullish",
+                    "story_thread": "OpenAI GPT-5",
+                    "source": "TechCrunch",
+                    "link": "https://example.com",
+                    "published": "2026-01-01",
+                }
+            ]
+        )
         articles = [{"title": "GPT-5", "source": "TC", "link": "https://tc.com"}]
         result = self.agent._parse_llm_response(valid_json, articles)
         assert len(result) == 1
@@ -127,18 +131,24 @@ class TestLLMResponseParsing:
 
     def test_sentiment_validation(self):
         """Invalid sentiment values should default to neutral."""
-        valid_json = json.dumps([{
-            "title": "Test",
-            "summary": "Test",
-            "category": "general",
-            "topic": "general",
-            "importance": 5,
-            "sentiment": "super_positive",  # invalid
-            "source": "Test",
-            "link": "http://test.com",
-            "published": "2026-01-01"
-        }])
-        result = self.agent._parse_llm_response(valid_json, [{"title": "t", "source": "t", "link": "http://t"}])
+        valid_json = json.dumps(
+            [
+                {
+                    "title": "Test",
+                    "summary": "Test",
+                    "category": "general",
+                    "topic": "general",
+                    "importance": 5,
+                    "sentiment": "super_positive",  # invalid
+                    "source": "Test",
+                    "link": "http://test.com",
+                    "published": "2026-01-01",
+                }
+            ]
+        )
+        result = self.agent._parse_llm_response(
+            valid_json, [{"title": "t", "source": "t", "link": "http://t"}]
+        )
         if result:
             assert result[0]["sentiment"] == "neutral"
 
@@ -151,8 +161,18 @@ class TestFallbackProcessing:
 
     def test_fallback_creates_tiles(self):
         articles = [
-            {"title": "Test Article", "source": "Reuters", "link": "http://r.com", "published": "2026-01-01"},
-            {"title": "Another Article", "source": "BBC", "link": "http://bbc.com", "published": "2026-01-01"},
+            {
+                "title": "Test Article",
+                "source": "Reuters",
+                "link": "http://r.com",
+                "published": "2026-01-01",
+            },
+            {
+                "title": "Another Article",
+                "source": "BBC",
+                "link": "http://bbc.com",
+                "published": "2026-01-01",
+            },
         ]
         tiles = self.agent._fallback_process(articles, "en")
         assert len(tiles) == 2
@@ -160,7 +180,12 @@ class TestFallbackProcessing:
 
     def test_fallback_includes_trust(self):
         articles = [
-            {"title": "Reuters Story", "source": "Reuters", "link": "http://r.com", "published": "2026-01-01"},
+            {
+                "title": "Reuters Story",
+                "source": "Reuters",
+                "link": "http://r.com",
+                "published": "2026-01-01",
+            },
         ]
         tiles = self.agent._fallback_process(articles, "en")
         assert tiles[0]["source_trust"] == "high"
@@ -180,8 +205,18 @@ class TestQualityRerank:
 
     def test_rerank_prioritizes_importance(self):
         tiles = [
-            {"title": "Low", "importance": 3, "source": "a", "published": datetime.now(UTC).isoformat()},
-            {"title": "High", "importance": 9, "source": "Reuters", "published": datetime.now(UTC).isoformat()},
+            {
+                "title": "Low",
+                "importance": 3,
+                "source": "a",
+                "published": datetime.now(UTC).isoformat(),
+            },
+            {
+                "title": "High",
+                "importance": 9,
+                "source": "Reuters",
+                "published": datetime.now(UTC).isoformat(),
+            },
         ]
         result = self.agent._quality_rerank(tiles)
         assert result[0]["title"] == "High"

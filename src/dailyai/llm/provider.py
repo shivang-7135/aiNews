@@ -35,26 +35,29 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
     """Build list of available LLM providers based on env vars."""
     providers: list[tuple[str, BaseChatModel]] = []
     fallback_timeout = max(6.0, float(os.getenv("LLM_FALLBACK_TIMEOUT_SECONDS", "10")))
-    
+
     # 0. OpenAI (PRIMARY)
     openai_key = (os.getenv("OPENAI_API_KEY", "") or os.getenv("OPENAI_KEY", "")).strip()
     if openai_key:
         try:
             from langchain_openai import ChatOpenAI
+
             openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
             openai_timeout = max(10.0, float(os.getenv("OPENAI_TIMEOUT_SECONDS", "22")))
-            
-            providers.append((
-                "openai",
-                ChatOpenAI(
-                    model=openai_model,
-                    api_key=openai_key,
-                    temperature=0.3,
-                    max_tokens=4090,
-                    max_retries=0,
-                    timeout=openai_timeout,
-                ),
-            ))
+
+            providers.append(
+                (
+                    "openai",
+                    ChatOpenAI(
+                        model=openai_model,
+                        api_key=openai_key,
+                        temperature=0.3,
+                        max_tokens=4090,
+                        max_retries=0,
+                        timeout=openai_timeout,
+                    ),
+                )
+            )
             logger.info(f"[LLM] ✅ OpenAI provider configured ({openai_model})")
         except Exception as e:
             logger.warning(f"[LLM] OpenAI setup failed: {e}")
@@ -65,24 +68,30 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
         try:
             from langchain_openai import ChatOpenAI
 
-            arliai_base_url = os.getenv("ARLIAI_BASE_URL", "https://api.arliai.com/v1").strip().rstrip("/")
+            arliai_base_url = (
+                os.getenv("ARLIAI_BASE_URL", "https://api.arliai.com/v1").strip().rstrip("/")
+            )
             if not arliai_base_url.endswith("/v1"):
                 arliai_base_url = f"{arliai_base_url}/v1"
 
-            arliai_model = os.getenv("ARLIAI_MODEL", "Qwen3.5-27B-Anko").strip() or "Qwen3.5-27B-Anko"
+            arliai_model = (
+                os.getenv("ARLIAI_MODEL", "Qwen3.5-27B-Anko").strip() or "Qwen3.5-27B-Anko"
+            )
 
-            providers.append((
-                "arliai",
-                ChatOpenAI(
-                    base_url=arliai_base_url,
-                    model=arliai_model,
-                    api_key=arliai_key,
-                    temperature=0.3,
-                    max_tokens=4096,
-                    max_retries=0,
-                    timeout=fallback_timeout,
-                ),
-            ))
+            providers.append(
+                (
+                    "arliai",
+                    ChatOpenAI(
+                        base_url=arliai_base_url,
+                        model=arliai_model,
+                        api_key=arliai_key,
+                        temperature=0.3,
+                        max_tokens=4096,
+                        max_retries=0,
+                        timeout=fallback_timeout,
+                    ),
+                )
+            )
             logger.info(f"[LLM] ✅ ARLIAI provider configured ({arliai_model})")
         except Exception as e:
             logger.warning(f"[LLM] ARLIAI setup failed: {e}")
@@ -93,17 +102,19 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
 
-            providers.append((
-                "gemini",
-                ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash",
-                    google_api_key=google_key,
-                    temperature=0.3,
-                    max_output_tokens=4096,
-                    max_retries=0,  # Fail fast to trigger fallback
-                    timeout=max(10.0, fallback_timeout),  # Gemini API requires >= 10s deadline
-                ),
-            ))
+            providers.append(
+                (
+                    "gemini",
+                    ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash",
+                        google_api_key=google_key,
+                        temperature=0.3,
+                        max_output_tokens=4096,
+                        max_retries=0,  # Fail fast to trigger fallback
+                        timeout=max(10.0, fallback_timeout),  # Gemini API requires >= 10s deadline
+                    ),
+                )
+            )
             logger.info("[LLM] ✅ Gemini provider configured")
         except Exception as e:
             logger.warning(f"[LLM] Gemini setup failed: {e}")
@@ -114,17 +125,19 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
         try:
             from langchain_groq import ChatGroq
 
-            providers.append((
-                "groq",
-                ChatGroq(
-                    model="llama-3.3-70b-versatile",
-                    api_key=groq_key,
-                    temperature=0.3,
-                    max_tokens=4096,
-                    max_retries=0,
-                    timeout=max(6.0, min(8.0, fallback_timeout)),
-                ),
-            ))
+            providers.append(
+                (
+                    "groq",
+                    ChatGroq(
+                        model="llama-3.3-70b-versatile",
+                        api_key=groq_key,
+                        temperature=0.3,
+                        max_tokens=4096,
+                        max_retries=0,
+                        timeout=max(6.0, min(8.0, fallback_timeout)),
+                    ),
+                )
+            )
             logger.info("[LLM] ✅ Groq provider configured")
         except Exception as e:
             logger.warning(f"[LLM] Groq setup failed: {e}")
@@ -135,18 +148,20 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
         try:
             from langchain_openai import ChatOpenAI
 
-            providers.append((
-                "nvidia",
-                ChatOpenAI(
-                    base_url="https://integrate.api.nvidia.com/v1",
-                    model="deepseek-ai/deepseek-v3.1",
-                    api_key=nvidia_key,
-                    temperature=0.3,
-                    max_tokens=4096,
-                    max_retries=0,
-                    timeout=max(10.0, fallback_timeout + 2),
-                ),
-            ))
+            providers.append(
+                (
+                    "nvidia",
+                    ChatOpenAI(
+                        base_url="https://integrate.api.nvidia.com/v1",
+                        model="deepseek-ai/deepseek-v3.1",
+                        api_key=nvidia_key,
+                        temperature=0.3,
+                        max_tokens=4096,
+                        max_retries=0,
+                        timeout=max(10.0, fallback_timeout + 2),
+                    ),
+                )
+            )
             logger.info("[LLM] ✅ NVIDIA provider configured")
         except Exception as e:
             logger.warning(f"[LLM] NVIDIA setup failed: {e}")
@@ -157,18 +172,20 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
         try:
             from langchain_openai import ChatOpenAI
 
-            providers.append((
-                "huggingface",
-                ChatOpenAI(
-                    base_url="https://router.huggingface.co/v1",
-                    model="mistralai/Mistral-Small-24B-Instruct-2501",
-                    api_key=hf_token,
-                    temperature=0.3,
-                    max_tokens=2048,
-                    max_retries=0,
-                    timeout=max(10.0, fallback_timeout + 2),
-                ),
-            ))
+            providers.append(
+                (
+                    "huggingface",
+                    ChatOpenAI(
+                        base_url="https://router.huggingface.co/v1",
+                        model="mistralai/Mistral-Small-24B-Instruct-2501",
+                        api_key=hf_token,
+                        temperature=0.3,
+                        max_tokens=2048,
+                        max_retries=0,
+                        timeout=max(10.0, fallback_timeout + 2),
+                    ),
+                )
+            )
             logger.info("[LLM] ✅ HuggingFace provider configured")
         except Exception as e:
             logger.warning(f"[LLM] HuggingFace setup failed: {e}")
@@ -182,18 +199,20 @@ def _build_providers() -> list[tuple[str, BaseChatModel]]:
             if not ollama_base.endswith("/v1"):
                 ollama_base = f"{ollama_base}/v1"
             model = os.getenv("OLLAMA_MODELS", "llama3.1:8b").split(",")[0].strip()
-            providers.append((
-                "ollama",
-                ChatOpenAI(
-                    base_url=ollama_base,
-                    model=model,
-                    api_key="ollama",  # Ollama doesn't need a key
-                    temperature=0.3,
-                    max_tokens=2048,
-                    max_retries=0,
-                    timeout=max(6.0, min(8.0, fallback_timeout)),
-                ),
-            ))
+            providers.append(
+                (
+                    "ollama",
+                    ChatOpenAI(
+                        base_url=ollama_base,
+                        model=model,
+                        api_key="ollama",  # Ollama doesn't need a key
+                        temperature=0.3,
+                        max_tokens=2048,
+                        max_retries=0,
+                        timeout=max(6.0, min(8.0, fallback_timeout)),
+                    ),
+                )
+            )
             logger.info(f"[LLM] ✅ Ollama provider configured ({model})")
         except Exception as e:
             logger.warning(f"[LLM] Ollama setup failed: {e}")
@@ -324,7 +343,9 @@ async def stream_llm(
         if streamed_any:
             return
     except Exception as stream_error:
-        logger.warning(f"[{path.capitalize()}-stream] Streaming failed, trying non-stream invoke: {stream_error}")
+        logger.warning(
+            f"[{path.capitalize()}-stream] Streaming failed, trying non-stream invoke: {stream_error}"
+        )
         if streamed_any:
             return
 
@@ -334,7 +355,7 @@ async def stream_llm(
         if text:
             chunk_size = max(60, min(220, len(text) // 10 if len(text) > 0 else 120))
             for i in range(0, len(text), chunk_size):
-                yield text[i:i + chunk_size]
+                yield text[i : i + chunk_size]
                 await asyncio.sleep(0)
             return
     except Exception as invoke_error:

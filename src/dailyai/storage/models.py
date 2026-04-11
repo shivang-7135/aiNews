@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 # ── News Article ────────────────────────────────────────────────────
 
+
 class NewsArticle(BaseModel):
     """A curated news article after full pipeline processing."""
 
@@ -38,6 +39,7 @@ class RawArticle(BaseModel):
 
 # ── User Profile ───────────────────────────────────────────────────
 
+
 class UserProfile(BaseModel):
     """Anonymous user profile with preferences and interaction signals."""
 
@@ -54,6 +56,7 @@ class UserProfile(BaseModel):
 
 # ── Subscriber ──────────────────────────────────────────────────────
 
+
 class Subscriber(BaseModel):
     """Email digest subscriber."""
 
@@ -68,6 +71,7 @@ class Subscriber(BaseModel):
 
 # ── API Key ─────────────────────────────────────────────────────────
 
+
 class APIKeyRecord(BaseModel):
     """Developer API key record."""
 
@@ -81,6 +85,7 @@ class APIKeyRecord(BaseModel):
 
 
 # ── API Request / Response Models ───────────────────────────────────
+
 
 class SubscribeRequest(BaseModel):
     email: str
@@ -129,6 +134,7 @@ class ArticleBriefRequest(BaseModel):
 
 # ── Feed Response ───────────────────────────────────────────────────
 
+
 class FeedArticle(BaseModel):
     """Article formatted for the UI feed."""
 
@@ -151,8 +157,10 @@ class FeedArticle(BaseModel):
 
 # ── Analytics ──────────────────────────────────────────────────────
 
+
 class AnalyticsEvent(BaseModel):
     """A single user interaction event."""
+
     event_type: str  # impression | click | hold | detail_open | read_time | scroll_depth | share | save | unsave | external_click | skip
     article_id: str = ""
     topic: str = ""
@@ -163,6 +171,7 @@ class AnalyticsEvent(BaseModel):
 
 class BatchEventsRequest(BaseModel):
     """Batch of analytics events from the client."""
+
     session_id: str
     sync_code: str = ""
     events: list[AnalyticsEvent] = Field(default_factory=list, max_length=100)
@@ -170,8 +179,10 @@ class BatchEventsRequest(BaseModel):
 
 # ── Admin ──────────────────────────────────────────────────────────
 
+
 class AdminRSSFeedRequest(BaseModel):
     """Create or update an RSS feed configuration."""
+
     country_code: str
     feed_key: str
     query: str
@@ -180,5 +191,6 @@ class AdminRSSFeedRequest(BaseModel):
 
 class AdminDeleteRSSFeedRequest(BaseModel):
     """Delete an RSS feed configuration."""
+
     country_code: str
     feed_key: str

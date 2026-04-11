@@ -48,14 +48,25 @@ TIERS = {
 
 # Basic fields returned in free tier
 BASIC_FIELDS = {
-    "id", "headline", "summary", "category", "topic",
-    "source_name", "article_url", "published_at", "importance",
+    "id",
+    "headline",
+    "summary",
+    "category",
+    "topic",
+    "source_name",
+    "article_url",
+    "published_at",
+    "importance",
 }
 
 # Full fields returned in pro/enterprise tiers
 FULL_FIELDS = BASIC_FIELDS | {
-    "why_it_matters", "source_trust", "sentiment",
-    "story_thread", "thread_count", "updated_at",
+    "why_it_matters",
+    "source_trust",
+    "sentiment",
+    "story_thread",
+    "thread_count",
+    "updated_at",
 }
 
 

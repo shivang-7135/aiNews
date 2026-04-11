@@ -19,23 +19,109 @@ _lock = threading.Lock()
 
 # ── Sync Code word lists ─────────────────────────────────────────────
 ADJECTIVES = [
-    "Clever", "Neon", "Swift", "Bright", "Cosmic", "Calm", "Bold", "Lucky",
-    "Quiet", "Vivid", "Warm", "Cool", "Sharp", "Fuzzy", "Rapid", "Wild",
-    "Gentle", "Epic", "Silky", "Turbo", "Nova", "Pixel", "Zen", "Hyper",
-    "Solar", "Lunar", "Cyber", "Iron", "Golden", "Silver", "Crystal", "Amber",
-    "Coral", "Azure", "Sage", "Ruby", "Jade", "Onyx", "Pearl", "Maple",
-    "Storm", "Blaze", "Frost", "Drift", "Cloud", "Flash", "Spark", "Orbit",
-    "Prism", "Pulse",
+    "Clever",
+    "Neon",
+    "Swift",
+    "Bright",
+    "Cosmic",
+    "Calm",
+    "Bold",
+    "Lucky",
+    "Quiet",
+    "Vivid",
+    "Warm",
+    "Cool",
+    "Sharp",
+    "Fuzzy",
+    "Rapid",
+    "Wild",
+    "Gentle",
+    "Epic",
+    "Silky",
+    "Turbo",
+    "Nova",
+    "Pixel",
+    "Zen",
+    "Hyper",
+    "Solar",
+    "Lunar",
+    "Cyber",
+    "Iron",
+    "Golden",
+    "Silver",
+    "Crystal",
+    "Amber",
+    "Coral",
+    "Azure",
+    "Sage",
+    "Ruby",
+    "Jade",
+    "Onyx",
+    "Pearl",
+    "Maple",
+    "Storm",
+    "Blaze",
+    "Frost",
+    "Drift",
+    "Cloud",
+    "Flash",
+    "Spark",
+    "Orbit",
+    "Prism",
+    "Pulse",
 ]
 
 NOUNS = [
-    "Panda", "Coffee", "Falcon", "Tiger", "Pixel", "Lotus", "Phoenix",
-    "Raven", "Comet", "Orbit", "Prism", "Quasar", "Nebula", "Spark",
-    "Thunder", "Breeze", "Canyon", "Summit", "River", "Maple", "Cedar",
-    "Glacier", "Horizon", "Echo", "Ripple", "Compass", "Lantern", "Rocket",
-    "Arrow", "Shield", "Beacon", "Anchor", "Voyager", "Pioneer", "Cosmos",
-    "Atlas", "Nova", "Zenith", "Vertex", "Ember", "Flame", "Willow",
-    "Birch", "Otter", "Wolf", "Fox", "Hawk", "Crane", "Lynx", "Coral",
+    "Panda",
+    "Coffee",
+    "Falcon",
+    "Tiger",
+    "Pixel",
+    "Lotus",
+    "Phoenix",
+    "Raven",
+    "Comet",
+    "Orbit",
+    "Prism",
+    "Quasar",
+    "Nebula",
+    "Spark",
+    "Thunder",
+    "Breeze",
+    "Canyon",
+    "Summit",
+    "River",
+    "Maple",
+    "Cedar",
+    "Glacier",
+    "Horizon",
+    "Echo",
+    "Ripple",
+    "Compass",
+    "Lantern",
+    "Rocket",
+    "Arrow",
+    "Shield",
+    "Beacon",
+    "Anchor",
+    "Voyager",
+    "Pioneer",
+    "Cosmos",
+    "Atlas",
+    "Nova",
+    "Zenith",
+    "Vertex",
+    "Ember",
+    "Flame",
+    "Willow",
+    "Birch",
+    "Otter",
+    "Wolf",
+    "Fox",
+    "Hawk",
+    "Crane",
+    "Lynx",
+    "Coral",
 ]
 
 
@@ -77,8 +163,9 @@ def generate_sync_code(existing_codes: set[str] | None = None) -> str:
 
 
 # ── Profile CRUD ────────────────────────────────────────────────────
-def create_profile(preferred_topics: list[str], country: str = "GLOBAL",
-                   language: str = "en") -> dict:
+def create_profile(
+    preferred_topics: list[str], country: str = "GLOBAL", language: str = "en"
+) -> dict:
     """Create a new anonymous profile and return it."""
     profiles = _load_profiles()
     sync_code = generate_sync_code(set(profiles.keys()))
@@ -89,8 +176,8 @@ def create_profile(preferred_topics: list[str], country: str = "GLOBAL",
         "preferred_topics": preferred_topics[:8],  # cap at 8
         "country": country,
         "language": language,
-        "signals": {},        # topic -> score
-        "bookmarks": [],      # article IDs
+        "signals": {},  # topic -> score
+        "bookmarks": [],  # article IDs
         "created_at": now,
         "last_active": now,
     }
@@ -107,9 +194,13 @@ def get_profile(sync_code: str) -> dict | None:
     return profiles.get(sync_code)
 
 
-def update_preferences(sync_code: str, preferred_topics: list[str] | None = None,
-                       country: str | None = None, language: str | None = None,
-                       bookmarks: list[str] | None = None) -> dict | None:
+def update_preferences(
+    sync_code: str,
+    preferred_topics: list[str] | None = None,
+    country: str | None = None,
+    language: str | None = None,
+    bookmarks: list[str] | None = None,
+) -> dict | None:
     """Update an existing profile's preferences."""
     profiles = _load_profiles()
     profile = profiles.get(sync_code)
@@ -202,15 +293,18 @@ def record_analytics(sync_code: str, stats: dict) -> dict | None:
     if not profile:
         return None
 
-    analytics = profile.get("analytics", {
-        "total_taps": 0,
-        "total_saves": 0,
-        "total_reads": 0,
-        "total_skips": 0,
-        "total_briefs_opened": 0,
-        "total_time_spent_seconds": 0,
-        "session_count": 0,
-    })
+    analytics = profile.get(
+        "analytics",
+        {
+            "total_taps": 0,
+            "total_saves": 0,
+            "total_reads": 0,
+            "total_skips": 0,
+            "total_briefs_opened": 0,
+            "total_time_spent_seconds": 0,
+            "session_count": 0,
+        },
+    )
 
     FIELD_MAP = {
         "taps": "total_taps",

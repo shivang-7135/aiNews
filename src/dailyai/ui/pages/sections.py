@@ -11,12 +11,7 @@ from dailyai.ui.i18n import normalize_ui_language, tr
 
 
 def _js_str(text: str) -> str:
-    return (
-        str(text or "")
-        .replace("\\", "\\\\")
-        .replace("'", "\\'")
-        .replace("\n", "\\n")
-    )
+    return str(text or "").replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
 
 
 def _current_lang_country() -> tuple[str, str]:
@@ -93,9 +88,13 @@ async def saved_page():
     with ui.column().classes("saved-shell"):
         ui.label(tr(language, "saved_title")).classes("saved-title")
         ui.label(tr(language, "saved_subtitle")).classes("saved-subtitle")
-        ui.html(f'<div id="savedCount" class="saved-count">{tr(language, "saved_count", count=0)}</div>')
+        ui.html(
+            f'<div id="savedCount" class="saved-count">{tr(language, "saved_count", count=0)}</div>'
+        )
         ui.html('<div id="savedFeed" class="saved-grid"></div>')
-        ui.html(f'<div id="savedEmpty" class="saved-empty" style="display:none;">{tr(language, "saved_empty")}</div>')
+        ui.html(
+            f'<div id="savedEmpty" class="saved-empty" style="display:none;">{tr(language, "saved_empty")}</div>'
+        )
 
     js = """
         (function() {
@@ -152,7 +151,7 @@ async def saved_page():
                     var source = esc(it.source || 'pagesandbits');
                     var link = esc(it.articleUrl || it.link || '/');
                     return `
-                        <article class="news-card-premium saved-news-card" onclick="window.location.href='${link}'">
+                        <article class="news-card-premium saved-news-card" onclick="window.open('${link}', '_blank')">
                             <div class="card-image-area">
                                 <img src="${cover}" alt="${headline}" loading="lazy" />
                             </div>
@@ -198,36 +197,38 @@ async def saved_page():
             window.renderSavedFeed();
         })();
     """
-    js = js.replace("__SAVED_COUNT_TEMPLATE__", _js_str(tr(language, "saved_count", count="{count}")))
+    js = js.replace(
+        "__SAVED_COUNT_TEMPLATE__", _js_str(tr(language, "saved_count", count="{count}"))
+    )
     js = js.replace("__SUMMARY_FALLBACK__", _js_str(tr(language, "read_full_article")))
     js = js.replace("__REMOVE_LABEL__", _js_str(tr(language, "remove_saved")))
     ui.run_javascript(js)
 
     def _open_sidebar():
-        ui.run_javascript('openSidebar()')
+        ui.run_javascript("openSidebar()")
 
     app_state = {"country": country, "language": language}
 
     async def _set_country(new_country):
         selected = str(new_country).upper()
         if selected == country:
-            ui.run_javascript('closeSidebar()')
+            ui.run_javascript("closeSidebar()")
             return
         query = urlencode({"country": selected, "language": language})
-        ui.run_javascript('''
+        ui.run_javascript("""
             closeSidebar();
             var bl = document.getElementById('bootLoader');
             if (bl) bl.classList.remove('hidden');
-        ''')
-        ui.navigate.to(f'/saved?{query}')
+        """)
+        ui.navigate.to(f"/saved?{query}")
 
     async def _set_language(new_language):
         selected = str(new_language).lower()
         if selected == language:
-            ui.run_javascript('closeSidebar()')
+            ui.run_javascript("closeSidebar()")
             return
         query = urlencode({"country": country, "language": selected})
-        ui.run_javascript(f'''
+        ui.run_javascript(f"""
             closeSidebar();
             var bl = document.getElementById('bootLoader');
             if (bl) {{
@@ -235,16 +236,16 @@ async def saved_page():
                 if (txt) txt.innerText = '{_js_str(tr(selected, "boot_loader"))}';
                 bl.classList.remove('hidden');
             }}
-        ''')
-        ui.navigate.to(f'/saved?{query}')
+        """)
+        ui.navigate.to(f"/saved?{query}")
 
     inject_boot_loader(language)
-    ui.run_javascript('''
+    ui.run_javascript("""
         setTimeout(function() {
             var bl = document.getElementById('bootLoader');
             if (bl) bl.classList.add('hidden');
         }, 400);
-    ''')
+    """)
 
     sidebar(
         app_state=app_state,
@@ -259,25 +260,28 @@ async def saved_page():
 @ui.page("/settings")
 def redirect_settings():
     """Redirect legacy /settings to /saved so users see the unified views"""
-    ui.navigate.to('/saved')
+    ui.navigate.to("/saved")
+
 
 @ui.page("/trending")
 async def trending_page():
     language, country = _current_lang_country()
     _setup_page("Trending")
     inject_boot_loader(language)
-    ui.run_javascript('''
+    ui.run_javascript("""
         setTimeout(function() {
             var bl = document.getElementById('bootLoader');
             if (bl) bl.classList.add('hidden');
         }, 400);
-    ''')
+    """)
     with ui.column().classes("w-full max-w-3xl mx-auto min-h-screen pb-24 sm:pb-28 px-4 pt-6"):
         ui.label("Trending").classes("text-3xl font-black mb-3")
         ui.label(tr(language, "coming_soon_discover")).classes("text-secondary mb-6")
         ui.button(
             tr(language, "go_discover"),
-            on_click=lambda: ui.navigate.to(f'/?{urlencode({"country": country, "language": language})}'),
+            on_click=lambda: ui.navigate.to(
+                f"/?{urlencode({'country': country, 'language': language})}"
+            ),
         ).props("color=accent icon=home")
     nav_bar(active_route="/trending", language=language, country=country)
 
@@ -287,17 +291,19 @@ async def profile_page():
     language, country = _current_lang_country()
     _setup_page("Profile")
     inject_boot_loader(language)
-    ui.run_javascript('''
+    ui.run_javascript("""
         setTimeout(function() {
             var bl = document.getElementById('bootLoader');
             if (bl) bl.classList.add('hidden');
         }, 400);
-    ''')
+    """)
     with ui.column().classes("w-full max-w-3xl mx-auto min-h-screen pb-24 sm:pb-28 px-4 pt-6"):
         ui.label("Profile").classes("text-3xl font-black mb-3")
         ui.label(tr(language, "coming_soon_profile")).classes("text-secondary mb-6")
         ui.button(
             tr(language, "go_discover"),
-            on_click=lambda: ui.navigate.to(f'/?{urlencode({"country": country, "language": language})}'),
+            on_click=lambda: ui.navigate.to(
+                f"/?{urlencode({'country': country, 'language': language})}"
+            ),
         ).props("color=accent icon=home")
     nav_bar(active_route="/profile", language=language, country=country)

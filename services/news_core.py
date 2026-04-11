@@ -144,9 +144,9 @@ async def get_news_payload(country_code: str, language: str) -> tuple[int, dict]
     }
 
 
-async def get_articles_payload(topic: str, country: str, language: str,
-                                sync_code: str = "", offset: int = 0,
-                                limit: int = 15) -> dict:
+async def get_articles_payload(
+    topic: str, country: str, language: str, sync_code: str = "", offset: int = 0, limit: int = 15
+) -> dict:
     country = country.upper()
     language = normalize_language(language)
     if country not in COUNTRIES:
@@ -199,8 +199,12 @@ async def get_articles_payload(topic: str, country: str, language: str,
 
     if len(tiles) < MIN_FEED_SIZE:
         # 3) Last-resort merge from any in-memory stores (same language first, then EN).
-        same_lang_keys = [k for k in NEWS_STORE if k.endswith(f"::{language}") and k not in {key, global_key}]
-        en_keys = [k for k in NEWS_STORE if k.endswith("::en") and k not in {country_en_key, global_en_key}]
+        same_lang_keys = [
+            k for k in NEWS_STORE if k.endswith(f"::{language}") and k not in {key, global_key}
+        ]
+        en_keys = [
+            k for k in NEWS_STORE if k.endswith("::en") and k not in {country_en_key, global_en_key}
+        ]
         for fallback_key in same_lang_keys + en_keys:
             tiles = _merge_unique(tiles, NEWS_STORE.get(fallback_key, []))
             if len(tiles) >= MIN_FEED_SIZE:
@@ -226,7 +230,8 @@ async def get_articles_payload(topic: str, country: str, language: str,
         thread_count = 0
         if story_thread:
             thread_count = sum(
-                1 for other in tiles
+                1
+                for other in tiles
                 if str(other.get("story_thread", "")).strip().lower() == story_thread.lower()
             )
 
@@ -269,6 +274,7 @@ async def get_articles_payload(topic: str, country: str, language: str,
 
             scores = get_topic_scores(sync_code)
             if scores:
+
                 def personalized_rank(article: dict) -> float:
                     category = article.get("category", "general")
                     topic = article.get("topic", "Top Stories")
@@ -288,7 +294,7 @@ async def get_articles_payload(topic: str, country: str, language: str,
 
     curated_articles = common_articles + personalized_pool
     has_more = offset + limit < len(curated_articles)
-    page = curated_articles[offset: offset + limit]
+    page = curated_articles[offset : offset + limit]
 
     return {
         "articles": page,

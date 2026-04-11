@@ -4,7 +4,6 @@ Dark base + warm vibrant accents for an inviting, happy, professional experience
 Inshorts-style mobile snap-scroll cards, expandable summaries, share/save actions.
 """
 
-
 from nicegui import ui
 
 from dailyai.ui.i18n import tr
@@ -16,11 +15,12 @@ def resolve_image_url(url: str | None, topic: str | None = None, seed: str | Non
         return url
     return get_category_image(topic, seed)
 
+
 def inject_boot_loader(language: str):
-    boot_text = tr(language, 'boot_loader')
+    boot_text = tr(language, "boot_loader")
     # Inject via <head> <template> + importNode so the browser parses SVG in
     # the correct namespace. NiceGUI's ui.html() mangles SVG elements.
-    ui.add_head_html(f'''
+    ui.add_head_html(f"""
     <template id="bootLoaderTpl">
         <div class="boot-loader" id="bootLoader">
             <div class="newspaper-loader">
@@ -105,39 +105,35 @@ def inject_boot_loader(language: str):
         }}
     }})();
     </script>
-    ''')
+    """)
+
 
 # ── Color Palette ───────────────────────────────────────────────────
 
 COLORS = {
     # Warm accent spectrum
-    "accent": "#FFB800",       # Golden amber — primary
-    "accent_alt": "#FF6B6B",   # Coral — secondary
+    "accent": "#FFB800",  # Golden amber — primary
+    "accent_alt": "#FF6B6B",  # Coral — secondary
     "accent_teal": "#4ECDC4",  # Teal — tertiary
     "accent_glow": "rgba(255, 184, 0, 0.15)",
-
     # Backgrounds (dark with warmth)
     "bg_primary": "#0d0f14",
     "bg_card": "#151820",
     "bg_elevated": "#1c1f28",
     "bg_highest": "#232733",
     "bg_glass": "rgba(21, 24, 32, 0.88)",
-
     # Text
     "text_primary": "#f5f3f0",
     "text_secondary": "#b0aeb5",
     "text_muted": "#6c6b72",
-
     # Borders
     "border": "#35353d",
     "border_ghost": "rgba(255, 255, 255, 0.06)",
-
     # Semantic
     "success": "#10b981",
     "warning": "#f59e0b",
     "error": "#ff6e84",
     "info": "#3b82f6",
-
     # Category colors (vibrant & warm)
     "cat_breakthrough": "#4ECDC4",
     "cat_product": "#6366f1",
@@ -146,12 +142,10 @@ COLORS = {
     "cat_research": "#a855f7",
     "cat_industry": "#3b82f6",
     "cat_general": "#FFB800",
-
     # Sentiment
     "bullish": "#10b981",
     "bearish": "#ff6e84",
     "neutral": "#6c6b72",
-
     # Trust
     "trust_high": "#10b981",
     "trust_medium": "#f59e0b",
@@ -224,6 +218,7 @@ CATEGORY_IMAGE_SETS = {
     ],
 }
 
+
 def _normalize_category_key(category: str) -> str:
     """Map UI and data labels to known internal category keys."""
     raw = (category or "").strip().lower()
@@ -236,15 +231,28 @@ def _normalize_category_key(category: str) -> str:
         return "ai_models"
     elif "business" in raw or "💼" in raw or "startup" in raw or "industry" in raw:
         return "business"
-    elif "research" in raw or "🔬" in raw or "robotics" in raw or "healthcare" in raw or "autonomous" in raw:
+    elif (
+        "research" in raw
+        or "🔬" in raw
+        or "robotics" in raw
+        or "healthcare" in raw
+        or "autonomous" in raw
+    ):
         return "research"
     elif "tools" in raw or "🛠" in raw or "open_source" in raw or "product" in raw:
         return "tools"
-    elif "regulation" in raw or "⚖" in raw or "policy" in raw or "governance" in raw or "ai_safety" in raw:
+    elif (
+        "regulation" in raw
+        or "⚖" in raw
+        or "policy" in raw
+        or "governance" in raw
+        or "ai_safety" in raw
+    ):
         return "regulation"
     elif "funding" in raw or "💰" in raw:
         return "funding"
     return "general"
+
 
 def get_category_image(category: str | None = None, seed: str | None = None) -> str:
     """Select one of three cached cover images per category."""
@@ -254,6 +262,7 @@ def get_category_image(category: str | None = None, seed: str | None = None) -> 
     # We use python's modulo which inherently wraps correctly, but abs() is safer.
     idx = 0 if not seed else abs(hash(seed)) % len(options)
     return options[idx]
+
 
 SENTIMENT_ICONS = {
     "bullish": "trending_up",
@@ -612,7 +621,7 @@ body, html {
 
 /* ========== SIDEBAR ========== */
 .sidebar-backdrop {
-    position: fixed; inset: 0; z-index: 950;
+    position: fixed; inset: 0; z-index: 1050;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     opacity: 0; visibility: hidden; transition: all 0.35s ease;
@@ -620,13 +629,14 @@ body, html {
 .sidebar-backdrop.show { opacity: 1; visibility: visible; }
 .sidebar-panel {
     position: fixed; top: 0; left: 0; bottom: 0;
-    width: 300px; max-width: 85vw; z-index: 960;
+    width: 300px; max-width: 85vw; z-index: 1060;
     background: linear-gradient(180deg, var(--bg-card), #10121a);
     box-shadow: 8px 0 48px rgba(0,0,0,0.5);
     transform: translateX(-100%);
     transition: transform 0.35s cubic-bezier(0.32, 1.25, 0.36, 1);
     overflow-y: auto; overflow-x: hidden;
     display: flex; flex-direction: column;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
 }
 .sidebar-panel.show { transform: translateX(0); }
 .sidebar-section {

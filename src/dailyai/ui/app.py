@@ -37,15 +37,16 @@ def create_app() -> FastAPI:
 
     # Serve legal / info pages from templates
     _TEMPLATE_ROUTES = {
-        'impressum': 'impressum.html',
-        'datenschutz': 'datenschutz.html',
-        'terms': 'terms.html',
-        'api-docs': 'api_docs.html',
+        "impressum": "impressum.html",
+        "datenschutz": "datenschutz.html",
+        "terms": "terms.html",
+        "api-docs": "api_docs.html",
     }
 
     def _make_template_handler(path):
         async def _handler():
-            return HTMLResponse(path.read_text(encoding='utf-8'))
+            return HTMLResponse(path.read_text(encoding="utf-8"))
+
         return _handler
 
     for route_name, filename in _TEMPLATE_ROUTES.items():

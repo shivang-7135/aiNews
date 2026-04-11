@@ -165,6 +165,7 @@ async def _create_tables(db: aiosqlite.Connection):
 
 # ── Articles ────────────────────────────────────────────────────────
 
+
 async def save_articles(store_key: str, articles: list[dict]) -> None:
     """Save articles for a given store key (replaces existing)."""
     db = await get_db()
@@ -319,6 +320,7 @@ async def get_articles_count(store_key: str) -> int:
 
 # ── Profiles ────────────────────────────────────────────────────────
 
+
 async def save_profile(profile: dict) -> None:
     """Upsert a user profile."""
     db = await get_db()
@@ -345,9 +347,7 @@ async def save_profile(profile: dict) -> None:
 async def get_profile(sync_code: str) -> dict | None:
     """Get a profile by sync code."""
     db = await get_db()
-    cursor = await db.execute(
-        "SELECT * FROM profiles WHERE sync_code = ?", (sync_code,)
-    )
+    cursor = await db.execute("SELECT * FROM profiles WHERE sync_code = ?", (sync_code,))
     row = await cursor.fetchone()
     if not row:
         return None
@@ -378,6 +378,7 @@ async def get_all_profiles() -> list[dict]:
 
 # ── Subscribers ─────────────────────────────────────────────────────
 
+
 async def save_subscriber(subscriber: dict) -> None:
     """Upsert a subscriber."""
     db = await get_db()
@@ -401,9 +402,7 @@ async def save_subscriber(subscriber: dict) -> None:
 async def get_subscriber(email: str) -> dict | None:
     """Get a subscriber by email."""
     db = await get_db()
-    cursor = await db.execute(
-        "SELECT * FROM subscribers WHERE email = ?", (email,)
-    )
+    cursor = await db.execute("SELECT * FROM subscribers WHERE email = ?", (email,))
     row = await cursor.fetchone()
     if not row:
         return None
@@ -436,6 +435,7 @@ async def get_subscriber_count() -> int:
 
 
 # ── Metadata ────────────────────────────────────────────────────────
+
 
 async def set_metadata(key: str, value: str) -> None:
     """Set a metadata value."""
@@ -492,12 +492,14 @@ async def get_cache_health() -> dict:
         country = key.split("::", 1)[0] if "::" in key else key
         count = int(r["article_count"] or 0)
 
-        per_key.append({
-            "store_key": key,
-            "article_count": count,
-            "max_importance": int(r["max_importance"] or 0),
-            "last_cached_at": r["last_cached_at"] or "",
-        })
+        per_key.append(
+            {
+                "store_key": key,
+                "article_count": count,
+                "max_importance": int(r["max_importance"] or 0),
+                "last_cached_at": r["last_cached_at"] or "",
+            }
+        )
 
         per_country[country] = per_country.get(country, 0) + count
 
@@ -552,6 +554,7 @@ async def get_cache_health() -> dict:
 
 
 # ── User Events (Analytics) ────────────────────────────────────────
+
 
 async def save_events(events: list[dict]) -> None:
     """Batch insert analytics events."""
@@ -628,7 +631,10 @@ async def get_event_counts() -> dict:
 
 # ── User Topic Scores ──────────────────────────────────────────────
 
-async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]) -> None:
+
+async def save_topic_scores(
+    session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]
+) -> None:
     """Upsert topic scores for a session."""
     db = await get_db()
     for topic, score in scores.items():
@@ -668,11 +674,13 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
     rows = await cursor.fetchall()
     return {row["topic"]: float(row["total_score"]) for row in rows}
 
+
 async def get_all_events() -> list[dict]:
     db = await get_db()
     cursor = await db.execute("SELECT * FROM user_events ORDER BY created_at ASC")
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
+
 
 async def get_all_topic_scores() -> list[dict]:
     db = await get_db()
@@ -680,9 +688,13 @@ async def get_all_topic_scores() -> list[dict]:
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
 
+
 # ── RSS Feeds (Admin) ──────────────────────────────────────────────
 
-async def save_rss_feed(country_code: str, feed_key: str, query: str, is_active: bool = True) -> None:
+
+async def save_rss_feed(
+    country_code: str, feed_key: str, query: str, is_active: bool = True
+) -> None:
     """Upsert an RSS feed configuration."""
     db = await get_db()
     await db.execute(
@@ -720,31 +732,33 @@ async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
     return cursor.rowcount > 0
 
 
-async def store_user_daily_digest(sync_code: str, target_date: str, synthesis: str, custom_hooks: dict) -> None:
+async def store_user_daily_digest(
+    sync_code: str, target_date: str, synthesis: str, custom_hooks: dict
+) -> None:
     """Store a personalized daily digest payload."""
     import json
+
     db = await get_db()
     # Replace existing or insert new
     await db.execute(
         """INSERT OR REPLACE INTO user_daily_digests 
            (sync_code, target_date, synthesis, custom_hooks, created_at) 
            VALUES (?, ?, ?, ?, datetime('now'))""",
-        (sync_code, target_date, synthesis, json.dumps(custom_hooks))
+        (sync_code, target_date, synthesis, json.dumps(custom_hooks)),
     )
     await db.commit()
+
 
 async def get_user_daily_digest(sync_code: str, target_date: str) -> dict | None:
     """Retrieve a personalized daily digest payload."""
     import json
+
     db = await get_db()
     cursor = await db.execute(
         "SELECT synthesis, custom_hooks FROM user_daily_digests WHERE sync_code = ? AND target_date = ?",
-        (sync_code, target_date)
+        (sync_code, target_date),
     )
     row = await cursor.fetchone()
     if row:
-        return {
-            "synthesis": row["synthesis"],
-            "custom_hooks": json.loads(row["custom_hooks"])
-        }
+        return {"synthesis": row["synthesis"], "custom_hooks": json.loads(row["custom_hooks"])}
     return None

@@ -11,8 +11,12 @@ from dailyai.config import APP_URL, RESEND_API_KEY, RESEND_FROM_EMAIL, RESEND_RE
 logger = logging.getLogger("dailyai.services.digest")
 
 CATEGORY_COLORS = {
-    "breakthrough": "#22d3ee", "product": "#6366f1", "regulation": "#f43f5e",
-    "funding": "#10b981", "research": "#a855f7", "industry": "#3b82f6",
+    "breakthrough": "#22d3ee",
+    "product": "#6366f1",
+    "regulation": "#f43f5e",
+    "funding": "#10b981",
+    "research": "#a855f7",
+    "industry": "#3b82f6",
     "general": "#f59e0b",
 }
 
@@ -27,7 +31,8 @@ def _render_stories_html(tiles: list[dict]) -> str:
         why = tile.get("why_it_matters", "")
         why_html = (
             f'<p style="margin:6px 0 0;font-size:13px;color:#2dd4a0;font-style:italic;">💡 {why}</p>'
-            if why else ""
+            if why
+            else ""
         )
         title = tile.get("title", tile.get("headline", ""))
         link = tile.get("link", tile.get("article_url", "#"))
@@ -43,7 +48,7 @@ def _render_stories_html(tiles: list[dict]) -> str:
               <span style="background:{color}22;color:{color};font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;">{cat}</span>
               <span style="font-size:12px;color:#6b6b8d;margin-left:6px;">{stars}</span>
             </div>
-            <a href="{link}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;">{i+1}. {title}</a>
+            <a href="{link}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;">{i + 1}. {title}</a>
             <p style="margin:6px 0 0;font-size:13px;color:#a0a0c0;line-height:1.5;">{summary}</p>
             {why_html}
             <p style="margin:8px 0 0;font-size:11px;color:#6b6b8d;">{source} • {pub_display}</p>
@@ -52,8 +57,14 @@ def _render_stories_html(tiles: list[dict]) -> str:
     return stories
 
 
-def _build_email(subject_emoji: str, heading: str, subheading: str,
-                 intro_text: str, stories_html: str, date_str: str) -> str:
+def _build_email(
+    subject_emoji: str,
+    heading: str,
+    subheading: str,
+    intro_text: str,
+    stories_html: str,
+    date_str: str,
+) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
@@ -87,15 +98,24 @@ async def send_welcome_email(email: str, tiles: list[dict]):
         return
     try:
         import resend
+
         resend.api_key = RESEND_API_KEY
         date_str = datetime.now(UTC).strftime("%B %d, %Y")
         stories = _render_stories_html(tiles[:10])
-        html = _build_email("👋", "Welcome to DailyAI!",
-                           "You're now part of the AI-informed crew",
-                           "Thanks for subscribing! 🎉 You'll receive the <strong>top 10 AI stories</strong> in your inbox every morning.",
-                           stories, date_str)
-        payload: dict = {"from": RESEND_FROM_EMAIL, "to": [email],
-                "subject": "👋 Welcome to DailyAI — Here's today's top AI news!", "html": html}
+        html = _build_email(
+            "👋",
+            "Welcome to DailyAI!",
+            "You're now part of the AI-informed crew",
+            "Thanks for subscribing! 🎉 You'll receive the <strong>top 10 AI stories</strong> in your inbox every morning.",
+            stories,
+            date_str,
+        )
+        payload: dict = {
+            "from": RESEND_FROM_EMAIL,
+            "to": [email],
+            "subject": "👋 Welcome to DailyAI — Here's today's top AI news!",
+            "html": html,
+        }
         if RESEND_REPLY_TO:
             payload["reply_to"] = RESEND_REPLY_TO
         resend.Emails.send(payload)
@@ -110,6 +130,7 @@ async def send_digest():
         return
     try:
         import resend
+
         resend.api_key = RESEND_API_KEY
         from dailyai.config import store_key
         from dailyai.storage.backend import get_all_subscribers, get_articles
@@ -123,16 +144,24 @@ async def send_digest():
 
         date_str = datetime.now(UTC).strftime("%b %d")
         stories = _render_stories_html(tiles[:10])
-        html = _build_email("🤖", "Your Daily AI Intelligence Brief",
-                           "Top 10 AI stories from the past 24 hours",
-                           "Curated by our AI agent, ranked by importance.",
-                           stories, datetime.now(UTC).strftime("%B %d, %Y"))
+        html = _build_email(
+            "🤖",
+            "Your Daily AI Intelligence Brief",
+            "Top 10 AI stories from the past 24 hours",
+            "Curated by our AI agent, ranked by importance.",
+            stories,
+            datetime.now(UTC).strftime("%B %d, %Y"),
+        )
 
         sent = 0
         for sub in subs:
             try:
-                payload: dict = {"from": RESEND_FROM_EMAIL, "to": [sub["email"]],
-                        "subject": f"🤖 DailyAI Brief — {date_str}", "html": html}
+                payload: dict = {
+                    "from": RESEND_FROM_EMAIL,
+                    "to": [sub["email"]],
+                    "subject": f"🤖 DailyAI Brief — {date_str}",
+                    "html": html,
+                }
                 if RESEND_REPLY_TO:
                     payload["reply_to"] = RESEND_REPLY_TO
                 resend.Emails.send(payload)

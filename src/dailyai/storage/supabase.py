@@ -99,6 +99,7 @@ async def close_db():
 
 # -- Articles ---------------------------------------------------------
 
+
 async def save_articles(store_key: str, articles: list[dict]) -> None:
     if not is_configured():
         await _fallback("save_articles", store_key, articles)
@@ -201,6 +202,7 @@ async def get_articles_count(store_key: str) -> int:
 
 # -- Profiles ---------------------------------------------------------
 
+
 async def save_profile(profile: dict) -> None:
     if not is_configured():
         await _fallback("save_profile", profile)
@@ -276,6 +278,7 @@ async def get_all_profiles() -> list[dict]:
 
 
 # -- Subscribers ------------------------------------------------------
+
 
 async def save_subscriber(subscriber: dict) -> None:
     if not is_configured():
@@ -367,6 +370,7 @@ async def get_subscriber_count() -> int:
 
 # -- Metadata ---------------------------------------------------------
 
+
 async def set_metadata(key: str, value: str) -> None:
     if not is_configured():
         await _fallback("set_metadata", key, value)
@@ -449,7 +453,9 @@ async def get_cache_health() -> dict:
 
             entry = per_key_map[key]
             entry["article_count"] += 1
-            entry["max_importance"] = max(entry["max_importance"], int(row.get("importance", 0) or 0))
+            entry["max_importance"] = max(
+                entry["max_importance"], int(row.get("importance", 0) or 0)
+            )
 
             fetched_at = str(row.get("fetched_at") or row.get("created_at") or "")
             if fetched_at and (not entry["last_cached_at"] or fetched_at > entry["last_cached_at"]):
@@ -500,6 +506,7 @@ async def get_cache_health() -> dict:
 
 # -- User Events (Analytics) -----------------------------------------
 
+
 async def save_events(events: list[dict]) -> None:
     if not is_configured():
         await _fallback("save_events", events)
@@ -508,19 +515,22 @@ async def save_events(events: list[dict]) -> None:
     try:
         rows = []
         for e in events:
-            rows.append({
-                "session_id": e.get("session_id", ""),
-                "sync_code": e.get("sync_code", ""),
-                "event_type": e.get("event_type", ""),
-                "article_id": e.get("article_id", ""),
-                "topic": e.get("topic", ""),
-                "category": e.get("category", ""),
-                "value": float(e.get("value", 0)),
-                "metadata": e.get("metadata", {}),
-            })
+            rows.append(
+                {
+                    "session_id": e.get("session_id", ""),
+                    "sync_code": e.get("sync_code", ""),
+                    "event_type": e.get("event_type", ""),
+                    "article_id": e.get("article_id", ""),
+                    "topic": e.get("topic", ""),
+                    "category": e.get("category", ""),
+                    "value": float(e.get("value", 0)),
+                    "metadata": e.get("metadata", {}),
+                }
+            )
         if rows:
             await _request(
-                "POST", "user_events",
+                "POST",
+                "user_events",
                 json_body=rows,
                 prefer="return=minimal",
                 expect_json=False,
@@ -536,7 +546,8 @@ async def get_events(session_id: str, limit: int = 500) -> list[dict]:
 
     try:
         rows = await _request(
-            "GET", "user_events",
+            "GET",
+            "user_events",
             params={
                 "session_id": f"eq.{session_id}",
                 "select": "*",
@@ -558,7 +569,8 @@ async def get_events_by_sync_code(sync_code: str, limit: int = 1000) -> list[dic
 
     try:
         rows = await _request(
-            "GET", "user_events",
+            "GET",
+            "user_events",
             params={
                 "sync_code": f"eq.{sync_code}",
                 "select": "*",
@@ -580,7 +592,8 @@ async def get_event_counts() -> dict:
 
     try:
         rows = await _request(
-            "GET", "user_events",
+            "GET",
+            "user_events",
             params={"select": "event_type"},
         )
         counts: dict[str, int] = {}
@@ -595,7 +608,10 @@ async def get_event_counts() -> dict:
 
 # -- User Topic Scores -----------------------------------------------
 
-async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]) -> None:
+
+async def save_topic_scores(
+    session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]
+) -> None:
     if not is_configured():
         await _fallback("save_topic_scores", session_id, sync_code, scores, event_counts)
         return
@@ -603,16 +619,19 @@ async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, f
     try:
         rows = []
         for topic, score in scores.items():
-            rows.append({
-                "session_id": session_id,
-                "sync_code": sync_code,
-                "topic": topic,
-                "score": score,
-                "event_count": event_counts.get(topic, 0),
-            })
+            rows.append(
+                {
+                    "session_id": session_id,
+                    "sync_code": sync_code,
+                    "topic": topic,
+                    "score": score,
+                    "event_count": event_counts.get(topic, 0),
+                }
+            )
         if rows:
             await _request(
-                "POST", "user_topic_scores",
+                "POST",
+                "user_topic_scores",
                 params={"on_conflict": "session_id,topic"},
                 json_body=rows,
                 prefer="resolution=merge-duplicates,return=minimal",
@@ -629,7 +648,8 @@ async def get_topic_scores(session_id: str) -> dict[str, float]:
 
     try:
         rows = await _request(
-            "GET", "user_topic_scores",
+            "GET",
+            "user_topic_scores",
             params={
                 "session_id": f"eq.{session_id}",
                 "select": "topic,score",
@@ -648,7 +668,8 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
 
     try:
         rows = await _request(
-            "GET", "user_topic_scores",
+            "GET",
+            "user_topic_scores",
             params={
                 "sync_code": f"eq.{sync_code}",
                 "select": "topic,score",
@@ -666,14 +687,18 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
 
 # -- RSS Feeds (Admin) ------------------------------------------------
 
-async def save_rss_feed(country_code: str, feed_key: str, query: str, is_active: bool = True) -> None:
+
+async def save_rss_feed(
+    country_code: str, feed_key: str, query: str, is_active: bool = True
+) -> None:
     if not is_configured():
         await _fallback("save_rss_feed", country_code, feed_key, query, is_active)
         return
 
     try:
         await _request(
-            "POST", "rss_feeds",
+            "POST",
+            "rss_feeds",
             params={"on_conflict": "country_code,feed_key"},
             json_body={
                 "country_code": country_code,
@@ -710,7 +735,8 @@ async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
 
     try:
         await _request(
-            "DELETE", "rss_feeds",
+            "DELETE",
+            "rss_feeds",
             params={
                 "country_code": f"eq.{country_code}",
                 "feed_key": f"eq.{feed_key}",

@@ -45,6 +45,7 @@ def start_scheduler():
 
     # Email digest at 8 AM UTC
     from dailyai.config import RESEND_API_KEY
+
     if RESEND_API_KEY:
         scheduler.add_job(
             _send_digest_wrapper,
@@ -64,6 +65,7 @@ async def _send_digest_wrapper():
     """Wrapper to call digest sender."""
     try:
         from dailyai.services.digest import send_digest
+
         await send_digest()
     except Exception as e:
         logger.error(f"Digest job failed: {e}")

@@ -13,10 +13,7 @@ load_dotenv()
 # ── App Metadata ────────────────────────────────────────────────────
 APP_NAME = "DailyAI"
 APP_VERSION = (
-    os.getenv("APP_VERSION")
-    or os.getenv("SOURCE_VERSION")
-    or os.getenv("GITHUB_SHA")
-    or "2.0.0"
+    os.getenv("APP_VERSION") or os.getenv("SOURCE_VERSION") or os.getenv("GITHUB_SHA") or "2.0.0"
 )
 DEPLOYED_AT = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 APP_URL = os.getenv("APP_URL", "http://localhost:8000")
@@ -114,9 +111,7 @@ UI_FEED_TOPICS: list[str] = [
 ]
 
 # ── RSS Feed Queries ────────────────────────────────────────────────
-GOOGLE_NEWS_RSS = (
-    "https://news.google.com/rss/search?q={query}&hl={hl}&gl={gl}&ceid={gl}:{hl}"
-)
+GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl={hl}&gl={gl}&ceid={gl}:{hl}"
 
 FEED_QUERIES: dict[str, str] = {
     "ai_core": "artificial+intelligence+OR+AI+OR+machine+learning+OR+deep+learning+OR+LLM+OR+generative+AI",
@@ -150,29 +145,76 @@ FEED_QUERIES_GB: dict[str, str] = {
 
 # ── Source Trust ────────────────────────────────────────────────────
 HIGH_TRUST_SOURCES: set[str] = {
-    "reuters", "associated press", "ap news", "financial times",
-    "bloomberg", "wsj", "the economist", "nature", "science",
-    "mit technology review", "arxiv", "the verge", "techcrunch",
-    "wired", "bbc", "the guardian", "cnbc",
+    "reuters",
+    "associated press",
+    "ap news",
+    "financial times",
+    "bloomberg",
+    "wsj",
+    "the economist",
+    "nature",
+    "science",
+    "mit technology review",
+    "arxiv",
+    "the verge",
+    "techcrunch",
+    "wired",
+    "bbc",
+    "the guardian",
+    "cnbc",
     # German high-trust (DACH)
-    "heise", "golem", "t3n", "handelsblatt", "faz",
-    "frankfurter allgemeine", "spiegel", "der spiegel",
-    "süddeutsche zeitung", "die zeit", "tagesschau", "nzz", "der standard",
+    "heise",
+    "golem",
+    "t3n",
+    "handelsblatt",
+    "faz",
+    "frankfurter allgemeine",
+    "spiegel",
+    "der spiegel",
+    "süddeutsche zeitung",
+    "die zeit",
+    "tagesschau",
+    "nzz",
+    "der standard",
     # India high-trust
-    "the hindu", "times of india", "economic times", "livemint",
-    "ndtv", "india today", "business standard", "the indian express",
+    "the hindu",
+    "times of india",
+    "economic times",
+    "livemint",
+    "ndtv",
+    "india today",
+    "business standard",
+    "the indian express",
     # UK high-trust
-    "the times", "the telegraph", "sky news",
+    "the times",
+    "the telegraph",
+    "sky news",
 }
 
 MEDIUM_TRUST_SOURCES: set[str] = {
-    "venturebeat", "zdnet", "ars technica", "the information",
-    "the register", "engadget", "mashable", "nikkei",
-    "south china morning post", "business insider", "fortune",
-    "fast company", "cnet", "tom's hardware", "9to5mac", "9to5google",
-    "chip.de", "computerbild",
+    "venturebeat",
+    "zdnet",
+    "ars technica",
+    "the information",
+    "the register",
+    "engadget",
+    "mashable",
+    "nikkei",
+    "south china morning post",
+    "business insider",
+    "fortune",
+    "fast company",
+    "cnet",
+    "tom's hardware",
+    "9to5mac",
+    "9to5google",
+    "chip.de",
+    "computerbild",
     # India medium-trust
-    "moneycontrol", "firstpost", "inc42", "yourstory",
+    "moneycontrol",
+    "firstpost",
+    "inc42",
+    "yourstory",
     # UK medium-trust
     "techradar",
 }
@@ -208,6 +250,7 @@ RESEND_REPLY_TO = os.getenv("RESEND_REPLY_TO", "")
 CSRF_COOKIE_NAME = "dailyai_csrf"
 
 # ── Helpers ─────────────────────────────────────────────────────────
+
 
 def normalize_language(language: str | None) -> str:
     lang = (language or "en").strip().lower()

@@ -49,7 +49,9 @@ async def run(state: dict) -> dict:
     timings["deduplicator"] = round(elapsed, 4)
 
     removed = len(raw) - len(unique)
-    logger.info(f"[Deduplicator] {len(raw)} → {len(unique)} articles ({removed} duplicates removed)")
+    logger.info(
+        f"[Deduplicator] {len(raw)} → {len(unique)} articles ({removed} duplicates removed)"
+    )
 
     return {
         "deduplicated": unique,

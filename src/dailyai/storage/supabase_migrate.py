@@ -21,7 +21,14 @@ from dailyai.storage import sqlite
 
 logger = logging.getLogger("dailyai.storage.migrate")
 
-REQUIRED_TABLES = ("articles", "profiles", "subscribers", "metadata", "user_events", "user_topic_scores")
+REQUIRED_TABLES = (
+    "articles",
+    "profiles",
+    "subscribers",
+    "metadata",
+    "user_events",
+    "user_topic_scores",
+)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SCHEMA_PATH = PROJECT_ROOT / "supabase" / "bootstrap.sql"
 
@@ -140,7 +147,9 @@ class SupabaseRestClient:
             raise_for_status=True,
         )
 
-    async def insert_rows(self, table: str, rows: list[dict], *, on_conflict: str | None = None) -> int:
+    async def insert_rows(
+        self, table: str, rows: list[dict], *, on_conflict: str | None = None
+    ) -> int:
         if not rows:
             return 0
 
@@ -257,6 +266,7 @@ def _user_events_row(row: dict) -> dict:
         "created_at": row.get("created_at"),
     }
 
+
 def _user_topic_scores_row(row: dict) -> dict:
     return {
         "session_id": row.get("session_id", ""),
@@ -266,6 +276,7 @@ def _user_topic_scores_row(row: dict) -> dict:
         "event_count": int(row.get("event_count", 0)),
         "updated_at": row.get("updated_at"),
     }
+
 
 def write_schema_file(path: Path) -> Path:
     source = DEFAULT_SCHEMA_PATH
@@ -328,7 +339,9 @@ async def run_migration(args: argparse.Namespace) -> int:
     inserted_articles = 0
     for store_key in snapshot["store_keys"]:
         await client.delete_where("articles", {"store_key": f"eq.{store_key}"})
-        article_rows = [_article_row(store_key, row) for row in snapshot["articles_by_key"][store_key]]
+        article_rows = [
+            _article_row(store_key, row) for row in snapshot["articles_by_key"][store_key]
+        ]
         inserted_articles += await client.insert_rows("articles", article_rows)
 
     profile_rows = [_profile_row(row) for row in snapshot["profiles"]]
@@ -347,11 +360,11 @@ async def run_migration(args: argparse.Namespace) -> int:
     user_events_rows = [_user_events_row(row) for row in snapshot.get("user_events", [])]
     inserted_user_events = await client.insert_rows("user_events", user_events_rows)
 
-    user_topic_scores_rows = [_user_topic_scores_row(row) for row in snapshot.get("user_topic_scores", [])]
+    user_topic_scores_rows = [
+        _user_topic_scores_row(row) for row in snapshot.get("user_topic_scores", [])
+    ]
     inserted_user_topic_scores = await client.insert_rows(
-        "user_topic_scores",
-        user_topic_scores_rows,
-        on_conflict="session_id, sync_code, topic"
+        "user_topic_scores", user_topic_scores_rows, on_conflict="session_id, sync_code, topic"
     )
 
     remote_articles = await client.count_rows("articles")
@@ -364,10 +377,14 @@ async def run_migration(args: argparse.Namespace) -> int:
     print("Migration complete:")
     print(f"- inserted_articles={inserted_articles}, remote_articles={remote_articles}")
     print(f"- inserted_profiles={inserted_profiles}, remote_profiles={remote_profiles}")
-    print(f"- inserted_subscribers={inserted_subscribers}, remote_active_subscribers={remote_subscribers}")
+    print(
+        f"- inserted_subscribers={inserted_subscribers}, remote_active_subscribers={remote_subscribers}"
+    )
     print(f"- inserted_metadata={inserted_metadata}, remote_metadata={remote_metadata}")
     print(f"- inserted_user_events={inserted_user_events}, remote_user_events={remote_user_events}")
-    print(f"- inserted_user_topic_scores={inserted_user_topic_scores}, remote_user_topic_scores={remote_user_topic_scores}")
+    print(
+        f"- inserted_user_topic_scores={inserted_user_topic_scores}, remote_user_topic_scores={remote_user_topic_scores}"
+    )
 
     return 0
 
@@ -403,7 +420,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     parser = build_parser()
     args = parser.parse_args()
     exit_code = asyncio.run(run_migration(args))

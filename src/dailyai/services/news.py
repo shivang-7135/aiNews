@@ -47,19 +47,61 @@ def _infer_topic_category(title: str, summary: str = "", source: str = "") -> tu
     text = f"{title} {summary} {source}".lower()
 
     model_keywords = (
-        "gpt", "llm", "foundation model", "gemini", "claude", "llama", "mistral", "qwen", "model release",
+        "gpt",
+        "llm",
+        "foundation model",
+        "gemini",
+        "claude",
+        "llama",
+        "mistral",
+        "qwen",
+        "model release",
     )
     research_keywords = (
-        "research", "paper", "benchmark", "arxiv", "study", "peer review", "evaluation", "dataset",
+        "research",
+        "paper",
+        "benchmark",
+        "arxiv",
+        "study",
+        "peer review",
+        "evaluation",
+        "dataset",
     )
     tools_keywords = (
-        "sdk", "framework", "developer tool", "open source", "github", "api", "copilot", "plugin", "agent", "tool", "library",
+        "sdk",
+        "framework",
+        "developer tool",
+        "open source",
+        "github",
+        "api",
+        "copilot",
+        "plugin",
+        "agent",
+        "tool",
+        "library",
     )
     business_keywords = (
-        "funding", "raised", "valuation", "revenue", "enterprise", "partnership", "acquisition", "earnings", "market", "startup", "company",
+        "funding",
+        "raised",
+        "valuation",
+        "revenue",
+        "enterprise",
+        "partnership",
+        "acquisition",
+        "earnings",
+        "market",
+        "startup",
+        "company",
     )
     regulation_keywords = (
-        "regulation", "policy", "act", "compliance", "governance", "law", "eu ai", "safety institute",
+        "regulation",
+        "policy",
+        "act",
+        "compliance",
+        "governance",
+        "law",
+        "eu ai",
+        "safety institute",
     )
 
     if any(k in text for k in model_keywords):
@@ -75,7 +117,9 @@ def _infer_topic_category(title: str, summary: str = "", source: str = "") -> tu
     return "general", "general"
 
 
-def _match_ui_topic(requested_topic: str, ui_topic: str, category: str, internal_topic: str) -> bool:
+def _match_ui_topic(
+    requested_topic: str, ui_topic: str, category: str, internal_topic: str
+) -> bool:
     """Flexible topic matching so mobile tabs are rarely empty."""
     if requested_topic in ("all", "For You"):
         return True
@@ -86,8 +130,16 @@ def _match_ui_topic(requested_topic: str, ui_topic: str, category: str, internal
     internal_topic = internal_topic.lower()
 
     # Strip emoji prefix for matching (e.g. "🤖 AI Models" -> "AI Models")
-    stripped_request = requested_topic.split(" ", 1)[-1] if requested_topic and requested_topic[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' else requested_topic
-    stripped_ui = ui_topic.split(" ", 1)[-1] if ui_topic and ui_topic[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' else ui_topic
+    stripped_request = (
+        requested_topic.split(" ", 1)[-1]
+        if requested_topic and requested_topic[0] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        else requested_topic
+    )
+    stripped_ui = (
+        ui_topic.split(" ", 1)[-1]
+        if ui_topic and ui_topic[0] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        else ui_topic
+    )
     if stripped_ui == stripped_request:
         return True
 
@@ -95,9 +147,18 @@ def _match_ui_topic(requested_topic: str, ui_topic: str, category: str, internal
     if stripped_request == "AI Models":
         return internal_topic == "llms" or category in {"product", "breakthrough"}
     if stripped_request == "Business":
-        return category in {"industry", "funding"} or internal_topic in {"startups", "funding", "big_tech"}
+        return category in {"industry", "funding"} or internal_topic in {
+            "startups",
+            "funding",
+            "big_tech",
+        }
     if stripped_request == "Research":
-        return internal_topic in {"research", "robotics", "healthcare", "autonomous"} or category in {"research", "breakthrough"}
+        return internal_topic in {
+            "research",
+            "robotics",
+            "healthcare",
+            "autonomous",
+        } or category in {"research", "breakthrough"}
     if stripped_request == "Tools":
         return internal_topic in {"open_source", "product"} or category == "product"
     if stripped_request == "Regulation":
@@ -111,7 +172,15 @@ def _topic_keyword_score(requested_topic: str, article: dict) -> int:
     text = f"{article.get('headline', '')} {article.get('summary', '')} {article.get('why_it_matters', '')}".lower()
     topic_keywords = {
         "AI Models": ("model", "llm", "gpt", "gemini", "claude", "llama", "mistral", "qwen"),
-        "Business": ("funding", "revenue", "startup", "enterprise", "valuation", "acquisition", "market"),
+        "Business": (
+            "funding",
+            "revenue",
+            "startup",
+            "enterprise",
+            "valuation",
+            "acquisition",
+            "market",
+        ),
         "Research": ("research", "study", "paper", "benchmark", "arxiv", "lab", "scientist"),
         "Tools": ("tool", "api", "sdk", "framework", "open source", "github", "agent"),
         "Regulation": ("regulation", "policy", "governance", "law", "compliance", "act", "safety"),
@@ -160,27 +229,39 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
 
         pairs = get_prefetch_pairs()
         logger.info(f"Startup prefetch started for {len(pairs)} country/language keys")
-        
+
         concurrency = max(1, min(5, int(STARTUP_PREFETCH_CONCURRENCY)))
         sem = asyncio.Semaphore(concurrency)  # Avoid overwhelming LLM/API providers during startup.
-        
+
         async def fetch_pair(i: int, country: str, language: str):
-            target = STARTUP_PREFETCH_GLOBAL_LIMIT if country == "GLOBAL" else STARTUP_PREFETCH_OTHER_LIMIT
+            target = (
+                STARTUP_PREFETCH_GLOBAL_LIMIT
+                if country == "GLOBAL"
+                else STARTUP_PREFETCH_OTHER_LIMIT
+            )
             async with sem:
                 try:
-                    logger.info(f"Prefetching [{i}/{len(pairs)}] {country}/{language} (target={target})...")
+                    logger.info(
+                        f"Prefetching [{i}/{len(pairs)}] {country}/{language} (target={target})..."
+                    )
                     await asyncio.wait_for(
                         refresh_news(country, language, force=force, target_size=target),
                         timeout=STARTUP_PREFETCH_TIMEOUT,
                     )
                     logger.info(f"  ✅ Prefetch [{i}/{len(pairs)}] {country}/{language} complete")
                 except TimeoutError:
-                    logger.warning(f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping")
+                    logger.warning(
+                        f"  ⚠ Prefetch [{i}/{len(pairs)}] {country}/{language} timed out, skipping"
+                    )
                 except Exception as e:
-                    logger.error(f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}")
+                    logger.error(
+                        f"  ❌ Prefetch [{i}/{len(pairs)}] {country}/{language} failed: {e}"
+                    )
 
         # Run all fetches concurrently
-        tasks = [fetch_pair(i, country_code, lang) for i, (country_code, lang) in enumerate(pairs, 1)]
+        tasks = [
+            fetch_pair(i, country_code, lang) for i, (country_code, lang) in enumerate(pairs, 1)
+        ]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         _startup_prefetch_done = True
@@ -189,8 +270,10 @@ async def prefetch_cache_on_startup(force: bool = True) -> None:
 
 async def pregenerate_top_briefs(articles: list[dict], language: str) -> None:
     """Pre-generate and cache LLM briefs for top articles in the background."""
-    logger.info(f"Starting background brief pre-generation for {len(articles)} articles ({language}).")
-    
+    logger.info(
+        f"Starting background brief pre-generation for {len(articles)} articles ({language})."
+    )
+
     # Throttle pre-generation to respect LLM API limits
     sem = asyncio.Semaphore(2)
 
@@ -203,7 +286,7 @@ async def pregenerate_top_briefs(articles: list[dict], language: str) -> None:
                     pass
             except Exception as e:
                 logger.debug(f"Pre-generation failed for '{article.get('title')}': {e}")
-            await asyncio.sleep(1.0) # Small cooldown between briefs
+            await asyncio.sleep(1.0)  # Small cooldown between briefs
 
     tasks = [_cache_brief(a) for a in articles]
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -264,21 +347,23 @@ async def refresh_news(
                 if title not in seen_titles and len(merged) < max_items:
                     seen_titles.add(title)
                     # Normalize to storage format
-                    merged.append({
-                        "title": article.get("headline", article.get("title", "")),
-                        "summary": article.get("summary", ""),
-                        "why_it_matters": article.get("why_it_matters", ""),
-                        "category": article.get("category", "general"),
-                        "topic": article.get("topic", "general"),
-                        "importance": int(article.get("importance", 5)),
-                        "source": article.get("source_name", article.get("source", "")),
-                        "source_trust": article.get("source_trust", "low"),
-                        "sentiment": article.get("sentiment", "neutral"),
-                        "story_thread": article.get("story_thread", ""),
-                        "link": article.get("article_url", article.get("link", "")),
-                        "published": article.get("published_at", article.get("published", "")),
-                        "fetched_at": article.get("updated_at", article.get("fetched_at", "")),
-                    })
+                    merged.append(
+                        {
+                            "title": article.get("headline", article.get("title", "")),
+                            "summary": article.get("summary", ""),
+                            "why_it_matters": article.get("why_it_matters", ""),
+                            "category": article.get("category", "general"),
+                            "topic": article.get("topic", "general"),
+                            "importance": int(article.get("importance", 5)),
+                            "source": article.get("source_name", article.get("source", "")),
+                            "source_trust": article.get("source_trust", "low"),
+                            "sentiment": article.get("sentiment", "neutral"),
+                            "story_thread": article.get("story_thread", ""),
+                            "link": article.get("article_url", article.get("link", "")),
+                            "published": article.get("published_at", article.get("published", "")),
+                            "fetched_at": article.get("updated_at", article.get("fetched_at", "")),
+                        }
+                    )
 
                     # Reduce empty category tabs by inferring topic/category for generic rows.
                     inferred_topic, inferred_category = _infer_topic_category(
@@ -316,7 +401,7 @@ async def _background_translate_and_cache(
 
         def _do_translate():
             try:
-                t = GoogleTranslator(source='en', target=target_language)
+                t = GoogleTranslator(source="en", target=target_language)
                 titles = [a.get("title", "") or "" for a in articles]
                 summaries = [a.get("summary", "") or "" for a in articles]
                 whys = [a.get("why_it_matters", "") or "" for a in articles]
@@ -367,6 +452,7 @@ async def get_feed(
     sync_code: str = "",
     offset: int = 0,
     limit: int = 15,
+    sort: str = "relevance",
 ) -> dict:
     """Get the formatted news feed with pagination and optional personalization."""
     country = country.upper()
@@ -409,9 +495,7 @@ async def get_feed(
         # This avoids the 15-30s synchronous GoogleTranslator bottleneck.
         if new_arts:
             articles.extend(new_arts)
-            asyncio.create_task(
-                _background_translate_and_cache(new_arts, language, key)
-            )
+            asyncio.create_task(_background_translate_and_cache(new_arts, language, key))
 
     # Format for UI
     from dailyai.config import UI_TOPIC_MAP
@@ -451,17 +535,20 @@ async def get_feed(
         thread_count = 0
         if story_thread:
             thread_count = sum(
-                1 for other in articles
+                1
+                for other in articles
                 if str(other.get("story_thread", "")).strip().lower() == story_thread.lower()
             )
 
         # Stable ID across refreshes/page sizes to keep article links resilient.
-        identity = "|".join([
-            str(a.get("title", "") or ""),
-            str(a.get("source", "") or ""),
-            str(a.get("published", "") or ""),
-            str(a.get("link", "") or ""),
-        ])
+        identity = "|".join(
+            [
+                str(a.get("title", "") or ""),
+                str(a.get("source", "") or ""),
+                str(a.get("published", "") or ""),
+                str(a.get("link", "") or ""),
+            ]
+        )
         stable_id = hashlib.sha1(identity.encode("utf-8", errors="ignore")).hexdigest()[:12]
 
         formatted = {
@@ -488,15 +575,25 @@ async def get_feed(
         if _match_ui_topic(topic, ui_topic, category, internal_topic):
             feed_articles.append(formatted)
 
-    # Sort by importance
-    feed_articles.sort(
-        key=lambda x: (int(x.get("importance", 0)), x.get("published_at", "")),
-        reverse=True,
-    )
-    all_formatted.sort(
-        key=lambda x: (int(x.get("importance", 0)), x.get("published_at", "")),
-        reverse=True,
-    )
+    # Sort by importance or latest
+    if sort == "latest":
+        feed_articles.sort(
+            key=lambda x: x.get("published_at", ""),
+            reverse=True,
+        )
+        all_formatted.sort(
+            key=lambda x: x.get("published_at", ""),
+            reverse=True,
+        )
+    else:
+        feed_articles.sort(
+            key=lambda x: (int(x.get("importance", 0)), x.get("published_at", "")),
+            reverse=True,
+        )
+        all_formatted.sort(
+            key=lambda x: (int(x.get("importance", 0)), x.get("published_at", "")),
+            reverse=True,
+        )
 
     # If a specific topic has no cached rows, try keyword scoring as fallback.
     # DO NOT trigger refresh_news here — that's the server's startup job.
@@ -512,19 +609,20 @@ async def get_feed(
         else:
             feed_articles = scored[:10]
 
-
     # Personalization
     synthesis = ""
     custom_hooks = {}
     if sync_code:
         try:
             from dailyai.services.analytics import get_personalized_scores, rank_articles_by_scores
+
             scores = await get_personalized_scores(sync_code=sync_code)
             if scores:
                 feed_articles = rank_articles_by_scores(feed_articles, scores)
-                
+
             if topic == "For You":
                 from dailyai.services.personalizer_llm import generate_daily_bespoke_digest
+
                 digest = await generate_daily_bespoke_digest(sync_code, feed_articles)
                 if digest:
                     synthesis = digest.get("synthesis", "")
@@ -540,7 +638,7 @@ async def get_feed(
     # Pagination
     total = len(feed_articles)
     has_more = offset + limit < total
-    page = feed_articles[offset:offset + limit]
+    page = feed_articles[offset : offset + limit]
     topic_counts = _build_topic_counts(all_formatted)
 
     last_updated = await db.get_metadata(f"last_updated:{key}") or "-"
@@ -569,7 +667,9 @@ async def stream_article_brief(article: dict, language: str = "en"):
     Generate an article brief dynamically and yield text chunks in real-time.
     Caches the final output to SQLite metadata to avoid re-summarizing.
     """
-    article_hash = hashlib.md5((article.get('source', '') + article.get('title', '')).encode()).hexdigest()
+    article_hash = hashlib.md5(
+        (article.get("source", "") + article.get("title", "")).encode()
+    ).hexdigest()
     cache_key = f"{article_hash}_{language}"
 
     from dailyai.llm.provider import SUMMARY_FALLBACK_MESSAGE, stream_llm
@@ -582,7 +682,7 @@ async def stream_article_brief(article: dict, language: str = "en"):
             # Simulate quick streaming for the cached content
             chunk_size = max(5, len(cached_text) // 10)
             for i in range(0, len(cached_text), chunk_size):
-                yield cached_text[i:i+chunk_size]
+                yield cached_text[i : i + chunk_size]
                 await asyncio.sleep(0.01)
             return
         logger.info(f"Skipping stale fallback brief cache for key={cache_key}")
@@ -613,7 +713,7 @@ async def stream_article_brief(article: dict, language: str = "en"):
         async for chunk in stream_llm(system_msg, human_msg):
             full_output += chunk
             yield chunk
-            
+
         # Background cache the finalized response
         if full_output:
             try:

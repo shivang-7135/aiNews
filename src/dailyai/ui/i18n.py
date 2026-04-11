@@ -25,12 +25,10 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "ai_news_intelligence": "AI News Intelligence",
         "boot_loader": "Curating your AI intelligence...",
         "trust_signal": "AI-curated from 50+ trusted sources • Updated hourly",
-
         # ── Notifications ─────────────────────────────────────────
         "region_notify": "Region: {flag} {country}",
         "language_notify": "Language: {language}",
         "refreshing_news": "Refreshing news...",
-
         # ── Feed states ───────────────────────────────────────────
         "loading_more": "Loading more stories...",
         "load_more": "Load More",
@@ -39,21 +37,18 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "empty_warmup": "The server is warming up. Please refresh in a moment.",
         "failed_feed": "Failed to load feed: {error}",
         "failed_more": "Failed to load more stories: {error}",
-
         # ── Detail overlay ────────────────────────────────────────
         "link_copied": "Link copied!",
         "back_to_feed": "Back to Feed",
         "key_takeaways": "Key Takeaways",
         "why_it_matters": "Why It Matters",
         "read_full_article": "Read Full Article",
-
         # ── Saved page ────────────────────────────────────────────
         "saved_title": "Saved",
         "saved_subtitle": "Your bookmarked stories, synced in this browser.",
         "saved_empty": "No saved stories yet. Tap the bookmark on any card to save it here.",
         "saved_count": "{count} saved",
         "remove_saved": "Remove saved article",
-
         # ── Settings page ─────────────────────────────────────────
         "settings_title": "Settings",
         "settings_subtitle": "Customize your feed and apply instantly.",
@@ -62,7 +57,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "coming_soon_discover": "This section is coming soon. Use Discover for now.",
         "coming_soon_profile": "Profile management is coming soon.",
         "go_discover": "Go to Discover",
-
         # ── Topics ────────────────────────────────────────────────
         "topic_for_you": "For You",
         "topic_top_stories": "🔥 Top Stories",
@@ -72,19 +66,16 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "topic_tools": "🛠 Tools",
         "topic_regulation": "⚖️ Regulation",
         "topic_funding": "💰 Funding",
-
         # ── Time ago ──────────────────────────────────────────────
         "just_now": "Just now",
         "minutes_ago": "{m}m ago",
         "hours_ago": "{h}h ago",
         "days_ago": "{d}d ago",
-
         # ── Card / bullet fallbacks ───────────────────────────────
         "bullet_fallback": "Our AI models are experiencing high traffic right now. Please tap 'Read Original' to view the full story on the publisher's website.",
         "tap_to_read": "Tap to read the full story.",
         "tap_for_details": "Tap to read the full story for more details on this topic.",
         "latest_ai_news_from": "Latest AI news from {source}.",
-
         # ── Sidebar footer ────────────────────────────────────────
         "powered_by": "Powered by AI · Built with ❤️",
         "version_label": "v3.0 · DailyAI",
@@ -92,7 +83,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "datenschutz": "Privacy Policy",
         "agb": "Terms",
         "api_docs": "API Docs",
-
         # ── Sync code ────────────────────────────────────────────
         "your_sync_code": "Your Sync Code",
         "sync_code_info": "Use this code to sync your preferences across devices.",
@@ -100,7 +90,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "enter_sync_code": "Enter sync code...",
         "link_device": "Link Device",
         "device_linked": "Device linked successfully!",
-
         # ── Admin ─────────────────────────────────────────────────
         "admin_title": "Admin Dashboard",
         "admin_rss_feeds": "RSS Feed Management",
@@ -111,9 +100,8 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "admin_password": "Admin Password",
         "admin_login": "Login",
         "admin_invalid_password": "Invalid password",
-
         # ── Region badge ──────────────────────────────────────────
-        "showing_global": "Showing global results",        
+        "showing_global": "Showing global results",
         # ── Onboarding ────────────────────────────────────────────
         "onboarding_welcome_title": "Welcome to DailyAI ✨",
         "onboarding_welcome_text": "Your personalized, vibrant daily feed for AI news. Swipe, read, and stay ahead without the noise.",
@@ -123,7 +111,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "onboarding_sync_text": "A unique Sync Code was just generated for you! Use it in the sidebar to sync your saved reading and preferences across devices.",
         "onboarding_start_button": "Let's Go!",
         "onboarding_next": "Next",
-        
         # ── Persona ───────────────────────────────────────────────
         "your_ai_persona": "👤 Your AI Persona",
         "persona_description": "This is how we understand your interests. You can manually edit this instruction to fine-tune your bespoke briefings.",
@@ -146,12 +133,10 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "ai_news_intelligence": "KI-News Intelligence",
         "boot_loader": "KI-News werden fuer dich kuratiert...",
         "trust_signal": "KI-kuratiert aus 50+ vertrauenswuerdigen Quellen • Stuendlich aktualisiert",
-
         # ── Notifications ─────────────────────────────────────────
         "region_notify": "Region: {flag} {country}",
         "language_notify": "Sprache: {language}",
         "refreshing_news": "News werden aktualisiert...",
-
         # ── Feed states ───────────────────────────────────────────
         "loading_more": "Weitere Meldungen werden geladen...",
         "load_more": "Mehr laden",
@@ -160,21 +145,18 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "empty_warmup": "Der Server startet gerade. Bitte in einem Moment erneut laden.",
         "failed_feed": "Feed konnte nicht geladen werden: {error}",
         "failed_more": "Weitere Meldungen konnten nicht geladen werden: {error}",
-
         # ── Detail overlay ────────────────────────────────────────
         "link_copied": "Link kopiert!",
         "back_to_feed": "Zurueck zum Feed",
         "key_takeaways": "Kurzueberblick",
         "why_it_matters": "Warum das wichtig ist",
         "read_full_article": "Vollstaendigen Artikel lesen",
-
         # ── Saved page ────────────────────────────────────────────
         "saved_title": "Gespeichert",
         "saved_subtitle": "Deine gemerkten Artikel in diesem Browser.",
         "saved_empty": "Noch keine gespeicherten Artikel. Tippe auf das Lesezeichen in einer Karte.",
         "saved_count": "{count} gespeichert",
         "remove_saved": "Gespeicherten Artikel entfernen",
-
         # ── Settings page ─────────────────────────────────────────
         "settings_title": "Einstellungen",
         "settings_subtitle": "Passe deinen Feed an und uebernimm sofort.",
@@ -183,7 +165,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "coming_soon_discover": "Dieser Bereich kommt bald. Nutze vorerst Entdecken.",
         "coming_soon_profile": "Profilverwaltung kommt bald.",
         "go_discover": "Zu Entdecken",
-
         # ── Topics ────────────────────────────────────────────────
         "topic_for_you": "Fuer dich",
         "topic_top_stories": "🔥 Top-News",
@@ -193,19 +174,16 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "topic_tools": "🛠 Tools",
         "topic_regulation": "⚖️ Regulierung",
         "topic_funding": "💰 Finanzierung",
-
         # ── Time ago ──────────────────────────────────────────────
         "just_now": "Gerade eben",
         "minutes_ago": "vor {m} Min.",
         "hours_ago": "vor {h} Std.",
         "days_ago": "vor {d} T.",
-
         # ── Card / bullet fallbacks ───────────────────────────────
         "bullet_fallback": "Unsere KI-Modelle verzeichnen gerade hohes Aufkommen. Bitte tippe auf 'Original lesen', um den vollstaendigen Artikel auf der Verlagsseite zu lesen.",
         "tap_to_read": "Tippe, um die ganze Story zu lesen.",
         "tap_for_details": "Tippe, um die ganze Story zu diesem Thema zu lesen.",
         "latest_ai_news_from": "Aktuelle KI-News von {source}.",
-
         # ── Sidebar footer ────────────────────────────────────────
         "powered_by": "Powered by KI · Mit ❤️ gebaut",
         "version_label": "v3.0 · DailyAI",
@@ -213,7 +191,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "datenschutz": "Datenschutz",
         "agb": "AGB",
         "api_docs": "API-Dokumentation",
-
         # ── Sync code ────────────────────────────────────────────
         "your_sync_code": "Dein Sync-Code",
         "sync_code_info": "Verwende diesen Code, um deine Einstellungen geraeteubergreifend zu synchronisieren.",
@@ -221,7 +198,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "enter_sync_code": "Sync-Code eingeben...",
         "link_device": "Geraet verknuepfen",
         "device_linked": "Geraet erfolgreich verknuepft!",
-
         # ── Admin ─────────────────────────────────────────────────
         "admin_title": "Admin-Dashboard",
         "admin_rss_feeds": "RSS-Feed-Verwaltung",
@@ -232,10 +208,8 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "admin_password": "Admin-Passwort",
         "admin_login": "Anmelden",
         "admin_invalid_password": "Ungueltiges Passwort",
-
         # ── Region badge ──────────────────────────────────────────
         "showing_global": "Globale Ergebnisse werden angezeigt",
-        
         # ── Onboarding ────────────────────────────────────────────
         "onboarding_welcome_title": "Willkommen bei DailyAI ✨",
         "onboarding_welcome_text": "Dein personalisierter, lebendiger Feed für KI-News. Kurz, präzise, ohne Lärm.",
@@ -245,7 +219,6 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         "onboarding_sync_text": "Ein Sync-Code wurde für Dich generiert! Nutze ihn in der Sidebar, um Lesezeichen und Einstellungen auf allen Geräten zu synchronisieren.",
         "onboarding_start_button": "Los geht's!",
         "onboarding_next": "Weiter",
-        
         # ── Persona ───────────────────────────────────────────────
         "your_ai_persona": "👤 Deine KI-Persona",
         "persona_description": "So verstehen wir deine Interessen. Du kannst diese Anweisung manuell bearbeiten, um deine maßgeschneiderten Briefings zu verfeinern.",
@@ -269,6 +242,7 @@ def tr_time_ago(lang_code: str | None, iso_date: str) -> str:
         return ""
     try:
         from datetime import UTC, datetime
+
         dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
         now = datetime.now(UTC)
         diff = now - dt

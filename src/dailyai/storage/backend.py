@@ -104,6 +104,7 @@ def backend_name() -> str:
 
 # ── Analytics Events ────────────────────────────────────────────────
 
+
 async def save_events(events: list[dict]) -> None:
     await _backend.save_events(events)
 
@@ -122,7 +123,10 @@ async def get_event_counts() -> dict:
 
 # ── Topic Scores ────────────────────────────────────────────────────
 
-async def save_topic_scores(session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]) -> None:
+
+async def save_topic_scores(
+    session_id: str, sync_code: str, scores: dict[str, float], event_counts: dict[str, int]
+) -> None:
     await _backend.save_topic_scores(session_id, sync_code, scores, event_counts)
 
 
@@ -136,13 +140,16 @@ async def get_topic_scores_by_sync_code(sync_code: str) -> dict[str, float]:
 
 # ── RSS Feeds (Admin) ──────────────────────────────────────────────
 
-async def save_rss_feed(country_code: str, feed_key: str, query: str, is_active: bool = True) -> None:
+
+async def save_rss_feed(
+    country_code: str, feed_key: str, query: str, is_active: bool = True
+) -> None:
     await _backend.save_rss_feed(country_code, feed_key, query, is_active)
 
 
 async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
     feeds = await _backend.get_rss_feeds(country_code)
-    
+
     # Auto-seed from config if no feeds exist for this query
     if not feeds:
         all_feeds = await _backend.get_rss_feeds(None)
@@ -154,6 +161,7 @@ async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
                 FEED_QUERIES_GB,
                 FEED_QUERIES_IN,
             )
+
             for key, query in FEED_QUERIES.items():
                 await save_rss_feed("GLOBAL", key, query, True)
             for key, query in FEED_QUERIES_DE.items():
@@ -162,18 +170,22 @@ async def get_rss_feeds(country_code: str | None = None) -> list[dict]:
                 await save_rss_feed("GB", key, query, True)
             for key, query in FEED_QUERIES_IN.items():
                 await save_rss_feed("IN", key, query, True)
-            
+
             # Fetch again after seeding
             feeds = await _backend.get_rss_feeds(country_code)
-            
+
     return feeds
 
 
 async def delete_rss_feed(country_code: str, feed_key: str) -> bool:
     return await _backend.delete_rss_feed(country_code, feed_key)
 
-async def store_user_daily_digest(sync_code: str, target_date: str, synthesis: str, custom_hooks: dict) -> None:
+
+async def store_user_daily_digest(
+    sync_code: str, target_date: str, synthesis: str, custom_hooks: dict
+) -> None:
     await _backend.store_user_daily_digest(sync_code, target_date, synthesis, custom_hooks)
+
 
 async def get_user_daily_digest(sync_code: str, target_date: str) -> dict | None:
     return await _backend.get_user_daily_digest(sync_code, target_date)

@@ -23,9 +23,10 @@ from dailyai.ui.i18n import normalize_ui_language, tr, tr_time_ago
 
 def _clean_text(value: str) -> str:
     import re
+
     text = html.unescape(str(value or "")).replace("\xa0", " ")
     # Strip any remaining HTML tags (like <a> links from RSS)
-    text = re.sub(r'<[^>]*>', '', text)
+    text = re.sub(r"<[^>]*>", "", text)
     return " ".join(text.split()).strip()
 
 
@@ -35,7 +36,7 @@ def _format_time_ago(iso_date: str, language: str = "en") -> str:
 
 def _short_summary(article: dict, language: str = "en") -> str:
     import re
-    
+
     # Prefer 'why_it_matters' because it's generating an engaging hook
     why = _clean_text(str(article.get("why_it_matters", "") or ""))
     if why and len(why) > 20:
@@ -43,18 +44,24 @@ def _short_summary(article: dict, language: str = "en") -> str:
 
     summary = _clean_text(str(article.get("summary", "") or ""))
     # Skip generic fallback summaries
-    if summary and not re.match(
-        r'^Reported by .+\.\s*(Tap to read|Click to read)', summary, re.IGNORECASE
-    ) and len(summary) > 20:
+    if (
+        summary
+        and not re.match(r"^Reported by .+\.\s*(Tap to read|Click to read)", summary, re.IGNORECASE)
+        and len(summary) > 20
+    ):
         return summary
-    
+
     headline = _clean_text(str(article.get("headline", "") or ""))
     source = _clean_text(str(article.get("source_name", "") or ""))
     if headline and source:
         return f"{headline}. Source: {source}."
     if headline:
         return headline
-    return tr(language, "latest_ai_news_from", source=source) if source else tr(language, "tap_to_read")
+    return (
+        tr(language, "latest_ai_news_from", source=source)
+        if source
+        else tr(language, "tap_to_read")
+    )
 
 
 def _calculate_read_time(article: dict) -> int:
@@ -66,17 +73,17 @@ def _calculate_read_time(article: dict) -> int:
 
 
 def _build_article_link(article: dict) -> str:
-    article_id = article.get('id', 'GLOBAL-en-0')
+    article_id = article.get("id", "GLOBAL-en-0")
     payload = {
-        'headline': article.get('headline', ''),
-        'summary': _short_summary(article),
-        'why_it_matters': article.get('why_it_matters', ''),
-        'topic': article.get('topic', ''),
-        'source_name': article.get('source_name', ''),
-        'source_trust': article.get('source_trust', ''),
-        'sentiment': article.get('sentiment', ''),
-        'article_url': article.get('article_url', ''),
-        'published_at': article.get('published_at', ''),
+        "headline": article.get("headline", ""),
+        "summary": _short_summary(article),
+        "why_it_matters": article.get("why_it_matters", ""),
+        "topic": article.get("topic", ""),
+        "source_name": article.get("source_name", ""),
+        "source_trust": article.get("source_trust", ""),
+        "sentiment": article.get("sentiment", ""),
+        "article_url": article.get("article_url", ""),
+        "published_at": article.get("published_at", ""),
     }
     return f"/article/{article_id}?{urlencode(payload)}"
 
@@ -109,19 +116,22 @@ def _js_str(text: str) -> str:
     )
 
 
-def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language: str = "en") -> list[str]:
+def _make_bullets(
+    raw_summary: str, headline: str = "", why: str = "", language: str = "en"
+) -> list[str]:
     """Build informative bullet points (5 bullets, ~15-20 words each) for the detail view.
-    
+
     Uses the raw summary field (not the fallback). When summary is empty,
     constructs bullets from headline + why_it_matters.
     """
     import re
+
     text = (raw_summary or "").strip()
     why = (why or "").strip()
     headline = (headline or "").strip()
 
     # Detect and discard generic fallback summaries
-    if re.match(r'^Reported by .+\.\s*(Tap to read|Click to read)', text, re.IGNORECASE):
+    if re.match(r"^Reported by .+\.\s*(Tap to read|Click to read)", text, re.IGNORECASE):
         text = ""
     # Detect and discard generic why_it_matters
     if why and "Stay informed" in why:
@@ -131,7 +141,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
 
     if text:
         # Have actual summary — split into sentence-level bullets
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         sentences = [s.strip() for s in sentences if s.strip()]
 
         if len(sentences) >= 2:
@@ -140,7 +150,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
             words = text.split()
             if len(words) > 20:
                 # Try splitting on semicolons/commas for compound sentences
-                chunks = re.split(r'[;,]\s*', text)
+                chunks = re.split(r"[;,]\s*", text)
                 chunks = [c.strip() for c in chunks if len(c.strip()) > 10]
                 if len(chunks) >= 2:
                     bullets = chunks[:5]
@@ -148,9 +158,9 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
                     # Split long single sentence into ~3 roughly equal parts
                     third = len(words) // 3
                     bullets = [
-                        ' '.join(words[:third]),
-                        ' '.join(words[third:2*third]),
-                        ' '.join(words[2*third:]),
+                        " ".join(words[:third]),
+                        " ".join(words[third : 2 * third]),
+                        " ".join(words[2 * third :]),
                     ]
             else:
                 bullets = [text]
@@ -166,7 +176,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
             bullets.append(headline)
         if why and "Stay informed" not in why:
             bullets.append(why)
-            
+
     # Remove bullets that are just truncations/duplicates of the headline
     if headline:
         hl_lower = headline.lower()
@@ -177,7 +187,7 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
             if b_lower in hl_lower or hl_lower in b_lower:
                 continue
             cleaned_bullets.append(b)
-        
+
         bullets = cleaned_bullets
         bullets.insert(0, headline)
 
@@ -191,8 +201,8 @@ def _make_bullets(raw_summary: str, headline: str = "", why: str = "", language:
         b_words = b.split()
         if word_count + len(b_words) > 120 and final:
             break
-        if b and b[-1] not in '.!?':
-            b += '.'
+        if b and b[-1] not in ".!?":
+            b += "."
         final.append(b)
         word_count += len(b_words)
 
@@ -215,7 +225,7 @@ def _inject_detail_overlay_once(language: str = "en"):
     # <style> in add_head_html is fine — CSS applies even from dynamically injected style tags.
     # <script> in add_head_html is NOT executed (HTML5 spec: scripts injected via innerHTML/
     # insertAdjacentHTML are silently discarded). Use run_javascript instead for JS.
-    ui.add_head_html('''
+    ui.add_head_html("""
     <style>
     /* Shimmer loading animation for brief fetch */
     .brief-loading { padding: 8px 0; }
@@ -239,16 +249,16 @@ def _inject_detail_overlay_once(language: str = "en"):
         padding: 8px 0; font-style: italic;
     }
     </style>
-    ''')
+    """)
 
     lang = normalize_ui_language(language)
-    link_copied_text = _js_str(tr(lang, 'link_copied'))
-    back_to_feed_text = tr(lang, 'back_to_feed')
-    key_takeaways_text = tr(lang, 'key_takeaways')
-    why_it_matters_text = tr(lang, 'why_it_matters')
-    read_full_article_text = tr(lang, 'read_full_article')
+    link_copied_text = _js_str(tr(lang, "link_copied"))
+    back_to_feed_text = tr(lang, "back_to_feed")
+    key_takeaways_text = tr(lang, "key_takeaways")
+    why_it_matters_text = tr(lang, "why_it_matters")
+    read_full_article_text = tr(lang, "read_full_article")
 
-    overlay_script = '''
+    overlay_script = """
     if (!window.__dailyaiDetailInit) {
         window.__dailyaiDetailInit = true;
 
@@ -492,7 +502,7 @@ def _inject_detail_overlay_once(language: str = "en"):
             var coverEl = document.getElementById('detailCover');
             coverEl.onerror = function() {
                 this.onerror = null;
-                this.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22 viewBox=%220 0 400 200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%232a2a2a%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 font-family=%22sans-serif%22 font-size=%2214%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3EArticle Image%3C/text%3E%3C/svg%3E";
+                this.src = data.fallbackImg || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22 viewBox=%220 0 400 200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%232a2a2a%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 font-family=%22sans-serif%22 font-size=%2214%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3EArticle Image%3C/text%3E%3C/svg%3E";
             };
 
             // Populate static content
@@ -522,7 +532,12 @@ def _inject_detail_overlay_once(language: str = "en"):
             }
 
             // CTA link
-            document.getElementById('detailCTA').href = data.articleUrl || data.link;
+            var ctaUrl = data.articleUrl || data.link;
+            document.getElementById('detailCTA').href = ctaUrl;
+            document.getElementById('detailCTA').onclick = function(e) {
+                e.preventDefault();
+                window.open(ctaUrl, '_blank', 'noopener,noreferrer');
+            };
 
             // Share/Save
             document.getElementById('detailShareBtn').onclick = function() {
@@ -790,11 +805,11 @@ def _inject_detail_overlay_once(language: str = "en"):
             };
         })();
     }
-    '''
-    ui.run_javascript(overlay_script.replace('__LINK_COPIED__', link_copied_text))
+    """
+    ui.run_javascript(overlay_script.replace("__LINK_COPIED__", link_copied_text))
 
     # Inject the single shared overlay element (hidden by default)
-    ui.html(f'''
+    ui.html(f"""
     <div class="detail-overlay" id="detailOverlay">
         <!-- Close bar -->
         <div class="detail-close-bar">
@@ -850,7 +865,7 @@ def _inject_detail_overlay_once(language: str = "en"):
             </a>
         </div>
     </div>
-    ''')
+    """)
 
 
 def news_card(article: dict, index: int = 0, position_chip: str = "", language: str = "en"):
@@ -878,6 +893,10 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
     # Providing the headline as the seed ensures variety within the same category
     raw_img = article.get("image_url") or article.get("image")
     cover_img = resolve_image_url(raw_img, topic=image_key, seed=article.get("id", headline))
+    # Always compute a category fallback for onerror (even if cover_img is from the article)
+    from dailyai.ui.components.theme import get_category_image
+
+    fallback_img = get_category_image(image_key, seed=article.get("id", headline))
     link = _build_article_link(article)
     article_url = article.get("article_url", link)
     uid = _card_uid(article)
@@ -897,18 +916,18 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
         fire = "🔥" if importance >= 9 else "⭐"
         badges_html += f'<span class="badge-importance">{fire} {importance}/10</span>'
     trust_bg = f"{trust_color}18"
-    badges_html += f'''<span class="badge-trust" style="background:{trust_bg};color:{trust_color};">
+    badges_html += f"""<span class="badge-trust" style="background:{trust_bg};color:{trust_color};">
         <span class="material-icons" style="font-size:12px;">{trust_icon}</span>{trust_label}
-    </span>'''
+    </span>"""
     sent_bg = f"{sent_color}18"
-    badges_html += f'''<span class="badge-sentiment" style="background:{sent_bg};color:{sent_color};">
+    badges_html += f"""<span class="badge-sentiment" style="background:{sent_bg};color:{sent_color};">
         <span class="material-icons" style="font-size:12px;">{sent_icon}</span>{sentiment.capitalize()}
-    </span>'''
+    </span>"""
 
     # Register article data for JS (include raw fields for on-demand brief fetching)
     bullets_js = "[" + ",".join(f"'{_js_str(_esc(b))}'" for b in bullets) + "]"
     # clean_why already computed above (line 591)
-    ui.run_javascript(f'''
+    ui.run_javascript(f"""
         window.__articleData = window.__articleData || {{}};
         window.__articleData['{uid}'] = {{
             headline: '{_js_str(headline)}',
@@ -922,6 +941,7 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
             sourceColor: '{_source_color(source)}',
             published: '{_js_str(published)}',
             coverImg: '{cover_img}',
+            fallbackImg: '{fallback_img}',
             link: '{_js_str(link)}',
             articleUrl: '{_js_str(article_url)}',
             language: '{_js_str(str(article.get("language", "en") or "en"))}',
@@ -930,58 +950,64 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
             bullets: {bullets_js},
             badgesHtml: '{_js_str(badges_html)}',
         }};
-    ''')
+    """)
 
     # ── Render the compact card ──
     read_time = _calculate_read_time(article)
-    base_classes = 'news-card-premium w-full p-0 mb-4 card-animate'
-    card_classes = f'{base_classes} news-card-trending' if importance >= 8 else base_classes
-    
-    card_el = ui.card().classes(card_classes)
-    card_el._props['data-card-uid'] = uid
-    with card_el.style(f'animation-delay: {delay}s;'):
+    base_classes = "news-card-premium w-full p-0 mb-4 card-animate"
+    card_classes = f"{base_classes} news-card-trending" if importance >= 8 else base_classes
 
+    card_el = ui.card().classes(card_classes)
+    card_el._props["data-card-uid"] = uid
+    with card_el.style(f"animation-delay: {delay}s;"):
         # Category accent line
         ui.html(f'<div class="card-cat-accent" style="background: {color};"></div>')
 
         # Image area
-        with ui.element('div').classes('card-image-area cursor-pointer').on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
-            svg_fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22 viewBox=%220 0 400 200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%232a2a2a%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23666%22 font-family=%22sans-serif%22 font-size=%2214%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3EArticle Image%3C/text%3E%3C/svg%3E"
+        with (
+            ui.element("div")
+            .classes("card-image-area cursor-pointer")
+            .on("click", lambda: ui.run_javascript(f"openDetail('{uid}')"))
+        ):
             ui.html(f'''
                 <img src="{cover_img}" alt="{_esc(topic_label)}"
                      loading="lazy"
-                     onerror="this.onerror=null; this.src='{svg_fallback}';" />
+                     onerror="this.onerror=null; this.src='{fallback_img}';" />
                 <div class="card-image-gradient"></div>
                 <div class="card-topic-tag">{_esc(topic_label)}</div>
-                 {f'<div class="card-position-chip">{_esc(position_chip)}</div>' if position_chip else ''}
+                 {f'<div class="card-position-chip">{_esc(position_chip)}</div>' if position_chip else ""}
             ''')
 
         # Card body (compact preview — no inline expand)
-        with ui.element('div').classes('card-body-area cursor-pointer').on('click', lambda: ui.run_javascript(f"openDetail('{uid}')")):
+        with (
+            ui.element("div")
+            .classes("card-body-area cursor-pointer")
+            .on("click", lambda: ui.run_javascript(f"openDetail('{uid}')"))
+        ):
             # Badges
-            with ui.element('div').classes('card-badges'):
+            with ui.element("div").classes("card-badges"):
                 if importance >= 7:
                     fire = "🔥" if importance >= 9 else "⭐"
                     ui.html(f'<span class="badge-importance">{fire} {importance}/10</span>')
-                ui.html(f'''<span class="badge-trust" style="background:{trust_bg};color:{trust_color};">
+                ui.html(f"""<span class="badge-trust" style="background:{trust_bg};color:{trust_color};">
                     <span class="material-icons" style="font-size:12px;">{trust_icon}</span>{trust_label}
-                </span>''')
-                ui.html(f'''<span class="badge-sentiment" style="background:{sent_bg};color:{sent_color};">
+                </span>""")
+                ui.html(f"""<span class="badge-sentiment" style="background:{sent_bg};color:{sent_color};">
                     <span class="material-icons" style="font-size:12px;">{sent_icon}</span>{sentiment.capitalize()}
-                </span>''')
+                </span>""")
 
             # Headline
             ui.html(f'<div class="card-headline-text">{_esc(headline)}</div>')
 
             # Summary preview (2-line clamp)
-            ui.label(summary_text).classes('card-summary-text')
+            ui.label(summary_text).classes("card-summary-text")
 
         # Action bar: publisher + bookmark
         publisher_name = source or "DailyAI"
         publisher_initial = publisher_name[0].upper() if publisher_name else "D"
         bg_hsl = f"hsl({sum(ord(c) for c in publisher_name) * 137 % 360}, 70%, 55%)"
-        
-        ui.html(f'''<div class="card-action-bar">
+
+        ui.html(f"""<div class="card-action-bar">
             <div class="card-source-info">
                 <div class="source-avatar blink-dot" aria-hidden="true" style="background: {bg_hsl};">{publisher_initial}</div>
                 <span class="source-name-text">{publisher_name}</span>
@@ -991,8 +1017,9 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
                     <span class="material-icons" style="font-size: 13px;">schedule</span>
                     {read_time} min read
                 </span>
+                {f'<span class="card-timestamp" style="font-size: 10px; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 3px; margin-left: 6px;">·&nbsp;{_esc(published)}</span>' if published else ""}
             </div>
-        </div>''')
+        </div>""")
 
         ui.run_javascript(f'''
             (function() {{
@@ -1007,11 +1034,17 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
 
 def skeleton_card():
     """Skeleton loading placeholder card."""
-    with ui.card().classes('skeleton-card w-full p-0 mb-5'):
+    with ui.card().classes("skeleton-card w-full p-0 mb-5"):
         ui.html('<div class="skeleton-image"></div>')
-        with ui.element('div').style('padding: 18px;'):
-            ui.html('<div class="skeleton-line w-75" style="height: 18px; margin-bottom: 12px;"></div>')
-            ui.html('<div class="skeleton-line w-50" style="height: 18px; margin-bottom: 16px;"></div>')
+        with ui.element("div").style("padding: 18px;"):
+            ui.html(
+                '<div class="skeleton-line w-75" style="height: 18px; margin-bottom: 12px;"></div>'
+            )
+            ui.html(
+                '<div class="skeleton-line w-50" style="height: 18px; margin-bottom: 16px;"></div>'
+            )
             ui.html('<div class="skeleton-line" style="margin-bottom: 8px;"></div>')
             ui.html('<div class="skeleton-line w-75"></div>')
-            ui.html('<div class="skeleton-line w-30" style="margin-top: 16px; height: 10px;"></div>')
+            ui.html(
+                '<div class="skeleton-line w-30" style="margin-top: 16px; height: 10px;"></div>'
+            )

@@ -133,7 +133,7 @@ FUNCTION_CHECKS: list[FunctionCheck] = [
         name="theme.get_category_image returns deterministic category path",
         call=lambda: get_category_image("research", "GLOBAL-en-abc123"),
         validate=lambda result: isinstance(result, str) and len(result) > 0,
-        expected="Valid image URL or path string"
+        expected="Valid image URL or path string",
     ),
 ]
 
@@ -143,7 +143,5 @@ def test_function_health_checks(check: FunctionCheck) -> None:
     """Run one health check per function for clear pass/fail reporting."""
     result = check.call()
     assert check.validate(result), (
-        f"Function check failed: {check.name}\n"
-        f"Expected: {check.expected}\n"
-        f"Actual: {result!r}"
+        f"Function check failed: {check.name}\nExpected: {check.expected}\nActual: {result!r}"
     )

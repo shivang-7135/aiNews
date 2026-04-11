@@ -89,7 +89,7 @@ def _render_stories_html(tiles: list[dict]) -> str:
               <span style="background:{color}22;color:{color};font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;letter-spacing:0.5px;">{cat}</span>
               <span style="font-size:12px;color:#6b6b8d;margin-left:6px;">{stars}</span>
             </div>
-            <a href="{link}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;line-height:1.4;">{i+1}. {title}</a>
+            <a href="{link}" style="color:#f0f0ff;font-size:15px;font-weight:600;text-decoration:none;line-height:1.4;">{i + 1}. {title}</a>
             <p style="margin:6px 0 0;font-size:13px;color:#a0a0c0;line-height:1.5;">{summary}</p>
             {why_html}
             <p style="margin:8px 0 0;font-size:11px;color:#6b6b8d;">{source} • {pub_display}</p>

@@ -52,9 +52,12 @@ def _sanitize_llm_response(text: str) -> str:
     # Quick heuristic: if 3+ prompt markers appear, the model echoed the prompt
     hits = sum(1 for m in _PROMPT_LEAK_MARKERS if m in text)
     if hits >= 3:
-        logger.warning(f"[Sanitize] Detected prompt leakage ({hits} markers found), discarding response")
+        logger.warning(
+            f"[Sanitize] Detected prompt leakage ({hits} markers found), discarding response"
+        )
         return ""
     return text
+
 
 # ---------------------------------------------------------------------------
 # RSS sources  (free, no API key needed)
@@ -156,7 +159,9 @@ async def fetch_ai_news(country_code: str) -> list[dict]:
     # Track RSS failures for circuit breaker
     fail_count = sum(1 for r in results if isinstance(r, Exception))
     if fail_count >= 3:
-        logger.warning(f"[Agent] {fail_count}/{len(results)} RSS feeds failed — may use cached data")
+        logger.warning(
+            f"[Agent] {fail_count}/{len(results)} RSS feeds failed — may use cached data"
+        )
 
     for r in results:
         if isinstance(r, list):
@@ -363,6 +368,7 @@ async def _try_bytez(messages: list[dict]) -> str:
 
     try:
         from bytez import Bytez
+
         sdk = Bytez(bytez_key)
         model = sdk.model("mistralai/Mistral-7B-Instruct-v0.3")
 
@@ -378,13 +384,18 @@ async def _try_bytez(messages: list[dict]) -> str:
         loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(None, model.run, prompt)
 
-        if hasattr(results, 'error') and getattr(results, 'error', None):
+        if hasattr(results, "error") and getattr(results, "error", None):
             logger.warning(f"[LLM] Bytez error: {results.error}")
 
-        if hasattr(results, 'output') and results.output:
+        if hasattr(results, "output") and results.output:
             logger.info("[LLM] ✅ Got response from Bytez (Mistral-7B)")
             out = results.output
-            if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict) and "generated_text" in out[0]:
+            if (
+                isinstance(out, list)
+                and len(out) > 0
+                and isinstance(out[0], dict)
+                and "generated_text" in out[0]
+            ):
                 text = out[0]["generated_text"]
                 # Bytez Mistral echoes prompt — strip everything before actual response
                 # Try multiple end-of-prompt markers in priority order
@@ -409,7 +420,6 @@ async def _try_bytez(messages: list[dict]) -> str:
     except Exception as e:
         logger.warning(f"[LLM] Bytez failed: {e}")
     return ""
-
 
 
 async def _try_nvidia(
@@ -712,8 +722,7 @@ class NewsAgent:
             )
             # Build set of titles we already have
             existing_titles = {
-                re.sub(r"\W+", " ", str(t.get("title", "")).lower()).strip()
-                for t in tiles
+                re.sub(r"\W+", " ", str(t.get("title", "")).lower()).strip() for t in tiles
             }
             fallback_tiles = self._fallback_process(raw_articles, language_code)
             for ft in fallback_tiles:
@@ -737,7 +746,7 @@ class NewsAgent:
         # Cap at 32 articles for richer candidate pool while staying below payload limits.
         capped = articles[:32]
         articles_text = "\n".join(
-            f"- [{i+1}] {a['title']} (Source: {a['source']}, Link: {a['link']})"
+            f"- [{i + 1}] {a['title']} (Source: {a['source']}, Link: {a['link']})"
             for i, a in enumerate(capped)
         )
         output_language = SUPPORTED_OUTPUT_LANGUAGES.get(language_code, "English")
@@ -961,8 +970,13 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
 
             # Template/placeholder values the LLM may echo from the prompt example
             TEMPLATE_VALUES = {
-                "short headline", "source name", "url", "iso date",
-                "category_name", "topic_tag", "1-2 sentence summary",
+                "short headline",
+                "source name",
+                "url",
+                "iso date",
+                "category_name",
+                "topic_tag",
+                "1-2 sentence summary",
                 "one punchy sentence",
             }
 
@@ -983,7 +997,9 @@ OUTPUT FORMAT — respond ONLY with a valid JSON array, no extra text:
                     try:
                         # Skip template/example tiles
                         if _is_template(t):
-                            logger.info(f"[Agent] Filtered out template tile: {t.get('title', '')[:60]}")
+                            logger.info(
+                                f"[Agent] Filtered out template tile: {t.get('title', '')[:60]}"
+                            )
                             continue
 
                         normalized_title = re.sub(

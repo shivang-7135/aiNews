@@ -34,23 +34,25 @@ async def run(state: dict) -> dict:
         internal_topic = (article.get("topic") or article.get("category") or "general").lower()
         ui_topic = _normalize_ui_topic(UI_TOPIC_MAP.get(internal_topic, "Top Stories"))
 
-        formatted.append({
-            "id": f"{country}-{language}-{i}",
-            "headline": article.get("title", ""),
-            "summary": article.get("summary", ""),
-            "why_it_matters": article.get("why_it_matters", ""),
-            "importance": max(1, min(int(article.get("importance", 5)), 10)),
-            "category": str(article.get("category", "general")).lower(),
-            "topic": ui_topic,
-            "source_name": article.get("source", "Unknown"),
-            "source_trust": article.get("source_trust", "low"),
-            "sentiment": article.get("sentiment", "neutral"),
-            "story_thread": article.get("story_thread", ""),
-            "thread_count": article.get("thread_count", 0),
-            "article_url": article.get("link", "#"),
-            "published_at": article.get("published", ""),
-            "updated_at": article.get("fetched_at", ""),
-        })
+        formatted.append(
+            {
+                "id": f"{country}-{language}-{i}",
+                "headline": article.get("title", ""),
+                "summary": article.get("summary", ""),
+                "why_it_matters": article.get("why_it_matters", ""),
+                "importance": max(1, min(int(article.get("importance", 5)), 10)),
+                "category": str(article.get("category", "general")).lower(),
+                "topic": ui_topic,
+                "source_name": article.get("source", "Unknown"),
+                "source_trust": article.get("source_trust", "low"),
+                "sentiment": article.get("sentiment", "neutral"),
+                "story_thread": article.get("story_thread", ""),
+                "thread_count": article.get("thread_count", 0),
+                "article_url": article.get("link", "#"),
+                "published_at": article.get("published", ""),
+                "updated_at": article.get("fetched_at", ""),
+            }
+        )
 
     elapsed = time.time() - start
     timings = state.get("node_timings", {})

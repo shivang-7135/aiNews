@@ -15,23 +15,109 @@ logger = logging.getLogger("dailyai.services.profiles")
 
 # ── Sync Code word lists ─────────────────────────────────────────────
 ADJECTIVES = [
-    "Clever", "Neon", "Swift", "Bright", "Cosmic", "Calm", "Bold", "Lucky",
-    "Quiet", "Vivid", "Warm", "Cool", "Sharp", "Fuzzy", "Rapid", "Wild",
-    "Gentle", "Epic", "Silky", "Turbo", "Nova", "Pixel", "Zen", "Hyper",
-    "Solar", "Lunar", "Cyber", "Iron", "Golden", "Silver", "Crystal", "Amber",
-    "Coral", "Azure", "Sage", "Ruby", "Jade", "Onyx", "Pearl", "Maple",
-    "Storm", "Blaze", "Frost", "Drift", "Cloud", "Flash", "Spark", "Orbit",
-    "Prism", "Pulse",
+    "Clever",
+    "Neon",
+    "Swift",
+    "Bright",
+    "Cosmic",
+    "Calm",
+    "Bold",
+    "Lucky",
+    "Quiet",
+    "Vivid",
+    "Warm",
+    "Cool",
+    "Sharp",
+    "Fuzzy",
+    "Rapid",
+    "Wild",
+    "Gentle",
+    "Epic",
+    "Silky",
+    "Turbo",
+    "Nova",
+    "Pixel",
+    "Zen",
+    "Hyper",
+    "Solar",
+    "Lunar",
+    "Cyber",
+    "Iron",
+    "Golden",
+    "Silver",
+    "Crystal",
+    "Amber",
+    "Coral",
+    "Azure",
+    "Sage",
+    "Ruby",
+    "Jade",
+    "Onyx",
+    "Pearl",
+    "Maple",
+    "Storm",
+    "Blaze",
+    "Frost",
+    "Drift",
+    "Cloud",
+    "Flash",
+    "Spark",
+    "Orbit",
+    "Prism",
+    "Pulse",
 ]
 
 NOUNS = [
-    "Panda", "Coffee", "Falcon", "Tiger", "Pixel", "Lotus", "Phoenix",
-    "Raven", "Comet", "Orbit", "Prism", "Quasar", "Nebula", "Spark",
-    "Thunder", "Breeze", "Canyon", "Summit", "River", "Maple", "Cedar",
-    "Glacier", "Horizon", "Echo", "Ripple", "Compass", "Lantern", "Rocket",
-    "Arrow", "Shield", "Beacon", "Anchor", "Voyager", "Pioneer", "Cosmos",
-    "Atlas", "Nova", "Zenith", "Vertex", "Ember", "Flame", "Willow",
-    "Birch", "Otter", "Wolf", "Fox", "Hawk", "Crane", "Lynx", "Coral",
+    "Panda",
+    "Coffee",
+    "Falcon",
+    "Tiger",
+    "Pixel",
+    "Lotus",
+    "Phoenix",
+    "Raven",
+    "Comet",
+    "Orbit",
+    "Prism",
+    "Quasar",
+    "Nebula",
+    "Spark",
+    "Thunder",
+    "Breeze",
+    "Canyon",
+    "Summit",
+    "River",
+    "Maple",
+    "Cedar",
+    "Glacier",
+    "Horizon",
+    "Echo",
+    "Ripple",
+    "Compass",
+    "Lantern",
+    "Rocket",
+    "Arrow",
+    "Shield",
+    "Beacon",
+    "Anchor",
+    "Voyager",
+    "Pioneer",
+    "Cosmos",
+    "Atlas",
+    "Nova",
+    "Zenith",
+    "Vertex",
+    "Ember",
+    "Flame",
+    "Willow",
+    "Birch",
+    "Otter",
+    "Wolf",
+    "Fox",
+    "Hawk",
+    "Crane",
+    "Lynx",
+    "Coral",
 ]
 
 
@@ -152,9 +238,13 @@ async def record_analytics(sync_code: str, stats: dict) -> dict | None:
 
     analytics = profile.get("analytics", {})
     FIELD_MAP = {
-        "taps": "total_taps", "saves": "total_saves", "reads": "total_reads",
-        "skips": "total_skips", "briefs_opened": "total_briefs_opened",
-        "time_spent_seconds": "total_time_spent_seconds", "session_count": "session_count",
+        "taps": "total_taps",
+        "saves": "total_saves",
+        "reads": "total_reads",
+        "skips": "total_skips",
+        "briefs_opened": "total_briefs_opened",
+        "time_spent_seconds": "total_time_spent_seconds",
+        "session_count": "session_count",
     }
     for src_key, dest_key in FIELD_MAP.items():
         with suppress(TypeError, ValueError):
@@ -165,22 +255,26 @@ async def record_analytics(sync_code: str, stats: dict) -> dict | None:
     await db.save_profile(profile)
     return analytics
 
+
 async def set_custom_persona(sync_code: str, persona: str) -> None:
     """Save a user-defined custom AI Persona to the metadata table."""
     from dailyai.storage.backend import set_metadata
+
     if not persona.strip():
-        await set_metadata(f"custom_persona:{sync_code}", None) # clear it
+        await set_metadata(f"custom_persona:{sync_code}", None)  # clear it
     else:
         # Enforce max 200 characters limit
         await set_metadata(f"custom_persona:{sync_code}", persona.strip()[:200])
 
+
 async def build_user_persona(sync_code: str) -> str:
     """Build a combined text persona (user input + implicit signals)."""
     from dailyai.storage.backend import get_metadata
+
     custom = await get_metadata(f"custom_persona:{sync_code}")
-    
+
     profile = await get_profile(sync_code)
-    
+
     # 1. Base instruction is either custom or explicit preferences
     if custom:
         base_persona = custom
@@ -188,8 +282,10 @@ async def build_user_persona(sync_code: str) -> str:
         if not profile:
             return "General AI researcher."
         prefs = profile.get("preferred_topics", [])
-        base_persona = f"Explicitly likes: {', '.join(prefs[:4])}." if prefs else "General tech user."
-    
+        base_persona = (
+            f"Explicitly likes: {', '.join(prefs[:4])}." if prefs else "General tech user."
+        )
+
     # 2. Add implicit metrics (saves, taps)
     if profile:
         signals = profile.get("signals", {})
@@ -198,9 +294,9 @@ async def build_user_persona(sync_code: str) -> str:
         sig_str = ", ".join([f"{k}({v})" for k, v in top_signals if v > 0])
         if sig_str:
             base_persona += f" Implicit stats: {sig_str}."
-            
+
     # 3. Fast Truncation to 200 chars limit as requested
     if len(base_persona) > 200:
         base_persona = base_persona[:197] + "..."
-        
+
     return base_persona

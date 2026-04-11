@@ -39,6 +39,7 @@ def _url(table: str) -> str:
 
 # ── Generic CRUD ─────────────────────────────────────────────────────
 
+
 async def db_select(table: str, params: dict | None = None) -> list[dict]:
     """SELECT rows from a Supabase table."""
     try:
@@ -95,9 +96,7 @@ async def db_update(table: str, match_params: dict, data: dict) -> list[dict]:
     try:
         params = {f"{k}": f"eq.{v}" for k, v in match_params.items()}
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.patch(
-                _url(table), headers=_headers(), json=data, params=params
-            )
+            resp = await client.patch(_url(table), headers=_headers(), json=data, params=params)
             if resp.status_code == 200:
                 return resp.json()
             logger.warning(f"[DB] UPDATE {table} → {resp.status_code}: {resp.text[:200]}")
@@ -122,6 +121,7 @@ async def db_delete(table: str, match_params: dict) -> bool:
 
 # ── Profiles ─────────────────────────────────────────────────────────
 
+
 async def db_get_profile(sync_code: str) -> dict | None:
     """Get profile by sync_code from Supabase."""
     rows = await db_select("profiles", {"sync_code": f"eq.{sync_code}", "select": "*"})
@@ -142,6 +142,7 @@ async def db_update_profile(sync_code: str, updates: dict) -> dict | None:
 
 # ── Analytics Events ─────────────────────────────────────────────────
 
+
 async def db_record_analytics_event(event: dict) -> dict | None:
     """Insert an analytics event."""
     result = await db_insert("analytics_events", event)
@@ -154,6 +155,7 @@ async def db_record_analytics_batch(events: list[dict]) -> list[dict]:
 
 
 # ── Subscribers ──────────────────────────────────────────────────────
+
 
 async def db_get_subscribers() -> list[dict]:
     """Get all active subscribers."""
@@ -227,6 +229,7 @@ CREATE POLICY "Allow all for anon" ON subscribers FOR ALL USING (true);
 
 
 # ── Periodic Sync: Local JSON → Supabase ─────────────────────────────
+
 
 async def sync_all_to_supabase() -> dict:
     """Read local JSON files and upsert all data to Supabase.
@@ -348,4 +351,3 @@ async def sync_subscriber_to_supabase(subscriber: dict | None) -> bool:
     except Exception as e:
         logger.warning(f"[DB Sync] subscriber upsert failed: {e}")
         return False
-
