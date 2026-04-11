@@ -185,57 +185,61 @@ CATEGORY_FALLBACK_IMAGES = {
 
 CATEGORY_IMAGE_SETS = {
     "top_stories": [
-        "/static/topic-covers/general-1.jpg",
-        "/static/topic-covers/general-2.jpg",
-        "/static/topic-covers/top-stories.svg",
+        "/static/topic-covers/top-stories-1.png",
+        "/static/topic-covers/top-stories-2.png",
+        "/static/topic-covers/top-stories-3.png",
     ],
     "ai_models": [
-        "/static/topic-covers/breakthrough-1.jpg",
-        "/static/topic-covers/breakthrough-2.jpg",
+        "/static/topic-covers/ai-models-1.png",
+        "/static/topic-covers/ai-models-2.png",
         "/static/topic-covers/ai-models.png",
     ],
     "business": [
-        "/static/topic-covers/industry-1.jpg",
-        "/static/topic-covers/industry-2.jpg",
+        "/static/topic-covers/business-1.png",
+        "/static/topic-covers/business-2.png",
         "/static/topic-covers/business.png",
     ],
     "research": [
-        "/static/topic-covers/research-1.jpg",
-        "/static/topic-covers/research-2.jpg",
-        "/static/topic-covers/research-3.jpg",
+        "/static/topic-covers/research-1.png",
+        "/static/topic-covers/research-2.png",
+        "/static/topic-covers/research.png",
     ],
     "tools": [
-        "/static/topic-covers/product-1.jpg",
-        "/static/topic-covers/product-2.jpg",
+        "/static/topic-covers/tools-1.png",
+        "/static/topic-covers/tools-2.png",
         "/static/topic-covers/tools.png",
     ],
     "regulation": [
-        "/static/topic-covers/regulation-1.jpg",
-        "/static/topic-covers/regulation-2.jpg",
-        "/static/topic-covers/regulation-3.jpg",
+        "/static/topic-covers/regulation-1.png",
+        "/static/topic-covers/regulation-2.png",
+        "/static/topic-covers/regulation.png",
     ],
     "funding": [
-        "/static/topic-covers/funding-1.jpg",
-        "/static/topic-covers/funding-2.jpg",
-        "/static/topic-covers/funding-3.jpg",
+        "/static/topic-covers/funding-1.png",
+        "/static/topic-covers/funding-2.png",
+        "/static/topic-covers/funding.png",
     ],
     "general": [
-        "/static/topic-covers/general-1.jpg",
-        "/static/topic-covers/general-2.jpg",
-        "/static/topic-covers/general-3.jpg",
+        "/static/topic-covers/general-1.png",
+        "/static/topic-covers/general-2.png",
+        "/static/topic-covers/general.png",
     ],
 }
 
 
 def _normalize_category_key(category: str) -> str:
     """Map UI and data labels to known internal category keys."""
-    raw = (category or "").strip().lower()
+    raw = (category or "").strip().lower().replace("_", " ")
     if not raw:
         return "general"
 
+    # Direct key match first (fast path)
+    if raw.replace(" ", "_") in CATEGORY_IMAGE_SETS:
+        return raw.replace(" ", "_")
+
     if "top stories" in raw or "🔥" in raw:
         return "top_stories"
-    elif "ai model" in raw or "🤖" in raw or "llm" in raw:
+    elif "ai model" in raw or "🤖" in raw or "llm" in raw or "big tech" in raw or "breakthrough" in raw:
         return "ai_models"
     elif "business" in raw or "💼" in raw or "startup" in raw or "industry" in raw:
         return "business"
@@ -247,14 +251,14 @@ def _normalize_category_key(category: str) -> str:
         or "autonomous" in raw
     ):
         return "research"
-    elif "tools" in raw or "🛠" in raw or "open_source" in raw or "product" in raw:
+    elif "tools" in raw or "🛠" in raw or "open source" in raw or "product" in raw:
         return "tools"
     elif (
         "regulation" in raw
         or "⚖" in raw
         or "policy" in raw
         or "governance" in raw
-        or "ai_safety" in raw
+        or "ai safety" in raw
     ):
         return "regulation"
     elif "funding" in raw or "💰" in raw:
