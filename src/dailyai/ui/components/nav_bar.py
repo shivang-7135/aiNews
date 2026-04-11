@@ -5,7 +5,6 @@ Uses NiceGUI ui.select for reliable dropdown handling.
 """
 
 import asyncio
-import hashlib
 from urllib.parse import urlencode
 
 from nicegui import ui
@@ -210,231 +209,226 @@ def sidebar(
                 lat_btn.on("click", _sort_latest)
 
         # Sync Code
-        with ui.element("div").classes("sidebar-section"):
-            ui.html(
-                f'<div class="sidebar-section-title">🔄 {tr(lang, "sync_code", fallback="Sync Code")}</div>'
-            )
-            ui.label(
-                tr(
-                    lang,
-                    "sync_code_desc",
-                    fallback="Use this code to sync your personalization across devices.",
-                )
-            ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
+        with ui.expansion(f'🔄 {tr(lang, "sync_code", fallback="Sync Code")}').classes("w-full border-b border-[var(--border-ghost)] font-bold text-[var(--text-muted)] tracking-wide uppercase text-[10px] [&>.q-item]:px-[18px] [&>.q-item]:py-[16px]"), ui.column().classes("w-full px-[18px] pb-[16px] text-transform-none letter-spacing-normal font-normal"):
+                ui.label(
+                    tr(
+                        lang,
+                        "sync_code_desc",
+                        fallback="Use this code to sync your personalization across devices.",
+                    )
+                ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
 
-            with (
-                ui.row()
-                .classes("w-full items-center justify-between p-2 mb-4")
-                .style(
-                    "background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-ghost);"
+                with (
+                    ui.row()
+                    .classes("w-full items-center justify-between p-2 mb-4")
+                    .style(
+                        "background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-ghost);"
+                    )
+                ):
+                    current_code_label = ui.label("Loading...").style(
+                        "font-size: 13px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-primary);"
+                    )
+                    ui.button(
+                        icon="content_copy",
+                        on_click=lambda: (
+                            ui.run_javascript(
+                                'navigator.clipboard.writeText(localStorage.getItem("dailyai_sync_code") || "");'
+                            )
+                            or ui.notify("Copied!")
+                        ),
+                    ).props("flat round dense color=primary").tooltip("Copy")
+
+                ui.label("Switch Sync Code").style(
+                    "font-size: 12px; font-weight: bold; margin-bottom: 4px;"
                 )
-            ):
-                current_code_label = ui.label("Loading...").style(
-                    "font-size: 13px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-primary);"
+                sync_code_input = (
+                    ui.input(placeholder="Enter existing code...")
+                    .classes("w-full")
+                    .props("dark outlined dense clearable")
                 )
-                ui.button(
-                    icon="content_copy",
-                    on_click=lambda: (
-                        ui.run_javascript(
-                            'navigator.clipboard.writeText(localStorage.getItem("dailyai_sync_code") || "");'
+
+                async def _apply_code():
+                    new_code = str(sync_code_input.value or "").strip()
+                    if not new_code:
+                        ui.notify("Please enter a sync code.", type="warning")
+                        return
+
+                    # Validate sync code against DB before accepting
+                    from dailyai.services.profiles import get_profile
+
+                    profile = await get_profile(new_code)
+                    if not profile:
+                        ui.notify(
+                            "Sync code not found. Please check the code and try again.",
+                            type="negative",
                         )
-                        or ui.notify("Copied!")
-                    ),
-                ).props("flat round dense color=primary").tooltip("Copy")
+                        return
 
-            ui.label("Switch Sync Code").style(
-                "font-size: 12px; font-weight: bold; margin-bottom: 4px;"
-            )
-            sync_code_input = (
-                ui.input(placeholder="Enter existing code...")
-                .classes("w-full")
-                .props("dark outlined dense clearable")
-            )
-
-            async def _apply_code():
-                new_code = str(sync_code_input.value or "").strip()
-                if not new_code:
-                    ui.notify("Please enter a sync code.", type="warning")
-                    return
-
-                # Validate sync code against DB before accepting
-                from dailyai.services.profiles import get_profile
-
-                profile = await get_profile(new_code)
-                if not profile:
+                    ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{new_code}");')
+                    # Also update the analytics tracker sync code
+                    ui.run_javascript(f'if (window.setSyncCode) window.setSyncCode("{new_code}");')
+                    current_code_label.set_text(new_code)
+                    sync_code_input.value = ""
                     ui.notify(
-                        "Sync code not found. Please check the code and try again.",
-                        type="negative",
+                        f"Sync code applied! Profile loaded ({profile.get('country', 'GLOBAL')}, "
+                        f"{len(profile.get('preferred_topics', []))} topics).",
+                        type="positive",
                     )
-                    return
-
-                ui.run_javascript(f'localStorage.setItem("dailyai_sync_code", "{new_code}");')
-                # Also update the analytics tracker sync code
-                ui.run_javascript(f'if (window.setSyncCode) window.setSyncCode("{new_code}");')
-                current_code_label.set_text(new_code)
-                sync_code_input.value = ""
-                ui.notify(
-                    f"Sync code applied! Profile loaded ({profile.get('country', 'GLOBAL')}, "
-                    f"{len(profile.get('preferred_topics', []))} topics).",
-                    type="positive",
-                )
-                ui.run_javascript("closeSidebar()")
-                if on_refresh:
-                    if asyncio.iscoroutinefunction(on_refresh):
-                        await on_refresh()
+                    ui.run_javascript("closeSidebar()")
+                    if on_refresh:
+                        if asyncio.iscoroutinefunction(on_refresh):
+                            await on_refresh()
+                        else:
+                            on_refresh()
                     else:
-                        on_refresh()
-                else:
-                    ui.navigate.to(
-                        f"/?{urlencode({'country': current_country, 'language': current_lang})}"
-                    )
+                        ui.navigate.to(
+                            f"/?{urlencode({'country': current_country, 'language': current_lang})}"
+                        )
 
+                ui.button("Apply Code", on_click=_apply_code).classes("w-full mt-3").props(
+                    "color=accent dense"
+                )
 
-            ui.button("Apply Code", on_click=_apply_code).classes("w-full mt-3").props(
-                "color=accent dense"
-            )
+                # Load code after UI mounts
+                async def _load_sync_code():
+                    try:
+                        c = await ui.run_javascript(
+                            'return localStorage.getItem("dailyai_sync_code") || "";', timeout=2.0
+                        )
+                        if c:
+                            current_code_label.set_text(c)
+                    except Exception:
+                        pass
 
-            # Load code after UI mounts
-            async def _load_sync_code():
-                try:
-                    c = await ui.run_javascript(
-                        'return localStorage.getItem("dailyai_sync_code") || "";', timeout=2.0
-                    )
-                    if c:
-                        current_code_label.set_text(c)
-                except Exception:
-                    pass
-
-            ui.timer(0.2, _load_sync_code, once=True)
+                ui.timer(0.2, _load_sync_code, once=True)
 
         # AI Persona
-        with ui.element("div").classes("sidebar-section"):
-            ui.html(
-                f'<div class="sidebar-section-title">{tr(lang, "your_ai_persona", fallback="👤 Your AI Persona")}</div>'
-            )
-            ui.label(
-                tr(
-                    lang,
-                    "persona_description",
-                    fallback="This is how we understand your interests. You can manually edit this instruction to fine-tune your bespoke briefings.",
+        with ui.expansion(f'👤 {tr(lang, "your_ai_persona", fallback="Your AI Persona")}').classes("w-full border-b border-[var(--border-ghost)] font-bold text-[var(--text-muted)] tracking-wide uppercase text-[10px] [&>.q-item]:px-[18px] [&>.q-item]:py-[16px]"), ui.column().classes("w-full px-[18px] pb-[16px] text-transform-none letter-spacing-normal font-normal"):
+                ui.label(
+                    tr(
+                        lang,
+                        "persona_description",
+                        fallback="This is how we understand your interests. You can manually edit this instruction to fine-tune your bespoke briefings.",
+                    )
+                ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
+                persona_input = (
+                    ui.textarea(tr(lang, "persona_textarea", fallback="Persona"))
+                    .classes("w-full mb-2")
+                    .props("dark outlined autogrow maxlength=200")
                 )
-            ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
-            persona_input = (
-                ui.textarea(tr(lang, "persona_textarea", fallback="Persona"))
-                .classes("w-full mb-2")
-                .props("dark outlined autogrow maxlength=200")
-            )
 
-            async def _load_persona():
-                try:
-                    c = await ui.run_javascript(
-                        'return localStorage.getItem("dailyai_sync_code");', timeout=2.0
-                    )
-                    if c:
-                        from dailyai.services.profiles import get_profile
-                        from dailyai.storage.backend import get_metadata
-
-                        custom = await get_metadata(f"custom_persona:{c}")
-                        if custom:
-                            persona_input.value = custom
-                        else:
-                            profile = await get_profile(c)
-                            if profile and profile.get("preferred_topics"):
-                                prefs = profile.get("preferred_topics", [])
-                                persona_input.value = f"Explicitly likes: {', '.join(prefs[:4])}."
-                            else:
-                                persona_input.value = "General AI News"
-                except Exception:
-                    pass
-
-            ui.timer(0.5, _load_persona, once=True)
-
-            async def _save_persona():
-                try:
-                    c = await ui.run_javascript(
-                        'return localStorage.getItem("dailyai_sync_code");', timeout=2.0
-                    )
-                    if c and persona_input.value is not None:
-                        from dailyai.services.profiles import set_custom_persona
-
-                        await set_custom_persona(c, str(persona_input.value))
-                        ui.notify(
-                            tr(
-                                lang,
-                                "persona_saved",
-                                fallback="Persona saved! Refresh feeds to apply.",
-                            ),
-                            type="positive",
+                async def _load_persona():
+                    try:
+                        c = await ui.run_javascript(
+                            'return localStorage.getItem("dailyai_sync_code");', timeout=2.0
                         )
-                except Exception as e:
-                    ui.notify(
-                        tr(lang, "persona_error", fallback=f"Error saving persona: {e}", error=e),
-                        type="negative",
-                    )
+                        if c:
+                            from dailyai.services.profiles import get_profile
+                            from dailyai.storage.backend import get_metadata
 
-            ui.button(
-                tr(lang, "save_persona", fallback="Save Persona"), on_click=_save_persona
-            ).classes("w-full mt-2").props("color=primary dense")
+                            custom = await get_metadata(f"custom_persona:{c}")
+                            if custom:
+                                persona_input.value = custom
+                            else:
+                                profile = await get_profile(c)
+                                if profile and profile.get("preferred_topics"):
+                                    prefs = profile.get("preferred_topics", [])
+                                    persona_input.value = f"Explicitly likes: {', '.join(prefs[:4])}."
+                                else:
+                                    persona_input.value = "General AI News"
+                    except Exception:
+                        pass
+
+                ui.timer(0.5, _load_persona, once=True)
+
+                async def _save_persona():
+                    try:
+                        c = await ui.run_javascript(
+                            'return localStorage.getItem("dailyai_sync_code");', timeout=2.0
+                        )
+                        if c and persona_input.value is not None:
+                            from dailyai.services.profiles import set_custom_persona
+
+                            await set_custom_persona(c, str(persona_input.value))
+                            ui.notify(
+                                tr(
+                                    lang,
+                                    "persona_saved",
+                                    fallback="Persona saved! Refresh feeds to apply.",
+                                ),
+                                type="positive",
+                            )
+                    except Exception as e:
+                        ui.notify(
+                            tr(lang, "persona_error", fallback=f"Error saving persona: {e}", error=e),
+                            type="negative",
+                        )
+
+                ui.button(
+                    tr(lang, "save_persona", fallback="Save Persona"), on_click=_save_persona
+                ).classes("w-full mt-2").props("color=primary dense")
 
         # Leaderboard
-        with ui.element("div").classes("sidebar-section"):
-            ui.html(
-                f'<div class="sidebar-section-title">🏆 {tr(lang, "daily_leaderboard")}</div>'
-            )
-            ui.label(
-                tr(lang, "leaderboard_desc")
-            ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
-            
-            leaderboard_container = ui.column().classes("w-full gap-2 mt-2")
-            
-            async def _load_leaderboard():
-                try:
-                    from dailyai.storage.backend import get_daily_leaderboard
+        with ui.expansion(f'🏆 {tr(lang, "daily_leaderboard", fallback="Top Readers Today")}').classes("w-full border-b border-[var(--border-ghost)] font-bold text-[var(--text-muted)] tracking-wide uppercase text-[10px] [&>.q-item]:px-[18px] [&>.q-item]:py-[16px]"), ui.column().classes("w-full px-[18px] pb-[16px] text-transform-none letter-spacing-normal font-normal"):
+                ui.label(
+                    tr(lang, "leaderboard_desc", fallback="Rankings across the dailyAI network.")
+                ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 8px;")
+                
+                leaderboard_container = ui.column().classes("w-full gap-2 mt-2")
+                
+                async def _load_leaderboard():
+                    try:
+                        from dailyai.storage.backend import get_daily_leaderboard
 
-                    def _alias(sc):
-                        adjectives = ["Curious", "Fast", "Avid", "Deep", "Smart", "Brave", "Keen", "Epic"]
-                        nouns = ["Owl", "Reader", "Scholar", "Mind", "Brain", "Scout", "Seeker"]
-                        h = int(hashlib.md5(sc.encode()).hexdigest(), 16)
-                        return f"{adjectives[h % len(adjectives)]} {nouns[(h // len(adjectives)) % len(nouns)]} {sc[-4:].upper()}"
-
-                    leaders = await get_daily_leaderboard(3)
-                    
-                    leaderboard_container.clear()
-                    if not leaders:
-                        with leaderboard_container:
-                            ui.label("No reading stats today yet. Be the first!").classes("text-xs text-[var(--text-muted)] italic")
-                        return
+                        leaders = await get_daily_leaderboard(3)
                         
-                    with leaderboard_container:
-                        count = 0
-                        for leader in leaders:
-                            time_val = float(leader.get('read_time_sec', 0))
+                        leaderboard_container.clear()
+                        if not leaders:
+                            with leaderboard_container:
+                                ui.label("No reading stats today yet. Be the first!").classes("text-xs text-[var(--text-muted)] italic")
+                            return
+                            
+                        with leaderboard_container:
+                            count = 0
+                            for leader in leaders:
+                                time_val = float(leader.get('read_time_sec', 0))
 
-                            mins = int(time_val) // 60
-                            secs = int(time_val) % 60
-                            time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
-                            
-                            medals = ["🥇", "🥈", "🥉"]
-                            medal = medals[count] if count < len(medals) else "🏅"
-                            
-                            with ui.row().classes("w-full items-center justify-between p-2 rounded bg-[var(--bg-elevated)] border border-[var(--border-ghost)]"):
-                                with ui.row().classes("items-center gap-2"):
-                                    ui.label(medal).classes("text-lg")
-                                    ui.label(_alias(leader['sync_code'])).classes("text-sm font-bold text-[var(--text-primary)]")
-                                ui.label(time_str).classes("text-xs font-mono text-accent")
-                            count += 1
+                                mins = int(time_val) // 60
+                                secs = int(time_val) % 60
+                                time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
                                 
-                        if count == 0:
-                            ui.label("No top readers today yet. Start reading!").classes("text-xs text-[var(--text-muted)] italic")
-                except Exception:
-                    pass
-            
-            ui.timer(0.3, _load_leaderboard, once=True)
+                                medals = ["🥇", "🥈", "🥉"]
+                                medal = medals[count] if count < len(medals) else "🏅"
+                                
+                                with ui.row().classes("w-full items-center justify-between p-2 rounded bg-[var(--bg-elevated)] border border-[var(--border-ghost)]"):
+                                    with ui.row().classes("items-center gap-2"):
+                                        ui.label(medal).classes("text-lg")
+                                        ui.label(leader['sync_code']).classes("text-sm font-bold text-[var(--text-primary)]")
+                                    ui.label(time_str).classes("text-xs font-mono text-accent")
+                                count += 1
+                                    
+                            if count == 0:
+                                ui.label("No top readers today yet. Start reading!").classes("text-xs text-[var(--text-muted)] italic")
+                    except Exception:
+                        pass
+                
+                ui.timer(0.3, _load_leaderboard, once=True)
 
         # Actions
-        with ui.element("div").classes("sidebar-section"):
+        with ui.element("div").classes("sidebar-section bg-[var(--bg-card)]"):
             if on_refresh:
-                refresh_btn = ui.element("button").classes("sidebar-action-btn primary")
+                ui.label("🚀 Live Intelligence").style(
+                    "font-size: 14px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;"
+                )
+                ui.label(
+                    "Ping 50+ global sources and leverage our AI summarizer to deliver real-time, tailored insights directly to your feed."
+                ).style(
+                    "font-size: 11px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;"
+                )
+
+                refresh_btn = ui.element("button").classes("sidebar-action-btn primary").style(
+                    "padding: 14px; font-size: 14px; box-shadow: 0 8px 24px rgba(255,184,0,0.3);"
+                )
 
                 async def _on_refresh(e):
                     if asyncio.iscoroutinefunction(on_refresh):
@@ -444,8 +438,8 @@ def sidebar(
 
                 refresh_btn.on("click", _on_refresh)
                 with refresh_btn:
-                    ui.icon("refresh", size="18px")
-                    ui.label(tr(lang, "refresh_news"))
+                    ui.icon("auto_awesome", size="20px")
+                    ui.label("Fetch Latest News Now")
 
         # Footer
         with ui.element("div").classes("sidebar-footer"):

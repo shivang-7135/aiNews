@@ -174,6 +174,36 @@ def render_analytics(token: str):
                                     for t, c in list(topics.items())[:3]:
                                         ui.label(f"{t} ({c})").classes("text-[10px] px-2 py-0.5 bg-[var(--bg-elevated)] rounded-full text-[var(--text-secondary)]")
 
+                # User Retention Table
+                with ui.column().classes("w-full mt-6"):
+                    ui.label("User Retention & Revisit Tracking").classes("text-lg font-bold text-[var(--text-primary)] mb-2")
+                    retention_data = overview.get("user_retention", [])
+                    if not retention_data:
+                        ui.label("No retention data yet.").classes("text-[var(--text-muted)] italic text-sm")
+                    else:
+                        with ui.card().classes("w-full bg-[var(--bg-card)] border-[var(--border-ghost)] p-0 mb-3"):
+                            with ui.row().classes("w-full grid grid-cols-4 p-3 bg-[var(--bg-elevated)] border-b border-[var(--border-ghost)] font-bold text-xs uppercase tracking-wider text-[var(--text-muted)]"):
+                                ui.label("Sync Code")
+                                ui.label("Sessions (Visits)")
+                                ui.label("Total Watch Time")
+                                ui.label("Last Active")
+                                
+                            for r in retention_data[:50]:
+                                with ui.row().classes("w-full grid grid-cols-4 p-3 border-b border-[var(--border-ghost)] text-sm items-center"):
+                                    ui.label(r.get("sync_code", "")).classes("font-mono font-bold text-[var(--text-primary)]")
+                                    
+                                    sessions_count = r.get("sessions", 0)
+                                    color_class = "text-accent" if sessions_count > 1 else "text-[var(--text-secondary)]"
+                                    ui.label(str(sessions_count)).classes(f"font-mono {color_class} font-bold" if sessions_count > 1 else "font-mono")
+                                    
+                                    time_val = r.get("total_read_time", 0)
+                                    mins = int(time_val) // 60
+                                    secs = int(time_val) % 60
+                                    time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+                                    ui.label(time_str).classes("font-mono text-[var(--text-secondary)]")
+                                    
+                                    ui.label(r.get("last_seen", "").split(".")[0]).classes("font-mono text-xs text-[var(--text-muted)]")
+
         except Exception as e:
             with container:
                 ui.label(f"Failed to load analytics: {e}").classes("text-negative")

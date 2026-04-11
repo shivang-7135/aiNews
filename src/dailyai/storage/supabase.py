@@ -717,10 +717,22 @@ async def get_analytics_overview() -> dict:
         event_breakdown["clicks"] = total_clicks
         
         top_topics = {}
+        retention = {}
         for s in sessions:
             topics = s.get("top_topics", {})
             for t, count in topics.items():
                 top_topics[t] = top_topics.get(t, 0) + count
+                
+            sc = s.get("sync_code")
+            if sc:
+                if sc not in retention:
+                    retention[sc] = {"sync_code": sc, "sessions": 0, "last_seen": s.get("last_seen", ""), "total_read_time": 0}
+                retention[sc]["sessions"] += 1
+                retention[sc]["total_read_time"] += float(s.get("total_read_time_sec", 0))
+                if s.get("last_seen", "") > retention[sc]["last_seen"]:
+                    retention[sc]["last_seen"] = s.get("last_seen", "")
+                    
+        user_retention = sorted(retention.values(), key=lambda x: x["sessions"], reverse=True)
 
         total_profiles = 0
         try:
@@ -738,6 +750,7 @@ async def get_analytics_overview() -> dict:
             "top_topics": top_topics,
             "total_session_stats": len(sessions),
             "daily_events": {},
+            "user_retention": user_retention,
         }
     except Exception:
         return await _fallback("get_analytics_overview")

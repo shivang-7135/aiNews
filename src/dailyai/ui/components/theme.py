@@ -17,6 +17,12 @@ def resolve_image_url(url: str | None, topic: str | None = None, seed: str | Non
 
 
 def inject_boot_loader(language: str):
+    import os
+    umami_id = os.getenv("UMAMI_WEBSITE_ID")
+    umami_url = os.getenv("UMAMI_URL", "https://analytics.umami.is/script.js")
+    if umami_id:
+        ui.add_head_html(f'<script defer src="{umami_url}" data-website-id="{umami_id}"></script>')
+
     boot_text = tr(language, "boot_loader")
     # Inject via <head> <template> + importNode so the browser parses SVG in
     # the correct namespace. NiceGUI's ui.html() mangles SVG elements.

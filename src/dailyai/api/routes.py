@@ -397,7 +397,7 @@ def _get_admin_password() -> str:
     if _ADMIN_PASSWORD is None:
         import os
 
-        _ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "dailyai-admin-2026")
+        _ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "passworddailyai")
     return _ADMIN_PASSWORD
 
 

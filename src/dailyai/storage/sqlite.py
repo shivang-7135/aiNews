@@ -87,29 +87,9 @@ async def _create_tables(db: aiosqlite.Connection):
 
         CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 
-        CREATE TABLE IF NOT EXISTS api_keys (
-            key_hash TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            tier TEXT DEFAULT 'free',
-            created_at TEXT DEFAULT (datetime('now')),
-            is_active INTEGER DEFAULT 1,
-            requests_today INTEGER DEFAULT 0,
-            last_request_date TEXT DEFAULT ''
-        );
-
         CREATE TABLE IF NOT EXISTS metadata (
             key TEXT PRIMARY KEY,
             value TEXT DEFAULT ''
-        );
-
-        CREATE TABLE IF NOT EXISTS user_daily_digests (
-            sync_code TEXT,
-            target_date TEXT,
-            synthesis TEXT DEFAULT '',
-            custom_hooks TEXT DEFAULT '{}',
-            created_at TEXT,
-            PRIMARY KEY (sync_code, target_date)
         );
 
         CREATE TABLE IF NOT EXISTS user_events (
@@ -792,6 +772,12 @@ async def get_analytics_overview() -> dict:
     )
     daily_events = {row["day"]: row["cnt"] for row in await c.fetchall()}
 
+    # User Retention
+    c = await db.execute(
+        "SELECT sync_code, COUNT(*) as sessions, MAX(last_seen) as last_seen, SUM(total_read_time_sec) as total_read_time FROM user_session_stats WHERE sync_code != '' GROUP BY sync_code ORDER BY sessions DESC"
+    )
+    user_retention = [dict(row) for row in await c.fetchall()]
+
     return {
         "total_events": total_events,
         "event_breakdown": event_breakdown,
@@ -801,6 +787,7 @@ async def get_analytics_overview() -> dict:
         "top_topics": top_topics,
         "total_session_stats": total_session_stats,
         "daily_events": daily_events,
+        "user_retention": user_retention,
     }
 
 
