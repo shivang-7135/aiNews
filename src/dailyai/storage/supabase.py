@@ -657,7 +657,7 @@ async def save_topic_scores(
             await _request(
                 "POST",
                 "user_topic_scores",
-                params={"on_conflict": "session_id,topic"},
+                params={"on_conflict": "session_id,sync_code,topic"},
                 json_body=rows,
                 prefer="resolution=merge-duplicates,return=minimal",
                 expect_json=False,

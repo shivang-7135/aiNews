@@ -185,36 +185,44 @@ CATEGORY_FALLBACK_IMAGES = {
 
 CATEGORY_IMAGE_SETS = {
     "top_stories": [
-        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/general-1.jpg",
+        "/static/topic-covers/general-2.jpg",
+        "/static/topic-covers/top-stories.svg",
     ],
     "ai_models": [
-        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1676299081847-824916de030a?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/breakthrough-1.jpg",
+        "/static/topic-covers/breakthrough-2.jpg",
+        "/static/topic-covers/ai-models.png",
     ],
     "business": [
-        "https://images.unsplash.com/photo-1614850715649-1d0106293cb1?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/industry-1.jpg",
+        "/static/topic-covers/industry-2.jpg",
+        "/static/topic-covers/business.png",
     ],
     "research": [
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/research-1.jpg",
+        "/static/topic-covers/research-2.jpg",
+        "/static/topic-covers/research-3.jpg",
     ],
     "tools": [
-        "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/product-1.jpg",
+        "/static/topic-covers/product-2.jpg",
+        "/static/topic-covers/tools.png",
     ],
     "regulation": [
-        "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/regulation-1.jpg",
+        "/static/topic-covers/regulation-2.jpg",
+        "/static/topic-covers/regulation-3.jpg",
     ],
     "funding": [
-        "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/funding-1.jpg",
+        "/static/topic-covers/funding-2.jpg",
+        "/static/topic-covers/funding-3.jpg",
     ],
     "general": [
-        "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=640&q=80",
-        "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=640&q=80",
+        "/static/topic-covers/general-1.jpg",
+        "/static/topic-covers/general-2.jpg",
+        "/static/topic-covers/general-3.jpg",
     ],
 }
 
