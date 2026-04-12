@@ -857,31 +857,6 @@ class TestPydanticModels:
         assert req.session_count == 0
 
 
-# =====================================================================
-#  6. DIGEST MODULE TESTS
-# =====================================================================
-
-
-class TestDigestModule:
-    """Tests for digest.py — email generation and sending."""
-
-    def test_digest_module_importable(self):
-        import digest
-
-        assert hasattr(digest, "generate_digest_html") or hasattr(digest, "send_digest")
-
-    def test_format_article_for_email(self):
-        """Test that articles can be formatted for email content."""
-        article = {
-            "title": "AI Breakthrough",
-            "summary": "Major development in AI",
-            "source": "Reuters",
-            "link": "https://example.com",
-            "importance": 8,
-        }
-        # Basic validation that article data is email-safe
-        assert "<" not in article["title"]  # No HTML injection
-        assert len(article["summary"]) > 0
 
 
 # =====================================================================

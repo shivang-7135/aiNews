@@ -28,6 +28,7 @@ from dailyai.storage.models import (
     ArticleBriefRequest,
     BatchEventsRequest,
     CreateProfileRequest,
+    EngagementStateRequest,
     RecordAnalyticsRequest,
     RecordSignalRequest,
     ShareRequest,
@@ -54,6 +55,51 @@ def _feed_etag(payload: dict, topic: str) -> str:
         ]
     )
     return hashlib.sha1(signature.encode("utf-8", errors="ignore")).hexdigest()
+
+
+def _normalize_engagement_state(raw: dict | None) -> dict:
+    """Normalize engagement payload to a safe, compact schema for storage."""
+    data = raw or {}
+
+    try:
+        streak = max(0, int(data.get("streak", 0)))
+    except (TypeError, ValueError):
+        streak = 0
+
+    last_active_date = str(data.get("last_active_date", "") or "")[:32]
+    goal_notified_date = str(data.get("goal_notified_date", "") or "")[:32]
+
+    opened_by_date: dict[str, list[str]] = {}
+    raw_opened = data.get("opened_by_date", {})
+    if isinstance(raw_opened, dict):
+        for day, values in raw_opened.items():
+            day_key = str(day or "")[:32]
+            if not day_key:
+                continue
+
+            uniq_ids: list[str] = []
+            if isinstance(values, list):
+                for v in values:
+                    sid = str(v or "")[:80]
+                    if sid and sid not in uniq_ids:
+                        uniq_ids.append(sid)
+                    if len(uniq_ids) >= 80:
+                        break
+
+            opened_by_date[day_key] = uniq_ids
+
+    # Keep only recent keys to avoid unbounded metadata growth.
+    sorted_days = sorted(opened_by_date.keys())
+    if len(sorted_days) > 21:
+        for old_day in sorted_days[: len(sorted_days) - 21]:
+            opened_by_date.pop(old_day, None)
+
+    return {
+        "streak": streak,
+        "last_active_date": last_active_date,
+        "goal_notified_date": goal_notified_date,
+        "opened_by_date": opened_by_date,
+    }
 
 
 # ── Internal API (used by NiceGUI frontend) ─────────────────────────
@@ -287,6 +333,43 @@ async def profile_analytics(sync_code: str, req: RecordAnalyticsRequest):
     if not result:
         return JSONResponse({"error": "Profile not found"}, status_code=404)
     return {"status": "recorded", "analytics": result}
+
+
+@router.get("/api/profile/{sync_code}/engagement")
+async def get_profile_engagement(sync_code: str):
+    """Fetch persisted streak/progress state for the given sync code."""
+    from dailyai.services.profiles import get_profile
+    from dailyai.storage.backend import get_metadata
+
+    profile = await get_profile(sync_code)
+    if not profile:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+
+    raw = await get_metadata(f"engagement:{sync_code}")
+    if not raw:
+        state = _normalize_engagement_state(None)
+    else:
+        try:
+            state = _normalize_engagement_state(json.loads(raw))
+        except json.JSONDecodeError:
+            state = _normalize_engagement_state(None)
+
+    return {"sync_code": sync_code, "state": state}
+
+
+@router.post("/api/profile/{sync_code}/engagement")
+async def save_profile_engagement(sync_code: str, req: EngagementStateRequest):
+    """Persist streak/progress state so engagement follows the sync code across devices."""
+    from dailyai.services.profiles import get_profile
+    from dailyai.storage.backend import set_metadata
+
+    profile = await get_profile(sync_code)
+    if not profile:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+
+    normalized = _normalize_engagement_state(req.model_dump())
+    await set_metadata(f"engagement:{sync_code}", json.dumps(normalized))
+    return {"status": "saved", "sync_code": sync_code, "state": normalized}
 
 
 # ── Developer API v1 ────────────────────────────────────────────────

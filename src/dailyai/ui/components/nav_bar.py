@@ -82,11 +82,17 @@ def sidebar(
 ):
     """Slide-in settings sidebar."""
     lang = normalize_ui_language(language)
+
+    def _js_str(text: str) -> str:
+        return str(text or "").replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+
     ui.add_head_html("""
     <script>
     function openSidebar() {
         document.getElementById('sidebarBackdrop')?.classList.add('show');
         document.getElementById('sidebarPanel')?.classList.add('show');
+        if (window.loadEngagementStateFromServer) window.loadEngagementStateFromServer(false);
+        if (window.renderEngagementBadges) window.renderEngagementBadges();
     }
     function closeSidebar() {
         document.getElementById('sidebarBackdrop')?.classList.remove('show');
@@ -207,6 +213,53 @@ def sidebar(
 
                 rel_btn.on("click", _sort_relevance)
                 lat_btn.on("click", _sort_latest)
+
+        # Engagement (daily streak + progress)
+        with ui.element("div").classes("sidebar-section"):
+            ui.html(
+                f'<div class="sidebar-section-title">🔥 {tr(lang, "engagement_title", fallback="Engagement")}</div>'
+            )
+            ui.label(
+                tr(
+                    lang,
+                    "engagement_desc",
+                    fallback="Track your daily reading streak and complete today\'s goal.",
+                )
+            ).style("font-size: 11px; color: var(--text-muted); margin-bottom: 10px;")
+
+            ui.html(
+                """
+                <div class="engagement-strip settings-engagement-strip" id="settingsEngagementStrip">
+                    <div class="engagement-badge streak" id="engagementStreakBadge">
+                        <span class="material-icons">local_fire_department</span>
+                        <span id="engagementStreakText">0 day streak</span>
+                    </div>
+                    <div class="engagement-badge progress" id="engagementProgressBadge">
+                        <span class="material-icons">emoji_events</span>
+                        <span id="engagementProgressText">Today 0/5</span>
+                    </div>
+                </div>
+                """
+            )
+
+            streak_template = tr(lang, "engagement_streak_fmt", days="__DAYS__")
+            progress_template = tr(
+                lang,
+                "engagement_progress_fmt",
+                done="__DONE__",
+                goal="__GOAL__",
+            )
+            goal_complete_text = tr(lang, "engagement_goal_complete")
+            ui.run_javascript(
+                f"""
+                window.__dailyaiEngagementI18n = {{
+                    streakTemplate: '{_js_str(streak_template)}',
+                    progressTemplate: '{_js_str(progress_template)}',
+                    goalComplete: '{_js_str(goal_complete_text)}'
+                }};
+                if (window.renderEngagementBadges) window.renderEngagementBadges();
+                """
+            )
 
         # Sync Code
         with ui.expansion(f'🔄 {tr(lang, "sync_code", fallback="Sync Code")}').classes("w-full border-b border-[var(--border-ghost)] font-bold text-[var(--text-muted)] tracking-wide uppercase text-[10px] [&>.q-item]:px-[18px] [&>.q-item]:py-[16px]"), ui.column().classes("w-full px-[18px] pb-[16px] text-transform-none letter-spacing-normal font-normal"):

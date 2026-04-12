@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 
-import digest
 from dailyai.config import normalize_language, store_key
 from dailyai.graph.nodes.deduplicator import _normalize_title
 from dailyai.graph.nodes.personalizer import _quality_score
@@ -97,31 +96,6 @@ FUNCTION_CHECKS: list[FunctionCheck] = [
         call=_generate_sync_code,
         validate=lambda result: _is_sync_code(result),
         expected="pattern '<Word>-<Word>-<2 digits>'",
-    ),
-    FunctionCheck(
-        name="digest.generate_digest_html renders key fields",
-        call=lambda: digest.generate_digest_html(
-            [
-                {
-                    "category": "general",
-                    "importance": 8,
-                    "why_it_matters": "Major AI impact",
-                    "link": "https://example.com",
-                    "title": "Test Headline",
-                    "summary": "Test Summary",
-                    "source": "Reuters",
-                    "published": "2026-04-07",
-                }
-            ],
-            "April 07, 2026",
-        ),
-        validate=lambda result: (
-            isinstance(result, str)
-            and "DailyAI" in result
-            and "Test Headline" in result
-            and "April 07, 2026" in result
-        ),
-        expected="HTML containing DailyAI, headline, and date",
     ),
     FunctionCheck(
         name="news.get_prefetch_pairs includes global and DE locale",

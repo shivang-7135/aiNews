@@ -121,6 +121,12 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         # ── Leaderboard ───────────────────────────────────────────
         "daily_leaderboard": "Top Readers Today",
         "leaderboard_desc": "Rankings across the dailyAI network.",
+        # ── Engagement badges ─────────────────────────────────────
+        "engagement_title": "Engagement",
+        "engagement_desc": "Track your daily reading streak and complete today's goal.",
+        "engagement_streak_fmt": "{days} day streak",
+        "engagement_progress_fmt": "Today {done}/{goal}",
+        "engagement_goal_complete": "Daily goal complete! Keep the streak alive 🔥",
     },
     "de": {
         # ── Navigation & Core ─────────────────────────────────────
@@ -232,6 +238,12 @@ _UI_TEXTS: dict[str, dict[str, str]] = {
         # ── Leaderboard ───────────────────────────────────────────
         "daily_leaderboard": "Top-Leser heute",
         "leaderboard_desc": "Rangliste im gesamten dailyAI-Netzwerk.",
+        # ── Engagement badges ─────────────────────────────────────
+        "engagement_title": "Engagement",
+        "engagement_desc": "Verfolge deine tägliche Leseserie und erfülle dein Tagesziel.",
+        "engagement_streak_fmt": "{days} Tage Serie",
+        "engagement_progress_fmt": "Heute {done}/{goal}",
+        "engagement_goal_complete": "Tagesziel erreicht! Halte die Serie am Leben 🔥",
     },
 }
 

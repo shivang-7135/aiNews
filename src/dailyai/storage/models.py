@@ -128,6 +128,15 @@ class RecordAnalyticsRequest(BaseModel):
     session_count: int = 0
 
 
+class EngagementStateRequest(BaseModel):
+    """Persisted engagement state for streak/progress, keyed by sync code."""
+
+    streak: int = Field(default=0, ge=0)
+    last_active_date: str = ""
+    goal_notified_date: str = ""
+    opened_by_date: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class ArticleBriefRequest(BaseModel):
     title: str
     source: str = ""

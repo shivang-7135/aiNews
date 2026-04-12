@@ -54,6 +54,14 @@ def create_app() -> FastAPI:
         if tpl_path.exists():
             app.get(f"/{route_name}")(_make_template_handler(tpl_path))
 
+    @app.get("/sw.js")
+    async def _sw_handler():
+        from fastapi.responses import FileResponse
+        sw_path = _STATIC_DIR / "sw.js"
+        if sw_path.exists():
+            return FileResponse(sw_path, media_type="application/javascript")
+        return HTMLResponse("Service worker not found", status_code=404)
+
     # Configure NiceGUI on the FastAPI instance
     ui.run_with(
         app,

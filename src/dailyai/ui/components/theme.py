@@ -23,6 +23,24 @@ def inject_boot_loader(language: str):
     if umami_id:
         ui.add_head_html(f'<script defer src="{umami_url}" data-website-id="{umami_id}"></script>')
 
+    # PWA setup
+    ui.add_head_html("""
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#06061a">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(registration) {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    </script>
+    """)
+
     boot_text = tr(language, "boot_loader")
     # Inject via <head> <template> + importNode so the browser parses SVG in
     # the correct namespace. NiceGUI's ui.html() mangles SVG elements.
@@ -785,6 +803,54 @@ body, html {
     border: 0.5px solid rgba(255,255,255,0.06);
     white-space: nowrap;
 }
+.engagement-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 2px 6px;
+}
+.engagement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    border: 0.5px solid rgba(255,255,255,0.1);
+    background: var(--bg-elevated);
+    color: rgba(255, 255, 255, 0.88);
+    white-space: nowrap;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.engagement-badge .material-icons {
+    font-size: 12px !important;
+}
+.engagement-badge.streak .material-icons {
+    color: #FFB800;
+}
+.engagement-badge.progress .material-icons {
+    color: #4ECDC4;
+}
+.engagement-badge.is-complete {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.22) inset;
+    transform: translateY(-1px);
+}
+.settings-engagement-strip {
+    padding: 0;
+    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+}
+.settings-engagement-strip .engagement-badge {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 8px 10px;
+    font-size: 11px;
+}
 .topic-rail {
     width: 100%;
     padding-top: 2px;
@@ -916,7 +982,22 @@ body, html {
     display: none;
 }
 .card-position-chip {
-    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(5, 8, 16, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(6px);
 }
 /* Category color accent line at card top */
 .card-cat-accent {
@@ -1146,15 +1227,18 @@ body, html {
 
 /* ========== CARD ACTION BAR (Share / Save) ========== */
 .card-action-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
+    column-gap: 12px;
+    width: 100%;
     padding: 14px 0 0;
     margin-top: 6px;
 }
 .card-source-info {
     display: flex; align-items: center; gap: 8px;
-    flex: 1; min-width: 0;
+    min-width: 0;
+    overflow: hidden;
 }
 .source-avatar {
     width: 24px;
@@ -1179,16 +1263,52 @@ body, html {
     border: none !important;
 }
 .source-name-text {
+    display: block;
     font-size: 12px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.72);
-    max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .card-time-text {
     display: none;
 }
 .card-actions {
-    display: flex; align-items: center; gap: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    justify-self: end;
+    gap: 8px;
+    min-width: max-content;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.card-read-time {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
+}
+.card-read-time .material-icons {
+    font-size: 12px !important;
+    opacity: 0.7;
+}
+.card-timestamp {
+    font-size: 10px;
+    color: rgba(255,255,255,0.45);
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    line-height: 1;
+}
+.card-timestamp::before {
+    content: "•";
+    margin-right: 6px;
+    color: rgba(255,255,255,0.35);
 }
 .card-action-bar .action-btn {
     width: 24px;
@@ -1292,6 +1412,22 @@ body, html {
     .top-bar-subline {
         font-size: 9.5px;
         padding: 3px 8px;
+    }
+    .engagement-strip {
+        gap: 6px;
+        padding: 0 2px 5px;
+    }
+    .engagement-badge {
+        font-size: 9px;
+        padding: 3px 8px;
+        gap: 4px;
+    }
+    .engagement-badge .material-icons {
+        font-size: 11px !important;
+    }
+    .settings-engagement-strip .engagement-badge {
+        font-size: 10px;
+        padding: 7px 9px;
     }
     .topic-rail { padding-top: 0; }
 

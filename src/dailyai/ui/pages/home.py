@@ -356,12 +356,12 @@ async def home_page():
                             app_state["has_more"] = bool(next_feed.get("has_more", False))
 
                             with feed_container:
-                                batch_total = max(1, len(new_articles))
+                                overall_total = max(len(app_state["articles"]), app_state["total"])
                                 for i, article in enumerate(new_articles):
                                     news_card(
                                         article,
                                         index=start_index + i,
-                                        position_chip=f"{i + 1}/{batch_total}",
+                                        position_chip=f"{start_index + i + 1}/{overall_total}",
                                         language=app_state["language"],
                                     )
                         else:
@@ -394,7 +394,7 @@ async def home_page():
                                 )
 
                 with feed_container:
-                    page_total = max(1, len(articles))
+                    page_total = max(1, app_state.get("total", len(articles)) or len(articles))
                     for i, a in enumerate(articles):
                         news_card(
                             a,

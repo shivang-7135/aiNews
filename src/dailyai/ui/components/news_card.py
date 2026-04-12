@@ -287,6 +287,240 @@ def _inject_detail_overlay_once(language: str = "en"):
             }));
         };
 
+        /* ── Engagement badges: streak + daily progress ── */
+        window.__dailyaiEngagementI18n = window.__dailyaiEngagementI18n || {
+            streakTemplate: '__DAYS__ day streak',
+            progressTemplate: 'Today __DONE__/__GOAL__',
+            goalComplete: 'Daily goal complete! Keep the streak alive 🔥'
+        };
+        window._dailyEngagementGoal = 5;
+
+        window._todayKey = function() {
+            var now = new Date();
+            var y = now.getFullYear();
+            var m = String(now.getMonth() + 1).padStart(2, '0');
+            var d = String(now.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + d;
+        };
+
+        window._dayDiff = function(fromIso, toIso) {
+            if (!fromIso || !toIso) return 99;
+            var a = fromIso.split('-').map(Number);
+            var b = toIso.split('-').map(Number);
+            if (a.length !== 3 || b.length !== 3) return 99;
+            var fromDate = new Date(a[0], a[1] - 1, a[2]);
+            var toDate = new Date(b[0], b[1] - 1, b[2]);
+            return Math.round((toDate - fromDate) / 86400000);
+        };
+
+        window.__engagementLoadedForSync = window.__engagementLoadedForSync || '';
+        window.__engagementLoadInFlight = false;
+        window.__engagementSyncTimer = window.__engagementSyncTimer || null;
+
+        window._currentSyncCode = function() {
+            return (localStorage.getItem('dailyai_sync_code') || window.__dailyaiSyncCode || '').trim();
+        };
+
+        window._normalizeEngagementState = function(state) {
+            var raw = state || {};
+            var normalized = {
+                streak: Math.max(0, Number(raw.streak || 0)),
+                last_active_date: String(raw.last_active_date || raw.lastActiveDate || ''),
+                goal_notified_date: String(raw.goal_notified_date || raw.goalNotifiedDate || ''),
+                opened_by_date: {}
+            };
+
+            var opened = raw.opened_by_date || raw.openedByDate || {};
+            if (opened && typeof opened === 'object') {
+                Object.keys(opened).forEach(function(day) {
+                    if (!Array.isArray(opened[day])) return;
+                    var uniq = [];
+                    opened[day].forEach(function(id) {
+                        var sid = String(id || '');
+                        if (sid && uniq.indexOf(sid) === -1) uniq.push(sid);
+                    });
+                    normalized.opened_by_date[String(day)] = uniq.slice(0, 80);
+                });
+            }
+
+            return normalized;
+        };
+
+        window._loadEngagementState = function() {
+            try {
+                var state = JSON.parse(localStorage.getItem('dailyai_engagement_v1') || '{}') || {};
+                return window._normalizeEngagementState(state);
+            } catch (e) {
+                return { streak: 0, last_active_date: '', goal_notified_date: '', opened_by_date: {} };
+            }
+        };
+
+        window._syncEngagementStateToServer = async function(state) {
+            var syncCode = window._currentSyncCode();
+            if (!syncCode) return;
+
+            try {
+                await fetch('/api/profile/' + encodeURIComponent(syncCode) + '/engagement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(window._normalizeEngagementState(state)),
+                    keepalive: true
+                });
+            } catch (e) {
+                console.warn('Engagement DB sync failed', e);
+            }
+        };
+
+        window._saveEngagementState = function(state, options) {
+            var normalized = window._normalizeEngagementState(state);
+            try {
+                localStorage.setItem('dailyai_engagement_v1', JSON.stringify(normalized));
+            } catch (e) {
+                console.warn('Failed to persist engagement state', e);
+            }
+
+            if (options && options.skipServer) return;
+
+            if (window.__engagementSyncTimer) clearTimeout(window.__engagementSyncTimer);
+            window.__engagementSyncTimer = setTimeout(function() {
+                window._syncEngagementStateToServer(normalized);
+            }, 500);
+        };
+
+        window.loadEngagementStateFromServer = async function(force) {
+            var syncCode = window._currentSyncCode();
+            if (!syncCode) {
+                window.renderEngagementBadges();
+                return false;
+            }
+
+            if (!force && window.__engagementLoadedForSync === syncCode) {
+                return true;
+            }
+            if (window.__engagementLoadInFlight) {
+                return false;
+            }
+
+            window.__engagementLoadInFlight = true;
+            try {
+                var res = await fetch('/api/profile/' + encodeURIComponent(syncCode) + '/engagement', {
+                    cache: 'no-store'
+                });
+                if (!res.ok) return false;
+
+                var payload = await res.json();
+                var state = window._normalizeEngagementState(payload.state || {});
+                window._saveEngagementState(state, { skipServer: true });
+                window.__engagementLoadedForSync = syncCode;
+                window.renderEngagementBadges();
+                return true;
+            } catch (e) {
+                console.warn('Failed loading engagement from DB', e);
+                return false;
+            } finally {
+                window.__engagementLoadInFlight = false;
+            }
+        };
+
+        window.renderEngagementBadges = function() {
+            var streakTextEl = document.getElementById('engagementStreakText');
+            var progressTextEl = document.getElementById('engagementProgressText');
+            var progressBadgeEl = document.getElementById('engagementProgressBadge');
+            if (!streakTextEl || !progressTextEl) return;
+
+            var state = window._loadEngagementState();
+            var today = window._todayKey();
+            var goal = window._dailyEngagementGoal || 5;
+            var opened = Array.isArray(state.opened_by_date[today]) ? state.opened_by_date[today].length : 0;
+
+            var streakTpl = (window.__dailyaiEngagementI18n && window.__dailyaiEngagementI18n.streakTemplate) || '__DAYS__ day streak';
+            var progressTpl = (window.__dailyaiEngagementI18n && window.__dailyaiEngagementI18n.progressTemplate) || 'Today __DONE__/__GOAL__';
+
+            streakTextEl.textContent = streakTpl.replace('__DAYS__', String(Math.max(0, state.streak || 0)));
+            progressTextEl.textContent = progressTpl
+                .replace('__DONE__', String(Math.min(opened, goal)))
+                .replace('__GOAL__', String(goal));
+
+            if (progressBadgeEl) {
+                progressBadgeEl.classList.toggle('is-complete', opened >= goal);
+            }
+
+            var syncCode = window._currentSyncCode();
+            if (syncCode && window.__engagementLoadedForSync !== syncCode && !window.__engagementLoadInFlight) {
+                window.loadEngagementStateFromServer(false);
+            }
+        };
+
+        window._recordEngagementOpen = function(uid, skipRemoteLoad) {
+            var syncCode = window._currentSyncCode();
+            if (!skipRemoteLoad && syncCode && window.__engagementLoadedForSync !== syncCode) {
+                window.loadEngagementStateFromServer(false).then(function() {
+                    window._recordEngagementOpen(uid, true);
+                });
+                return;
+            }
+
+            var state = window._loadEngagementState();
+            var today = window._todayKey();
+            var goal = window._dailyEngagementGoal || 5;
+
+            if (!Array.isArray(state.opened_by_date[today])) {
+                state.opened_by_date[today] = [];
+            }
+            var todaysOpen = state.opened_by_date[today];
+            var isFirstUniqueOpenToday = todaysOpen.length === 0;
+
+            if (uid && todaysOpen.indexOf(uid) === -1) {
+                todaysOpen.push(uid);
+            }
+
+            if (todaysOpen.length > 0 && state.last_active_date !== today) {
+                if (!state.last_active_date) {
+                    state.streak = 1;
+                } else {
+                    var diff = window._dayDiff(state.last_active_date, today);
+                    state.streak = diff === 1 ? (state.streak || 0) + 1 : 1;
+                }
+                state.last_active_date = today;
+            } else if (todaysOpen.length > 0 && !state.streak) {
+                state.streak = 1;
+                state.last_active_date = today;
+            }
+
+            var keepDates = Object.keys(state.opened_by_date || {}).sort();
+            if (keepDates.length > 14) {
+                keepDates.slice(0, keepDates.length - 14).forEach(function(k) {
+                    delete state.opened_by_date[k];
+                });
+            }
+
+            if (todaysOpen.length >= goal && state.goal_notified_date !== today) {
+                state.goal_notified_date = today;
+                if (window.Quasar) {
+                    Quasar.Notify.create({
+                        message: (window.__dailyaiEngagementI18n && window.__dailyaiEngagementI18n.goalComplete) || 'Daily goal complete! Keep the streak alive 🔥',
+                        position: 'bottom',
+                        timeout: 1700,
+                        classes: 'text-body1'
+                    });
+                }
+            }
+
+            window._saveEngagementState(state);
+            window.renderEngagementBadges();
+            window.dispatchEvent(new CustomEvent('dailyai:engagement-updated', {
+                detail: {
+                    streak: state.streak || 0,
+                    todayCount: todaysOpen.length,
+                    goal: goal,
+                    firstOpenToday: isFirstUniqueOpenToday
+                }
+            }));
+        };
+
+        window.renderEngagementBadges();
+        window.loadEngagementStateFromServer(false);
+
         /* ── Share helper ── */
         window.shareArticle = async function(headline, url, sourceName) {
             try {
@@ -772,6 +1006,9 @@ def _inject_detail_overlay_once(language: str = "en"):
                     window._trackEvent('click', uid, data.topic, data.category, 0);
                     window._trackEvent('detail_open', uid, data.topic, data.category, 0);
                 }
+                if (window._recordEngagementOpen) {
+                    window._recordEngagementOpen(uid);
+                }
                 window.__detailOpenTime = Date.now();
                 window.__detailMaxScroll = 0;
                 window.__detailUid = uid;
@@ -848,6 +1085,12 @@ def _inject_detail_overlay_once(language: str = "en"):
             window.setSyncCode = function(code) {
                 localStorage.setItem('dailyai_sync_code', code);
                 window.__dailyaiSyncCode = code;
+                window.__engagementLoadedForSync = '';
+                if (window.loadEngagementStateFromServer) {
+                    window.loadEngagementStateFromServer(true);
+                } else if (window.renderEngagementBadges) {
+                    window.renderEngagementBadges();
+                }
             };
             window.getSyncCode = function() {
                 return window.__dailyaiSyncCode || '';
@@ -1062,11 +1305,11 @@ def news_card(article: dict, index: int = 0, position_chip: str = "", language: 
                 <span class="source-name-text">{publisher_name}</span>
             </div>
             <div class="card-actions">
-                <span class="card-read-time" style="font-size: 11px; color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 4px;">
+                <span class="card-read-time">
                     <span class="material-icons" style="font-size: 13px;">schedule</span>
                     {read_time} min read
                 </span>
-                {f'<span class="card-timestamp" style="font-size: 10px; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 3px; margin-left: 6px;">·&nbsp;{_esc(published)}</span>' if published else ""}
+                {f'<span class="card-timestamp">{_esc(published)}</span>' if published else ""}
             </div>
         </div>""")
 
